@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { authorizationLink, miningProgress, parseMiningOutput, proposalDraft } from "../app/utils/mining-output.ts";
+import { authorizationLink, miningProgress, parseMiningOutput, proposalDraft, terminalMiningFailure } from "../app/utils/mining-output.ts";
 
 const capturedAt = "2026-09-12T12:00:00.000Z";
 const revision = "a".repeat(40);
@@ -75,4 +75,13 @@ test("Vercel evidence preserves the bounded coverage alongside completion", () =
   const output = parseMiningOutput({ phase: "Complete", vercelReads: [{ resource: "deployments", projectId: "project", capturedAt, complete: true, coverage: "Most recent 20 deployments; older history was not inspected." }] });
   assert.equal(output?.vercelReads?.[0]?.coverage, "Most recent 20 deployments; older history was not inspected.");
   assert.equal(output?.vercelReads?.[0]?.complete, true);
+});
+
+test("recoverable tool errors do not become terminal investigation failures", () => {
+  const input = { status: "streaming", events: [{ type: "step.failed" }], hasReport: false, awaitingAuthorization: false, outputError: false };
+  assert.equal(terminalMiningFailure(input), false);
+  assert.equal(terminalMiningFailure({ ...input, status: "idle" }), false, "a disconnected stream with a historical step failure remains recoverable");
+  assert.equal(terminalMiningFailure({ ...input, status: "idle", events: [...input.events, { type: "turn.failed" }] }), true);
+  assert.equal(terminalMiningFailure({ ...input, status: "idle", events: [{ type: "turn.completed" }], hasReport: true }), false, "recorded findings supersede earlier tool failures");
+  assert.equal(terminalMiningFailure({ ...input, status: "idle", events: [{ type: "turn.cancelled" }] }), false);
 });

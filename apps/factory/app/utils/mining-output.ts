@@ -83,3 +83,12 @@ export function proposalDraft(input: {
   sections.push(`---\nProposal: ${id}\nProposal identity: ${proposal.id && provenance ? "Recorded by the investigation" : "Derived from the legacy session and proposal position"}\nInvestigation: ${provenance?.sessionId || sessionId}\nRepository: ${provenance?.repository || "software-factory-workshop/jira-clone"}\nSource revision: ${provenance?.revision || revision || "Unavailable"}\nCaptured: ${provenance?.capturedAt || capturedAt || "Unavailable"}\nInvestigation status: ${phase}\n\nSelected for review as an editable draft. Implementation has not started.`);
   return { title: proposal.title, body: sections.join("\n\n") };
 }
+
+export function terminalMiningFailure(input: {
+  status: string; events: ReadonlyArray<{ type: string }>; hasReport: boolean;
+  awaitingAuthorization: boolean; outputError: boolean;
+}) {
+  if (input.hasReport || input.awaitingAuthorization || ["submitted", "streaming", "resuming"].includes(input.status)) return false;
+  if (input.events.some(event => event.type === "turn.cancelled")) return false;
+  return input.outputError || input.events.some(event => ["turn.completed", "turn.failed", "session.failed"].includes(event.type));
+}

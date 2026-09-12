@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { useEveAgent } from "eve/vue";
-import { authorizationLink, miningProgress, parseMiningOutput, proposalDraft, type MiningProposal } from "../utils/mining-output";
+import { authorizationLink, miningProgress, parseMiningOutput, proposalDraft, terminalMiningFailure, type MiningProposal } from "../utils/mining-output";
 import { renderReport } from "../utils/report";
 const props = defineProps<{ sessionId?: string }>();
 const emit = defineEmits<{ session: [id: string, label: string]; draft: [value: { title: string; body: string }]; new: [] }>();
@@ -26,8 +26,8 @@ const progress = computed(() => {
   return last ? miningProgress(last.toolName, last.output) : "Starting the Eve session";
 });
 const incomplete = computed(() => output.value?.phase === "Incomplete" || !!output.value?.error);
-const toolError = computed(() => data.value.messages.flatMap(message => message.parts).find(part => part.type === "dynamic-tool" && part.state === "output-error"));
-const disconnected = computed(() => !!(session.value || props.sessionId) && !busy.value && status.value !== "resuming" && !cancelled.value && !turnEnded.value && !awaitingAuthorization.value && !output.value?.report && !output.value?.error && !toolError.value);
+const terminalFailure = computed(() => terminalMiningFailure({ status: status.value, events: events.value, hasReport: !!output.value?.report, awaitingAuthorization: awaitingAuthorization.value, outputError: !!output.value?.error }));
+const disconnected = computed(() => !!(session.value || props.sessionId) && !busy.value && status.value !== "resuming" && !cancelled.value && !turnEnded.value && !awaitingAuthorization.value && !output.value?.report && !output.value?.error);
 const reportHtml = computed(() => renderReport(output.value?.report || ""));
 const reflectionSections = computed(() => output.value?.reflection ? [
   { title: "Helpful context", values: output.value.reflection.helpfulContext },
@@ -67,7 +67,7 @@ function draft() {
       <p class="small muted">Eve investigates with Muse Spark in a Vercel Sandbox, billed to demo-software-factory. It can inspect source, GitHub and Vercel evidence, and run local checks. It cannot publish changes.</p>
     </form>
     <div v-else>
-      <div class="panel-heading"><h2>Investigation</h2><UBadge :color="incomplete ? 'warning' : output?.report ? 'success' : error || toolError ? 'error' : 'primary'" variant="soft">{{ status === 'resuming' ? 'Reconnecting' : awaitingAuthorization ? 'Connection needed' : busy ? 'Running' : incomplete ? 'Incomplete' : output?.report ? 'Ready to review' : cancelled ? 'Stopped' : disconnected ? 'Disconnected' : 'Incomplete' }}</UBadge></div>
+      <div class="panel-heading"><h2>Investigation</h2><UBadge :color="incomplete ? 'warning' : output?.report ? 'success' : terminalFailure ? 'error' : 'primary'" variant="soft">{{ status === 'resuming' ? 'Reconnecting' : awaitingAuthorization ? 'Connection needed' : busy ? 'Running' : incomplete ? 'Incomplete' : output?.report ? 'Ready to review' : cancelled ? 'Stopped' : disconnected ? 'Disconnected' : 'Incomplete' }}</UBadge></div>
       <p v-if="!awaitingAuthorization && (busy || status === 'resuming')" role="status" class="progress"><UIcon name="i-lucide-loader-circle" class="animate-spin" />{{ status === 'resuming' ? 'Restoring the investigation' : progress }}</p>
       <p v-if="busy && !awaitingAuthorization" class="small muted">You can leave this page. Eve continues the investigation and restores its result when you return.</p>
       <section v-for="authorization in authorizations" :key="`${authorization.turnId}-${authorization.stepIndex}-${authorization.name}`" class="connection-request">
@@ -126,7 +126,9 @@ function draft() {
       <fieldset v-for="request in pendingRequests" :key="request.requestId"><legend>{{ request.prompt }}</legend><UButton v-for="option in request.options || []" :key="option.id" :disabled="status === 'resuming'" @click="respond([{ requestId: request.requestId, optionId: option.id }])">{{ option.label }}</UButton></fieldset>
       <p class="small muted session-id"><a :href="`?investigation=${session?.sessionId || sessionId}`">Open session {{ session?.sessionId || sessionId }}</a></p>
     </div>
-    <UAlert v-if="error || actionError || output?.error || (!output?.report && toolError)" color="error" variant="soft" title="Investigation incomplete" :description="actionError || output?.error || 'The run could not complete. Reconnect to check its state, or start a new investigation.'" />
+    <UAlert v-if="terminalFailure" color="error" variant="soft" title="Investigation incomplete" :description="output?.error || 'The run ended without recorded findings. Start a new investigation to try again.'" />
+    <UAlert v-else-if="error && !output?.report" color="warning" variant="soft" title="Connection interrupted" description="Reconnect to check the investigation. A connection error does not establish that the run stopped." />
+    <UAlert v-if="actionError" color="warning" variant="soft" title="Action not completed" :description="actionError" />
   </div>
 </template>
 

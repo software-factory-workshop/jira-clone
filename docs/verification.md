@@ -1,5 +1,21 @@
 # Factory verification
 
+## Machine access and individual proposal drafts — 12 September 2026
+
+Revision `3b6b8fa` passed GitHub Actions run `34693717672` and deployed Ready as `dpl_2PuzWWXcCHrePBy9R3ovrdXFgoWB`. An isolated frozen install, typechecks, tests and both app builds passed. Proposal parsing preserves structured records; each cockpit action creates an editable draft containing only that proposal, its evidence and provenance. It does not start implementation.
+
+Native Eve evaluation `wrun_01M2ASCWZAT1J2P6G5JGCT287E` inspected source `3b6b8fa`, passed all six operational and proposal-identity gates, and recorded two proposals with distinct host-assigned IDs. Both explicitly acknowledge that Remi's review is pending. The run read project metadata and deployments for both apps through app-scoped Connect without viewer authorization. Its report was Complete for the evidence requested; runtime logs were not exercised by this evaluation. [Stored findings](../factory/mining/native/2026-09-12/structured-proposals.json) record 200,504 input / 5,861 output tokens and $0.010145464 model cost; Sandbox compute is separate. This validates the structured handoff and access path, not owner acceptance or broad task-mining quality.
+
+[Machine access evidence and rotation](vercel-machine-access.md) records successful independent build-log reads and unsuccessful runtime-stream probes. The dedicated team token expires on 12 October 2026. The historical per-user authorization limitation below is superseded by this machine credential.
+
+Proposal-quality limitation: the first finding incorrectly describes earlier runs as Incomplete because owner usefulness judgment was missing. Their operational gap was unavailable Vercel evidence; owner acceptance is a separate review dimension. The original output is retained, and this wording should not be treated as an accurate status explanation.
+
+Hosted native investigation `wrun_41M2ASGX7J0GQQ5XJY7ETJ54F7` recorded findings at 12:31:11 UTC against that same source revision. It produced one independently selectable proposal with ID `wrun_41M2ASGX7J0GQQ5XJY7ETJ54F7:proposal:1`. The authenticated Chrome check opened its “Use this proposal” action, verified a proposal-only editable draft with source provenance and explicit context gaps, saved it locally, and reloaded. The report and one saved draft both survived. No implementation or GitHub publication was started. Two-proposal selection isolation is covered by utility tests and the separate native evaluation; this hosted run returned one proposal.
+
+The hosted report is Incomplete: the agent requested build logs without a deployment ID and did not retry with an ID already available from deployment evidence. It also treated unsampled runtime logs as necessary for sizing a browser-local feedback feature without demonstrating that dependency. These are investigation-quality limitations, not failed machine authentication. [Hosted evidence](../factory/mining/native/2026-09-12/hosted-structured-proposals.json) confirms a cleanly completed turn at 12:31:20 UTC with no step, turn or session failure events. Usage was 292,730 input / 6,401 output tokens and $0.011206628 model cost.
+
+The browser initially retained a Running state alongside a generic failure alert; reload restored the durable report. The status-display correction separates connection errors from terminal failures and prevents historical tool errors from labeling an active or recovered investigation failed. Ten mining-output tests, Nuxt typecheck and a production build pass. This correction does not claim to eliminate live-stream disconnections.
+
 ## Native Eve task mining — 12 September 2026
 
 The cockpit now invokes native Eve tools directly. The historical fx-backed runs below remain useful evidence about that experiment, but do not verify this replacement.
@@ -28,7 +44,7 @@ The two final native probes cost $0.014316592 in reported model usage combined; 
 
 Paid validation uses `env -u AI_GATEWAY_API_KEY pnpm exec eve eval task-mining --verbose` from `apps/factory`, with the linked project's OIDC environment. Evaluation prompts and stored findings are excluded from future mining snapshots. Tool-completion gates are operational checks; Remi must still judge proposal usefulness.
 
-### Hosted native boundary
+### Historical hosted native boundary before machine access
 
 Revision `b81899e` passed GitHub Actions run `34691922199` and deployed Ready as `dpl_A3iiXVyKQRh9Td8CcYynvbrGNcVj`. The authenticated cockpit started native session `wrun_41M2AQ5JY10GN0TN3HNBGDRNR6`. It passed source preparation and reached the Vercel evidence step, but no report or authorization card was observed. A stop was requested through the cockpit; terminal cancellation still needs confirmation. An earlier native session restored its active state after reload but ended without findings. This does not establish a successful hosted native investigation or report-to-draft handoff.
 

@@ -26,4 +26,4 @@ The API-key connector replaces the attempted user-only `vercel/jira-clone` MCP c
 
 The management CLI could not mint the dedicated token: the official token-creation endpoint returned `403 Cannot create tokens for this app`. The token was created through the Vercel account UI with the demo team scope and entered directly into the Connect credential form. Its value was not printed or placed in repository files.
 
-The older MCP connector remains separate. Detach its cockpit link after verifying the replacement deployment; do not remove other projects' connections or the GitHub and Passport connectors.
+After the hosted replacement produced findings and opened a draft, the older MCP connector's cockpit link was detached. The CLI returned `detached: true`; the connector itself still exists with no project attachments. Machine, GitHub and Passport connector attachments were rechecked and unchanged.
