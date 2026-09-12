@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { isLoopRun, summarizeDelivery, type DeliverySummary } from "../utils/delivery-summary";
+import { attentionPhases, isLoopRun, summarizeDelivery, type DeliverySummary } from "../utils/delivery-summary";
 const cockpit = useCockpit();
 const error = ref("");
 const runs = computed(() => cockpit.items.value.runs.filter((r) => r.value.station !== "mining"));
@@ -10,6 +10,11 @@ function label(run: (typeof runs.value)[number]) {
 }
 function deliveryFor(id: string) {
   return deliveries.value[id];
+}
+function attentionReasonFor(id: string) {
+  const summary = deliveryFor(id)?.summary;
+  if (!summary || !attentionPhases.has(summary.phase) || !summary.attentionReason) return undefined;
+  return summary.attentionReason;
 }
 async function loadDeliveries() {
   const loops = runs.value.filter((run) => isLoopRun(run));
@@ -69,6 +74,7 @@ onMounted(refresh);
           <p v-if="deliveryFor(run.id)?.status === 'loading'" role="status" class="muted small">Checking delivery status…</p>
           <template v-else-if="deliveryFor(run.id)?.status === 'ready' && deliveryFor(run.id)?.summary">
             <p class="muted small">{{ deliveryFor(run.id)?.summary?.updatedLabel }}<template v-if="deliveryFor(run.id)?.summary?.targetBranch"> · Target {{ deliveryFor(run.id)?.summary?.targetBranch }}</template></p>
+            <p v-if="attentionReasonFor(run.id)" class="muted small">Needs attention: {{ attentionReasonFor(run.id) }}</p>
           </template>
           <p v-else class="muted small">Delivery details are unavailable. The saved run link still works.</p>
           <div class="delivery-actions">
