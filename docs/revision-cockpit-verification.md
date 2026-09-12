@@ -27,7 +27,9 @@ An identical first-operation retry received new delivery `dac8e692-cf6c-4ccf-b11
 
 The independent contributor root `wrun_41M2BA07DC0GSFTX2XCV7C28NN` displayed draft PR #11 at head `50698922fe11c71942da5c942c9c092413c5ba5e`, target `factory/work-30b0f07fdf3f80d5d0d196f9` / parent PR #10, and distinct owner `wrun_41M2BA0R060GMRQATMFD4A3Y5M`. GitHub independently confirmed PR #11 is open on its own branch `factory/work-82167597f545ef1760c14d9d` targeting the parent branch. The completed view had no Stop action.
 
-The runtime validator launched the paid operations through the real station API; browser verification attached their existing deliveries without duplicating them. Independent reviewer rendering is pending its live run.
+The runtime validator launched the paid operations through the real station API; browser verification attached their existing deliveries without duplicating them. The independent reviewer root `wrun_41M2BACQ5P0GJ32E5T2GTD0AVH` displayed “Review passed” for PR #11 at exact head `50698922fe11c71942da5c942c9c092413c5ba5e`, target `factory/work-30b0f07fdf3f80d5d0d196f9`, no findings, and five command checks. The UI stated that no merge was performed.
+
+This proves rendering of the recorded result, not review readiness. The native trace showed an earlier approval rejected because of a no-browser limitation; the model then removed that limitation and recorded approval without new checks. Independent PR #5 addresses this gate weakness. The displayed approval must not be treated as trustworthy readiness until that guard is applied.
 
 ## Contributor target advance
 
@@ -38,3 +40,7 @@ The parent advanced again. A second `refresh_target` reached `e84dea31d1bffa5fc8
 ## Visual correction
 
 The first result screenshot exposed a scoped anchor style overriding Nuxt UI’s button text color: the accessible “Open draft PR” link looked blank because its text and background were both teal. The UI branch now limits that styling to ordinary links. A real screenshot on commit `0ede6bcf8518618778f47126be876581968ff2ec`, deployment `dpl_DZXvdbhZ47NBJbq8W8768Rh2mHfx`, confirmed readable white text on the teal Open PR #10 button. That [immutable preview](https://adeo-factory-cockpit-ic2c82p7g-demo-software-factory.vercel.app) also replayed the earlier revision correctly. This combined tree passed typecheck, build and 64 factory tests. The result route had no captured browser warnings or errors.
+
+## Final target sync
+
+The UI child branch synced core retry guard `8fb60c6`, which keeps a publication retry bound to the original PR if it was closed or retargeted. The final combined `pnpm check` passed all seven tasks, including typecheck, build and 64 factory tests. The browser evidence above is tied to its recorded immutable deployments; the final narrow retry guard is covered by core regression tests.
