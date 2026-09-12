@@ -6,6 +6,7 @@ const agents = ['task-miner', 'worker', 'reviewer'];
 assert.deepEqual(Object.keys(authored.services).sort(), ['web', ...agents].sort(), 'Expected one outer web workflow service and exactly three independent agent services');
 assert.equal(authored.services.web.framework, 'nuxtjs');
 assert.equal(authored.services.web.root, '.');
+assert.deepEqual(authored.rewrites.at(-1), { source: '/(.*)', destination: { service: 'web' } }, 'The final catch-all must route cockpit, API and outer Workflow endpoints to Nuxt');
 for (const name of agents) {
   const service = authored.services[name];
   assert.equal(service.framework, 'eve');
