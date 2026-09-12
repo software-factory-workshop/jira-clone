@@ -5,6 +5,11 @@ export const repository = 'software-factory-workshop/jira-clone';
 export const scope = { team: 'demo-software-factory', teamId: 'team_Ljrc7ENgQWsCySwCwijvA0zy', projectId: 'prj_ZXLHFUJhgo5EdvSf1IstOMn0ft0A' };
 export const model = 'meta/muse-spark-1.3-contributor';
 
+export function verifyGatewayScope(oidc, apiKey) {
+  if (apiKey) throw new Error("Task mining uses project OIDC for AI Gateway. Unset AI_GATEWAY_API_KEY before running this agent.");
+  return verifyScope(oidc);
+}
+
 export function verifyScope(oidc) {
   const claims = JSON.parse(Buffer.from(oidc.split('.')[1], 'base64url').toString());
   if (claims.owner !== scope.team || claims.owner_id !== scope.teamId || claims.project_id !== scope.projectId || !Number.isFinite(claims.exp) || claims.exp * 1000 < Date.now() + 300000) {

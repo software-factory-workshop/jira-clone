@@ -14,8 +14,9 @@ export default defineTool({
     verifyScope(await getVercelOidcToken());
     yield {phase:"Preparing repository context and dependencies"};
     const token=await getToken("github/jira-clone",{subject:{type:"app"}});
+    const sandbox=await ctx.getSandbox();
     miningState.update(s=>({...s,sandboxStarted:true}));
-    const result=await prepareRepository(await ctx.getSandbox(),token,ctx.abortSignal);
+    const result=await prepareRepository(sandbox,token,ctx.abortSignal);
     miningState.update(s=>({...s,...result}));
     yield {phase:result.prepared?"Context prepared":"Context incomplete",...result};
   },

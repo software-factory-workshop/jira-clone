@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { includeSource, manifestFor } from "../agent/lib/github.mjs";
+import { includeSource, manifestFor, verifyGatewayScope, scope } from "../agent/lib/github.mjs";
 import { commandEvidence } from "../agent/lib/command-evidence.ts";
 test("runnable snapshot includes locked and vendored inputs but excludes calibration answers and secrets",()=>{
  for(const path of ["pnpm-lock.yaml","vendor/design-system.tgz","apps/factory/agent/agent.ts","factory/context/goal.md"]) assert.equal(includeSource(path),true,path);
@@ -13,4 +13,11 @@ test("binary source provenance hashes exact bytes",()=>{
 test("command evidence preserves failure exit code and flags bounded output",()=>{
  const result=commandEvidence("pnpm test",{exitCode:1,stdout:"a".repeat(13000),stderr:"failed"});
  assert.equal(result.exitCode,1);assert.equal(result.truncated,true);assert.equal(result.stdout.length,12000);assert.equal(result.stderr,"failed");
+});
+
+test("Gateway refuses ambient API keys even with a correctly scoped OIDC token",()=>{
+ const claims={owner:scope.team,owner_id:scope.teamId,project_id:scope.projectId,exp:Math.floor(Date.now()/1000)+3600};
+ const token=`header.${Buffer.from(JSON.stringify(claims)).toString("base64url")}.signature`;
+ assert.doesNotThrow(()=>verifyGatewayScope(token));
+ assert.throws(()=>verifyGatewayScope(token,"ambient-key"),/Unset AI_GATEWAY_API_KEY/);
 });
