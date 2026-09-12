@@ -25,7 +25,7 @@ export async function mergeReviewed(input:MergeInput, token?:string):Promise<Mer
   if(decision)return decision;
   const [checks,status]=await Promise.all([api(`commits/${p.headSha}/check-runs?per_page=100&filter=latest`),api(`commits/${p.headSha}/status?per_page=100`)]);
   if(checks.total_count!==checks.check_runs.length||status.total_count!==status.statuses.length)return{status:'manual',reason:'Check inventory is incomplete.'};
-  if(checks.check_runs.some((c:any)=>c.status==='completed'&&c.conclusion!=='success')||status.statuses.some((s:any)=>['failure','error'].includes(s.state)))return{status:'manual',reason:'GitHub checks did not pass.'};
+  if(checks.check_runs.some((c:any)=>c.status==='completed'&&(!['success','neutral','skipped'].includes(c.conclusion)||(c.name==='check'&&c.app?.slug==='github-actions'&&c.conclusion!=='success')))||status.statuses.some((s:any)=>['failure','error'].includes(s.state)))return{status:'manual',reason:'GitHub checks did not pass.'};
   if(!checks.check_runs.some((c:any)=>c.name==='check'&&c.app?.slug==='github-actions'&&c.status==='completed'&&c.conclusion==='success'))return{status:'waiting',reason:'Waiting for the repository check workflow on the reviewed commit.'};
   if(!checks.check_runs.length&&!status.statuses.length||checks.check_runs.some((c:any)=>c.status!=='completed')||status.statuses.some((s:any)=>s.state!=='success'))return{status:'waiting',reason:'Waiting for all GitHub checks to pass.'};
   if(pr.mergeable===null)return{status:'waiting',reason:'GitHub is calculating mergeability.'};

@@ -26,14 +26,14 @@ test('GitHub merge checks reject stale heads and pending checks, bind successful
  const {mergeReviewed}=await import('../runtime/lib/merge-reviewed.ts');
  const prior=globalThis.fetch;
  const publication={number:42,headSha:review.headSha,targetHeadSha:review.baseSha,targetBranch:'main',ownerSessionId:'worker'};
- let stale=false,pending=false,merges=0;
+ let stale=false,pending=false,merges=0;let requiredConclusion='success';let optionalConclusion='neutral';let optionalStatus='completed';
  globalThis.fetch=async(url,init)=>{
   const path=String(url);
   let data:unknown;
   if(path.endsWith('/merge')){
    assert.equal(JSON.parse(String(init?.body)).sha,review.headSha);merges++;data={merged:true,sha:'d'.repeat(40)};
   }else if(path.includes('/files?'))data=[doc];
-  else if(path.includes('/check-runs?'))data={total_count:1,check_runs:[{name:'check',app:{slug:'github-actions'},status:pending?'in_progress':'completed',conclusion:pending?null:'success'}]};
+  else if(path.includes('/check-runs?'))data={total_count:2,check_runs:[{name:'check',app:{slug:'github-actions'},status:pending?'in_progress':'completed',conclusion:pending?null:requiredConclusion},{name:'Vercel Agent Review',app:{slug:'vercel'},status:optionalStatus,conclusion:optionalConclusion}]};
   else if(path.includes('/status?'))data={total_count:0,statuses:[]};
   else data={state:'open',head:{sha:stale?'c'.repeat(40):review.headSha,repo:{full_name:'software-factory-workshop/jira-clone'}},base:{sha:review.baseSha,ref:'main',repo:{full_name:'software-factory-workshop/jira-clone'}},changed_files:1,draft:false,mergeable:true,mergeable_state:'clean'};
   return Response.json(data);
@@ -41,6 +41,19 @@ test('GitHub merge checks reject stale heads and pending checks, bind successful
  try{
   stale=true;assert.equal((await mergeReviewed({publication,review,reviewerSessionId:'reviewer'},'test-token')).status,'manual');assert.equal(merges,0);
   stale=false;pending=true;assert.equal((await mergeReviewed({publication,review,reviewerSessionId:'reviewer'},'test-token')).status,'waiting');assert.equal(merges,0);
-  pending=false;assert.equal((await mergeReviewed({publication,review,reviewerSessionId:'reviewer'},'test-token')).status,'merged');assert.equal(merges,1);
+  pending=false;
+  for(const conclusion of ['failure','neutral','skipped']){
+   requiredConclusion=conclusion;assert.equal((await mergeReviewed({publication,review,reviewerSessionId:'reviewer'},'test-token')).status,'manual',`required check ${conclusion}`);assert.equal(merges,0);
+  }
+  requiredConclusion='success';
+  for(const conclusion of ['failure','cancelled','timed_out']){
+   optionalConclusion=conclusion;assert.equal((await mergeReviewed({publication,review,reviewerSessionId:'reviewer'},'test-token')).status,'manual',`optional check ${conclusion}`);assert.equal(merges,0);
+  }
+  optionalStatus='in_progress';optionalConclusion='neutral';assert.equal((await mergeReviewed({publication,review,reviewerSessionId:'reviewer'},'test-token')).status,'waiting');assert.equal(merges,0);
+  optionalStatus='completed';
+  for(const conclusion of ['neutral','skipped']){
+   optionalConclusion=conclusion;assert.equal((await mergeReviewed({publication,review,reviewerSessionId:'reviewer'},'test-token')).status,'merged',`optional check ${conclusion}`);
+  }
+  assert.equal(merges,2);
  }finally{globalThis.fetch=prior;}
 });
