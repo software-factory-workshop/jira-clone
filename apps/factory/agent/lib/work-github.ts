@@ -65,12 +65,12 @@ export async function readPull(token: string, number: number, signal?: AbortSign
   if (pr.number !== number) throw new Error("GitHub returned a different pull request.");
   return pr;
 }
-export async function verifyPullRequestHead(token: string, number: number, headSha: string, signal?: AbortSignal, baseSha?: string) {
+export async function verifyPullRequestHead(token: string, number: number, headSha: string, signal?: AbortSignal, baseSha?: string, targetBranch?:string) {
   sha.parse(headSha);
   if (baseSha) sha.parse(baseSha);
   const pr = await readPull(token, number, signal);
   const currentTarget=baseSha?await readBranch(token,pr.base.ref,signal):null;
-  if (pr.state !== "open" || pr.head.sha !== headSha || (baseSha && currentTarget!==baseSha)) throw new Error("Pull request changed or closed; start a fresh review.");
+  if (pr.state !== "open" || pr.head.sha !== headSha || (targetBranch&&pr.base.ref!==targetBranch) || (baseSha && currentTarget!==baseSha)) throw new Error("Pull request changed or closed; start a fresh review.");
   return true;
 }
 export async function loadPullRequest(token: string, number: number, signal?: AbortSignal) {
@@ -85,7 +85,7 @@ export async function loadPullRequest(token: string, number: number, signal?: Ab
   }
   const targetHead=await readBranch(token,pr.base.ref,signal);
   const [snapshot, baseSnapshot] = await Promise.all([loadWorkSnapshot(token, pr.head.sha, signal), loadWorkSnapshot(token, targetHead, signal)]);
-  await verifyPullRequestHead(token, number, pr.head.sha, signal, targetHead);
+  await verifyPullRequestHead(token, number, pr.head.sha, signal, targetHead,pr.base.ref);
   const availableHead = new Set(snapshot.entries.map(entry => entry.file));
   const availableBase = new Set(baseSnapshot.entries.map(entry => entry.file));
   const contextGaps = files.filter(file => (file.status !== "removed" && !availableHead.has(file.filename)) || (file.status !== "added" && !availableBase.has(file.previous_filename || file.filename))).map(file => `Full review content unavailable for ${file.filename}; excluded, symlink or unsupported source.`);
@@ -204,7 +204,7 @@ export async function publishWork(token: string, input: PublishWorkInput, signal
    }
   }
   else if(input.previous)await request(token,`pulls/${pr.number}`,signal,{body:`${input.body}\n\n<!-- ${ownerMarker}\n${marker} -->`},"PATCH");
-  await verifyPullRequestHead(token,pr.number,headSha!,signal);
+  await verifyPullRequestHead(token,pr.number,headSha!,signal,undefined,targetBranch);
   const targetAdvanced=await readBranch(token,targetBranch,signal)!==targetHeadSha;
   return {branch,number:pr.number,url:pr.html_url,headSha:headSha!,baseSha:input.baseSha,ownerSessionId:input.sessionId,targetBranch,targetHeadSha,...(targetAdvanced?{targetAdvanced:true}:{}),...(input.parentPrNumber?{parentPrNumber:input.parentPrNumber}:{})};
 }

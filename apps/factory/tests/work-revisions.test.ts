@@ -92,3 +92,9 @@ test("refresh refuses inherited excluded or executable-mode changes without drop
  path="docs/demo.md";mode="100755";await assert.rejects(assertRefreshCoverage("test",a,h,b),/mode-changing/);
  mode="100644";await assertRefreshCoverage("test",a,h,b);
 });
+test("review invalidates a retarget even when both branch tips have the same SHA",async t=>{
+ const {verifyPullRequestHead}=await import("../agent/lib/work-github.ts");
+ t.mock.method(globalThis,"fetch",async(url)=>String(url).includes("git/ref/")?Response.json({object:{sha:a}}):Response.json({number:4,html_url:"https://github.com/software-factory-workshop/jira-clone/pull/4",title:"test",body:"",state:"open",head:{sha:h,ref:branch,repo:{full_name:"software-factory-workshop/jira-clone"}},base:{sha:a,ref:"new-target",repo:{full_name:"software-factory-workshop/jira-clone"}}}));
+ await assert.rejects(verifyPullRequestHead("test",4,h,undefined,a,"old-target"),/changed/);
+ await verifyPullRequestHead("test",4,h,undefined,a,"new-target");
+});

@@ -4,7 +4,7 @@ import type { CommandEvidence } from "./mining-state";
 export interface WorkState {
  sandboxStarted:boolean; prepared:boolean; revision:string;
  baseline:Array<{file:string;sha256:string}>; commands:CommandEvidence[];
- pull:null|{number:number;url:string;title:string;body:string;baseSha:string;headSha:string;files:Array<{filename:string;status:string;patch?:string}>};
+ pull:null|{number:number;url:string;title:string;body:string;baseSha:string;headSha:string;targetBranch?:string;files:Array<{filename:string;status:string;patch?:string}>};
  publication:null|WorkPublication;
  operationId:string; activeBrief:string; targetBranch:string; targetHeadSha:string; parentPrNumber?:number; mergeTarget:boolean;
  completedOperations:Record<string,unknown>;
