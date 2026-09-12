@@ -6,7 +6,7 @@ import { repository, model, scope } from "../lib/github.mjs";
 const proposal=z.object({title:z.string().min(1).max(200),outcome:z.string().min(1),whyNow:z.string().min(1),evidence:z.array(z.string()).min(1),existingWork:z.string(),scope:z.array(z.string()).min(1),acceptanceCriteria:z.array(z.string()).min(1),uncertainties:z.array(z.string())});
 export default defineTool({
  description:"Record up to three ranked proposals and reflection. Trusted repository, command and integration evidence are attached by the host. Missing setup or inventories make the investigation incomplete. Call once after investigation.",
- inputSchema:z.object({proposals:z.array(proposal).max(3),noProposalReason:z.string().optional(),reflection:z.object({helpfulContext:z.array(z.string()),missingContext:z.array(z.string()),contradictions:z.array(z.string()),suggestedImprovements:z.array(z.string())}),contextGaps:z.array(z.string())}),
+ inputSchema:z.object({proposals:z.array(proposal).max(3),noProposalReason:z.string().optional(),reflection:z.object({helpfulContext:z.array(z.string()),missingContext:z.array(z.string()),contradictions:z.array(z.string()),suggestedImprovements:z.array(z.string())}),contextGaps:z.array(z.string()).describe("Only unavailable evidence needed to answer the user focus. Intentional evaluation/history exclusions and nonexistent comment threads are not blocking gaps by themselves; explain informational limitations in reflection instead.")}),
  async execute(input){
   const state=miningState.get();
   if(state.recorded) throw new Error("Findings were already recorded; start a new investigation for another run.");
