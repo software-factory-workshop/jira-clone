@@ -37,3 +37,11 @@ Mining uses Eve directly: `POST /eve/v1/session` starts it; `POST /eve/v1/sessio
 Existing station endpoints remain `/factory/stations/worker`, `/reviewer`, and `/revisions`; cancellation, streaming and decisions retain Eve's transport. The UI exposes create, same-owner revision and child contribution separately.
 
 Delivery controls use `/factory/delivery`: create, get, advance, cancel and request a revision. The loop UI advances a nonterminal delivery while open; the durable loop and CLI controller provide the crash-recovery contract described by the delivery implementation. Merging remains manual. A saved draft or useful mark never implicitly authorizes execution.
+
+## Verification record — 12 September 2026
+
+Combined preview `dpl_FSowWGiNFbAVVMDryqNHvjcmE2AD` (head `0e862c0`) returned401 without API authentication; M2M manifest, create/list/read and delete returned200; stale writes returned409; invented activation fields returned400. A browser save created handoff draft `c750e4ba-4c96-4fdf-9422-216756089777`, then a separate authenticated API read found it. The browser restored shared draft count after navigation. No agent was started by those checks.
+
+81 factory tests passed, including real captured Eve publication/delivery events, child traversal, incomplete observations, stale-writer/CAS retries, delete/recreate protection and migration-after-clear. Private Blob fresh reads and conditional writes were also verified against a temporary test object, which was removed.
+
+Nuxt typecheck/build and the actual Eve build passed after separating collection/action route patterns. Activation and feedback of an existing production mining session remain a production smoke-check item; preview retrieval of historical sessions did not provide completion evidence.
