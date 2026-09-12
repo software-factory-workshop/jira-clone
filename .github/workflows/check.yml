@@ -19,4 +19,10 @@ jobs:
       - run: pnpm typecheck
       - run: pnpm test
       - run: pnpm build
-      - run: pnpm --filter @jira-clone/factory build:agent
+      - name: Verify hosted Eve bootstrap assets
+        working-directory: apps/factory
+        env:
+          VERCEL: "1"
+        run: |
+          pnpm exec nuxt build
+          EVE_INTERNAL_BUILD_OUTPUT_DIRECTORY=.eve/packaging-verification/.vercel/output EVE_INTERNAL_HOST_BUILD_OUTPUT_DIRECTORY=.vercel/output pnpm build:agent
