@@ -61,3 +61,9 @@ test("review refuses foreign repository PRs and head changes",async t=>{
  t.mock.method(globalThis,"fetch",async()=>Response.json(pr));await assert.rejects(loadPullRequest("test-token",1));
  pr.head.repo.full_name=repo;await assert.rejects(verifyPullRequestHead("test-token",1,base),/changed or closed/);
 });
+test("a completed publication is recovered after target advances without a second commit",async t=>{
+ const options={main:base};const writes=mockGitHub(t,options);const first=await publishWork("test-token",input);
+ options.main="f".repeat(40);const replay=await publishWork("test-token",input);
+ assert.equal(replay.headSha,first.headSha);assert.equal(replay.number,first.number);assert.equal(replay.targetAdvanced,true);
+ assert.equal(writes.filter(w=>w.path==="git/commits").length,1);assert.equal(writes.filter(w=>w.path==="pulls").length,1);
+});
