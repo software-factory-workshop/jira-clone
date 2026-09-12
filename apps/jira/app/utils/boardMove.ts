@@ -94,3 +94,81 @@ export function moveTargets(
 ): string[] {
   return statuses.filter((status) => status !== currentStatus);
 }
+
+/**
+ * Bounded synthetic priority allowlist for the demo-only save path.
+ * Covers the fixture values (High, Medium) and teaches the save path;
+ * it does not claim Jira parity or durable persistence.
+ */
+export const PRIORITIES = [
+  "Highest",
+  "High",
+  "Medium",
+  "Low",
+  "Lowest",
+] as const;
+
+export type DemoPriority = (typeof PRIORITIES)[number];
+
+export function isPriority(value: unknown): value is DemoPriority {
+  return (
+    typeof value === "string" &&
+    (PRIORITIES as readonly string[]).includes(value)
+  );
+}
+
+export type PriorityResult =
+  | { ok: true; issues: BoardIssue[] }
+  | { ok: false; error: string; issues: BoardIssue[] };
+
+/**
+ * Optimistic priority edit with deterministic failure recovery.
+ *
+ * Mirrors `moveIssue`: unknown values are rejected before any save, and on
+ * save failure the original list is returned unchanged so the UI never
+ * shows false success. Callers keep the attempted draft so a retry is
+ * possible.
+ */
+export async function changePriority(
+  issues: BoardIssue[],
+  key: string,
+  priority: string,
+  save: (key: string, priority: string) => Promise<BoardIssue>,
+): Promise<PriorityResult> {
+  if (!isPriority(priority)) {
+    return {
+      ok: false,
+      error: `Unknown priority. Allowed demo priorities: ${PRIORITIES.join(", ")}.`,
+      issues,
+    };
+  }
+  const current = issues.find((issue) => issue.key === key);
+  if (!current) {
+    return { ok: false, error: `Unknown issue key: ${key}.`, issues };
+  }
+  if (current.priority === priority) {
+    return { ok: true, issues };
+  }
+  const previous = issues;
+  const optimistic = issues.map((issue) =>
+    issue.key === key ? { ...issue, priority } : issue,
+  );
+  try {
+    const saved = await save(key, priority);
+    return {
+      ok: true,
+      issues: optimistic.map((issue) =>
+        issue.key === key ? { ...saved } : issue,
+      ),
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      error:
+        error instanceof Error
+          ? error.message
+          : "Demo-only save failed. The priority stays unchanged.",
+      issues: previous,
+    };
+  }
+}
