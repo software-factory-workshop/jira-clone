@@ -10,7 +10,7 @@ Grow a software factory with Eve, using an ADEO-branded Jira demo as its test su
 - Jira shell: https://adeo-jira-clone.vercel.app
 - Both applications use the ADEO Nuxt UI layer v0.1.1.
 
-The cockpit starts and resumes durable Eve investigations. It also has browser-local request drafts, starter prompts, project knowledge and the factory growth path. “Review in GitHub” opens a prefilled issue; the user decides whether to submit it. Draft storage is local to a browser, not shared team state. GitHub repository context uses Vercel Connect when installed.
+The cockpit starts and resumes durable Eve investigations. Its [API manifest](docs/cockpit-api.md) exposes the same read-only context and stateful draft/review operations used by the UI. Request drafts remain caller-owned browser state, not shared team state. “Review in GitHub” opens a prefilled issue; the user decides whether to submit it. GitHub repository context uses Vercel Connect when installed.
 
 The Jira shell has searchable fixture issues, status filtering, list/board views and issue details. Its rows are synthetic. It has no issue mutations, accounts, permissions, Jira-compatible API or integration endpoints yet.
 

@@ -7,6 +7,12 @@ import {
   parseDrafts,
   type Draft,
 } from "@jira-clone/context";
+
+type DraftApiResponse = {
+  apiVersion: string;
+  data: { draft?: Draft; drafts: Draft[] };
+};
+
 const config = useRuntimeConfig();
 const section = ref("mining");
 const drafts = ref<Draft[]>([]);
@@ -24,15 +30,35 @@ const {
 const storageKey = "adeo-factory-drafts-v1";
 onMounted(() => {
   void refreshGithub();
+  void restoreDrafts();
+});
+
+async function restoreDrafts() {
+  let stored: unknown = [];
   try {
-    drafts.value = parseDrafts(
-      JSON.parse(localStorage.getItem(storageKey) || "[]"),
-    );
+    stored = JSON.parse(localStorage.getItem(storageKey) || "[]");
   } catch {
     notice.value =
       "Browser storage is unavailable. You can still compose a request.";
   }
-});
+  try {
+    const response = await $fetch<DraftApiResponse>("/api/cockpit/drafts", {
+      method: "PUT",
+      body: { drafts: stored },
+    });
+    drafts.value = response.data.drafts;
+    try {
+      localStorage.setItem(storageKey, JSON.stringify(drafts.value));
+    } catch {
+      notice.value =
+        "Browser storage is unavailable. You can still compose a request.";
+    }
+  } catch {
+    drafts.value = parseDrafts(stored);
+    notice.value =
+      "The draft API is unavailable. Restored the last browser copy instead.";
+  }
+}
 async function compose(starter?: { title: string; body: string }) {
   activeId.value = null;
   title.value = starter?.title || "";
@@ -53,23 +79,31 @@ async function focusEditor() {
   editor.value?.scrollIntoView({ block: "start", behavior: "instant" });
   editor.value?.querySelector("input")?.focus({ preventScroll: true });
 }
-function save() {
+async function save() {
   if (!title.value.trim() || !request.value.trim()) return;
-  const draft: Draft = {
-    id: activeId.value || crypto.randomUUID(),
-    title: title.value.trim(),
-    request: request.value.trim(),
-    updatedAt: new Date().toISOString(),
-  };
-  const next = [draft, ...drafts.value.filter((item) => item.id !== draft.id)];
   try {
-    localStorage.setItem(storageKey, JSON.stringify(next));
+    const response = await $fetch<DraftApiResponse>("/api/cockpit/drafts", {
+      method: "POST",
+      body: {
+        draft: {
+          id: activeId.value || undefined,
+          title: title.value,
+          request: request.value,
+        },
+        drafts: drafts.value,
+      },
+    });
+    const next = response.data.drafts;
     drafts.value = next;
-    activeId.value = draft.id;
-    notice.value = "Draft saved in this browser.";
+    activeId.value = response.data.draft?.id || null;
+    try {
+      localStorage.setItem(storageKey, JSON.stringify(next));
+      notice.value = "Draft saved in this browser.";
+    } catch {
+      notice.value = "Draft saved for this session. Browser storage is unavailable.";
+    }
   } catch {
-    notice.value =
-      "Could not save to browser storage. Keep a copy of your request.";
+    notice.value = "Could not save the draft through the cockpit API.";
   }
 }
 const issueUrl = computed(

@@ -23,7 +23,7 @@ A background workflow should discover candidate work from the project's availabl
 
 Proposed flow: **mine signals → form task proposals → review, refine or dismiss → accept into the work queue**. Each proposal should explain the suggested outcome, why it matters, and the source evidence behind it. Accepting a proposal should create a work request; execution remains a separate step.
 
-The cockpit starts an on-demand native Eve investigation; see [the current goal](../factory/context/goal.md) and [station contract](../factory/task-mining-station.md). It runs independently of the browser and stores the original report and evidence in its Eve session. Static starters remain available in Work alongside the mining station. Recent session links and editable drafts are browser-local. Scheduled triggers, shared proposal indexing and deduplication remain design decisions.
+The cockpit starts an on-demand native Eve investigation; see [the current goal](../factory/context/goal.md) and [station contract](../factory/task-mining-station.md). It runs independently of the browser and stores the original report and evidence in its Eve session. Static starters remain available in Work alongside the mining station. The [cockpit API](cockpit-api.md) exposes the read-only context, draft state transitions and human-review link, while recent session links and draft contents remain caller-owned browser state. Scheduled triggers, shared proposal indexing and deduplication remain design decisions.
 
 ## Research basis
 

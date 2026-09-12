@@ -6,7 +6,7 @@ const props = defineProps<{ sessionId?: string }>();
 const emit = defineEmits<{ session: [id: string, label: string]; draft: [value: { title: string; body: string }]; new: [] }>();
 const focus = ref("");
 const actionError = ref("");
-const { data, events, status, error, session, send, cancel, resume, respond } = useEveAgent({
+const { data, events, status, error, session, send, cancel, resume, reset, respond } = useEveAgent({
   initialSession: props.sessionId ? { sessionId: props.sessionId, streamIndex: 0 } : undefined,
   resume: !!props.sessionId,
   onSessionChange(value) { if (value) emit("session", value.sessionId, focus.value.trim() || "Find the next useful task"); },
@@ -39,6 +39,15 @@ async function start() {
 }
 async function stop() { try { await cancel(); } catch { actionError.value = "Cancellation could not be confirmed. Reconnect to check the run."; } }
 async function reconnect() { try { await resume(); actionError.value = ""; } catch { actionError.value = "Could not reconnect to this investigation."; } }
+async function startNew() {
+  try {
+    if (session.value || props.sessionId) await reset();
+    actionError.value = "";
+    emit("new");
+  } catch {
+    actionError.value = "Could not retire this investigation. Reconnect and try again.";
+  }
+}
 function draft() {
   if (!output.value?.report) return;
   emit("draft", { title: "Review task-mining proposals", body: `${output.value.report}\n\n---\nInvestigation: ${session.value?.sessionId || props.sessionId}\nSource revision: ${output.value.revision}\nCaptured: ${output.value.capturedAt}\n\nInvestigation status: ${output.value.phase}\nThese are proposals for human review, not approved work.` });
@@ -74,7 +83,7 @@ function draft() {
         <UAlert v-if="incomplete" color="warning" variant="soft" title="Context is incomplete" description="Review the evidence gaps before accepting these proposals." />
         <ul v-if="output.contextGaps?.length" class="context-gaps"><li v-for="gap in output.contextGaps" :key="gap">{{ gap }}</li></ul>
         <div class="report rendered-report" v-html="reportHtml" />
-        <div class="mining-actions"><UButton icon="i-lucide-file-pen-line" @click="draft">Use findings in a draft</UButton><UButton variant="outline" color="neutral" @click="emit('new')">New investigation</UButton></div>
+        <div class="mining-actions"><UButton icon="i-lucide-file-pen-line" @click="draft">Use findings in a draft</UButton><UButton variant="outline" color="neutral" @click="startNew">New investigation</UButton></div>
         <details class="evidence"><summary>Source evidence · {{ output.files?.length ?? 0 }} files</summary>
           <p v-if="output.revision"><a :href="`https://github.com/software-factory-workshop/jira-clone/tree/${output.revision}`" target="_blank" rel="noopener noreferrer">Revision {{ output.revision?.slice(0, 12) }}</a></p>
           <p v-for="(read, index) in output.githubReads" :key="index">{{ read.resource }}: {{ read.count ?? 'Unknown number of' }} items · {{ read.complete ? 'complete inventory' : 'incomplete' }} · {{ read.capturedAt }}</p>
@@ -90,7 +99,7 @@ function draft() {
       <p v-else-if="cancelled" class="report">Investigation stopped before findings were ready.</p>
       <p v-else-if="disconnected" class="report">The live connection ended before a final result arrived. The investigation may still be running. Reconnect to check its state.</p>
       <p v-else-if="!busy && summary" class="report">{{ summary }}</p>
-      <div class="mining-actions"><UButton v-if="busy || awaitingAuthorization" variant="outline" color="neutral" @click="stop">Stop investigation</UButton><UButton v-if="error || actionError || disconnected" variant="outline" @click="reconnect">Reconnect</UButton><UButton v-if="!busy && !awaitingAuthorization && !output?.report && status !== 'resuming'" @click="emit('new')">New investigation</UButton></div>
+      <div class="mining-actions"><UButton v-if="busy || awaitingAuthorization" variant="outline" color="neutral" @click="stop">Stop investigation</UButton><UButton v-if="error || actionError || disconnected" variant="outline" @click="reconnect">Reconnect</UButton><UButton v-if="!busy && !awaitingAuthorization && !output?.report && status !== 'resuming'" @click="startNew">New investigation</UButton></div>
       <fieldset v-for="request in pendingRequests" :key="request.requestId"><legend>{{ request.prompt }}</legend><UButton v-for="option in request.options || []" :key="option.id" :disabled="status === 'resuming'" @click="respond([{ requestId: request.requestId, optionId: option.id }])">{{ option.label }}</UButton></fieldset>
       <p class="small muted session-id"><a :href="`?investigation=${session?.sessionId || sessionId}`">Open session {{ session?.sessionId || sessionId }}</a></p>
     </div>
