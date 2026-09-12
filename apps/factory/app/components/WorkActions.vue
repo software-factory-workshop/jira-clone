@@ -34,7 +34,7 @@ async function start(station: StationKind) {
     const response = stationSessionSchema.parse(await $fetch(request.path, { method: "POST", body: { ...body, operationId: pendingLaunch.operationId }, retry: 0 }));
     if (request.path === "/factory/stations/revisions" && (response.execution !== "owner" || !response.deliveryId || !response.operationId)) throw new Error("Revision delivery was not identified");
     pendingLaunch = undefined;
-    active.value = { station, run: response.sessionId, execution: response.execution, deliveryId: response.deliveryId, operationId: station === "worker" ? response.operationId : undefined };
+    active.value = { station, run: response.sessionId, execution: response.execution, rootAgent:response.rootAgent, deliveryId: response.deliveryId, operationId: station === "worker" ? response.operationId : undefined };
     await router.replace({ query: { ...route.query, ...active.value } });
   } catch (cause) { error.value = stationLaunchError(cause); }
   finally { starting.value = undefined; }
@@ -61,7 +61,7 @@ async function start(station: StationKind) {
       </UCard>
     </div>
     <UAlert v-if="error" color="error" variant="soft" title="Station not started" :description="error" />
-    <ClientOnly><WorkRun v-if="active" :key="`${active.run}:${active.operationId || ''}`" :session-id="active.run" :station="active.station" :execution="active.execution" :delivery-id="active.deliveryId" :operation-id="active.operationId" /></ClientOnly>
+    <ClientOnly><WorkRun v-if="active" :key="`${active.run}:${active.operationId || ''}`" :session-id="active.run" :station="active.station" :execution="active.execution" :root-agent="active.rootAgent" :delivery-id="active.deliveryId" :operation-id="active.operationId" /></ClientOnly>
   </section>
 </template>
 <style scoped>

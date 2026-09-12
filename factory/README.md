@@ -10,9 +10,11 @@ The factory's project instructions, tools, context, evaluations and reviewed les
 - `reflections/`: reviewed observations and hypotheses, with provenance and limits.
 - `mining/`: experiment prompt, evaluation criteria, recorded runs and comparison.
 - `../packages/fx-sandbox-experiment/`: developer fx experiment and preserved context-calibration evidence.
-- `../apps/factory/agent/`: Eve configuration, authentication, mining tools and declared worker/reviewer specialists.
+- `../apps/factory/agents/`: three independent Eve roots: task-miner, worker and reviewer.
+- `../apps/factory/runtime/`: shared authentication, tools and station implementation.
+- `../apps/factory/server/workflows/`: deterministic delivery orchestration.
 - `tasks/`: explicit bounded worker assignments.
 - `work-stations.md`: authority, publication, independent review and research decisions.
 - `task-mining-station.md`: execution, evidence and review contract.
 
-GitHub credentials come from Vercel Connect (`github/jira-clone`). The experiment reads only this repository. Mining keeps bounded GET access. The worker publishes through a separate host tool restricted to one draft PR in this repository; its sandbox receives no credential. The reviewer has no publishing or merge capability. Inbound webhooks, automatic scheduling, revision loops and merges are not part of these stations.
+GitHub credentials come from Vercel Connect (`github/jira-clone`). The experiment reads only this repository. Mining keeps bounded GET access. The worker publishes through a separate host tool restricted to one draft PR in this repository; its sandbox receives no credential. The reviewer has no publishing or merge capability. The outer Vercel Workflow returns blocking findings to the original worker and requests another independent review. Its host merge policy can merge narrowly defined low-risk changes after independent checks, even when browser evidence is missing. Other changes require human review. See `docs/delivery-loop.md` for the policy and recovery protocol.

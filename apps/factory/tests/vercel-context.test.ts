@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { readVercel, latestVercelReads, latestVercelGaps, vercelInput, vercelProjects, vercelTeamId } from "../agent/lib/vercel-context.ts";
+import { readVercel, latestVercelReads, latestVercelGaps, vercelInput, vercelProjects, vercelTeamId } from "../runtime/lib/vercel-context.ts";
 
 test("Vercel inputs cannot supply another team, project ID or URL", () => {
   for (const input of [{project:"other",resource:"project"},{project:"jira",resource:"project",teamId:"other"},{project:"jira",resource:"build_logs",deploymentId:"https://other.vercel.app"}]) assert.equal(vercelInput.safeParse(input).success,false);

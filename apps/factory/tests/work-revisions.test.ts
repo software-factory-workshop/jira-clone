@@ -5,10 +5,10 @@ import {tmpdir} from "node:os";
 import {join} from "node:path";
 import {execFile} from "node:child_process";
 import {promisify} from "node:util";
-import {ownerPublication,ownerFromBody} from "../agent/lib/work-owner.ts";
-import {workBranch,publishWork} from "../agent/lib/work-github.ts";
-import {mergeSources} from "../agent/lib/work-merge.ts";
-import {validateCollectedChanges} from "../agent/lib/work-changes.ts";
+import {ownerPublication,ownerFromBody} from "../runtime/lib/work-owner.ts";
+import {workBranch,publishWork} from "../runtime/lib/work-github.ts";
+import {mergeSources} from "../runtime/lib/work-merge.ts";
+import {validateCollectedChanges} from "../runtime/lib/work-changes.ts";
 const exec=promisify(execFile);const owner="wrun_owner",branch=workBranch(owner),a="a".repeat(40),b="b".repeat(40),h="c".repeat(40),next="d".repeat(40),tree="e".repeat(40);
 const proof={type:"action.result",data:{status:"completed",result:{kind:"tool-result",toolName:"publish_work",output:{station:"worker",sessionId:owner,revisionProtocol:1,publication:{branch,number:4,headSha:h,ownerSessionId:owner,targetBranch:"main",targetHeadSha:a}}}}};
 test("ownership requires host successful publication, same durable session/branch/PR and revision-capable runtime",()=>{
@@ -68,7 +68,7 @@ test("revision writes only owned ref, uses expected-head nonforce update and ret
 });
 
 test("last stream chunk supplies owner proof, including one-event streams",async()=>{
- const {verifyOwnerStream}=await import("../agent/lib/work-owner.ts");
+ const {verifyOwnerStream}=await import("../runtime/lib/work-owner.ts");
  const session={getStreamTailIndex:async()=>0,getEventStream:async()=>new ReadableStream({start(c){c.enqueue(proof);}})};
  assert.equal((await verifyOwnerStream(session,owner,4,branch)).number,4);
 });
@@ -83,7 +83,7 @@ test("two target refreshes retain unpublished changes and add/add or delete/edit
  const deletion=await mergeSources(snapshot({"docs/demo.md":"base"}),snapshot({}),snapshot({"docs/demo.md":"edited"}),[],mergeText);assert.deepEqual(deletion.conflicts,["docs/demo.md"]);assert.match(deletion.entries[0]!.content.toString(),/deleted/);
 });
 test("refresh refuses inherited excluded or executable-mode changes without dropping them",async t=>{
- const {assertRefreshCoverage}=await import("../agent/lib/work-github.ts");
+ const {assertRefreshCoverage}=await import("../runtime/lib/work-github.ts");
  let path="factory/mining/hidden.json";let mode="100644";
  t.mock.method(globalThis,"fetch",async(url)=>{
   const p=new URL(String(url)).pathname.split("/jira-clone/")[1]!;
@@ -95,7 +95,7 @@ test("refresh refuses inherited excluded or executable-mode changes without drop
  mode="100644";await assertRefreshCoverage("test",a,h,b);
 });
 test("review invalidates a retarget even when both branch tips have the same SHA",async t=>{
- const {verifyPullRequestHead}=await import("../agent/lib/work-github.ts");
+ const {verifyPullRequestHead}=await import("../runtime/lib/work-github.ts");
  t.mock.method(globalThis,"fetch",async(url)=>String(url).includes("git/ref/")?Response.json({object:{sha:a}}):Response.json({number:4,html_url:"https://github.com/software-factory-workshop/jira-clone/pull/4",title:"test",body:"",state:"open",head:{sha:h,ref:branch,repo:{full_name:"software-factory-workshop/jira-clone"}},base:{sha:a,ref:"new-target",repo:{full_name:"software-factory-workshop/jira-clone"}}}));
  await assert.rejects(verifyPullRequestHead("test",4,h,undefined,a,"old-target"),/changed/);
  await verifyPullRequestHead("test",4,h,undefined,a,"new-target");

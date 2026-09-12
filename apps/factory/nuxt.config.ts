@@ -1,6 +1,5 @@
 export default defineNuxtConfig({
-  modules: ["eve/nuxt", "./modules/station-routes"],
-  eve: { eveBuildCommand: "pnpm run build:agent" },
+  modules: ["workflow/nuxt", "./modules/station-routes"],
   vite: { optimizeDeps: { include: ["eve/vue"] } },
   extends: ["@software-factory-workshop/nuxt-adeo-ds"],
   css: ["~/assets/css/main.css"],

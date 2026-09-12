@@ -1,8 +1,8 @@
 # Build through the native Eve factory
 
-The delivery API coordinates the existing native Eve worker, independent reviewer and original-owner revision protocol. A worker owns one branch. Contributions use another owner and a child PR. The coordinator never edits Jira or merges a PR.
+The delivery API coordinates the existing native Eve worker, independent reviewer and original-owner revision protocol. A worker owns one branch. Contributions use another owner and a child PR. The coordinator never edits Jira. Its host policy may merge independently checked, narrowly defined low-risk changes.
 
-Progress is driven by polling `advance`. It is not an unattended background wakeup service. Eve keeps each model session durable while the CLI or cockpit is disconnected; reconnecting advances the same saved delivery. The loop's private Blob record contains task identity, phase, operation IDs and host evidence. Cockpit drafts remain in their separate document.
+A durable Vercel Workflow drives progress by calling the worker and reviewer root agents. Task mining is a third independent root agent. No coordinating model selects or dispatches agents. The workflow continues while the CLI or cockpit is disconnected; reconnecting observes the same saved delivery. The loop's private Blob record contains task identity, phase, operation IDs and host evidence. Cockpit drafts remain in their separate document.
 
 ## API
 
@@ -19,7 +19,13 @@ All routes require `factoryAuth`, including machine bearer identity or the prote
 
 Creation is idempotent for the same caller and operation ID, with conflicting payloads rejected. Revision request IDs stay recorded across subsequent reviews. CAS claims fence concurrent advances; external station starts keep stable Eve continuation keys across retries. Cancellation records intent first and requests cancellation of the parent and admitted child tasks, including a launch racing the request. A publication completed before cancellation is retained; cancellation cannot undo an existing PR.
 
-`working` and `revising` wait for successful host `publish_work` output, then `reviewing` waits for host `record_review`. Model prose cannot advance the loop. The host rechecks current PR head and target before dispatching review and accepting its result. Changed refs yield `needs_revision` with an explicit original-owner refresh request; closed or retargeted PRs remain blocked. Blocking findings automatically return to the same owner, up to the explicitly configured `maxRevisions` (default 3); this controls repeated repair attempts, not model token budgets. Missing browser evidence yields `human_review`; `ready` is never merge authorization.
+`working` and `revising` wait for successful host `publish_work` output, then `reviewing` waits for host `record_review`. Model prose cannot advance the loop. The host rechecks current PR head and target before dispatching review and accepting its result. Changed refs yield `needs_revision` with an explicit original-owner refresh request; closed or retargeted PRs remain blocked. Blocking findings automatically return to the same owner, up to the explicitly configured `maxRevisions` (default 3); this controls repeated repair attempts, not model token budgets. After review, the host merge policy checks the exact PR head and target, independent verification, GitHub checks and changed files. Small documentation changes outside factory policy, and narrowly defined cosmetic CSS changes, may merge automatically. Missing browser evidence alone does not block these low-risk merges. Changes outside that allowlist, blocking findings, missing checks or changed revisions require human review. Agents cannot grant themselves merge authority. GitHub atomically checks the candidate SHA at merge; the target SHA is checked immediately beforehand but is not an atomic merge precondition. Main can advance in that gap. The narrow low-risk policy accepts this limitation; it is not an exact-target merge queue.
+
+## Browser access
+
+Each root agent mounts the official agent-browser Eve extension in its own sandbox. The miner uses it to understand current behavior, the worker exercises its changes, and the reviewer collects independent evidence against the pinned candidate. Shared configuration does not share browser cookies or sessions.
+
+For review, `prepare_browser` starts the changed app locally from the unchanged PR snapshot. Browser tool results record the candidate and reviewer session alongside snapshots, interactions, keyboard use and screenshots. These observations establish that the reviewer used the browser; the reviewer must still assess the acceptance criteria and report failures or missing coverage.
 
 ## CLI and reconnect
 
@@ -33,13 +39,13 @@ node scripts/delivery-loop.mjs --state /tmp/jira-delivery.json
 node scripts/delivery-loop.mjs --state /tmp/jira-delivery.json --revision /tmp/revision.md
 ```
 
-`--once` performs one advance and exits, useful for deterministic reconnect tests. GET is observational; repeated advance calls drive the loop. A failed connection does not mean the worker stopped: reconnect using the saved ID instead of creating another task.
+`--once` reads the current state and exits. GET is observational; the outer workflow calls `advance` using its elected driver generation. A failed connection does not mean the worker stopped: reconnect using the saved ID instead of creating another task.
 
 ## Jira publication boundary
 
 Workers may author Jira `app/`, `tests/`, `server/api/` and `server/utils/` text files. The only permitted Jira manifest change is the semantic addition of `scripts.test = "node --test tests/*.test.ts"`; dependencies, other scripts and configuration must remain identical to the trusted baseline. The development session changes this host policy; the worker authors the Jira code and manifest change. Host validation runs before candidate commands and again before publication. When Jira files change, both worker and reviewer explicitly run `pnpm --filter @jira-clone/jira test` in addition to the repository checks, so a root test command cannot silently omit Jira.
 
-Research reused: the extracted task-dispatch block's stable request identity and payload-conflict rules; review-gate's exact-candidate evidence; Eve declared specialist isolation and custom channel continuation semantics. Source corpus: `research/walkthroughs/eve-software-factory-template.md`, `research/walkthroughs/vercel-factory.md` and `eve-software-factory-blocks/blocks/task-dispatch/README.md` in the software-factories research repository.
+Research reused: the extracted task-dispatch block's stable request identity and payload-conflict rules; review-gate's exact-candidate evidence; Eve independent root-agent isolation and custom channel continuation semantics. Source corpus: `research/walkthroughs/eve-software-factory-template.md`, `research/walkthroughs/vercel-factory.md` and `eve-software-factory-blocks/blocks/task-dispatch/README.md` in the software-factories research repository.
 
 For a deployment protected by Vercel, the CLI also accepts `--vercel-cwd <linked-project-directory>`. It uses the authenticated Vercel CLI's protection bypass in scope `demo-software-factory`, while passing the Eve bearer header through stdin. The token is not placed in subprocess arguments. The checkpoint remembers this transport for reconnects.
 

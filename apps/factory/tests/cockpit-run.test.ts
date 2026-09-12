@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { projectRunEvent,readRun,readStationRun } from '../agent/lib/cockpit-run.ts';
+import { projectRunEvent,readRun,readStationRun } from '../runtime/lib/cockpit-run.ts';
 const proof=JSON.parse(readFileSync(new URL('./fixtures/cockpit-run-events.json',import.meta.url),'utf8'));
 const liveEvents:unknown[]=[proof.publication];
 function session(events:unknown[],tail=events.length-1){return {getStreamTailIndex:async()=>tail,getEventStream:async()=>new ReadableStream({start(controller){for(const event of events)controller.enqueue(event);controller.close();}})};}

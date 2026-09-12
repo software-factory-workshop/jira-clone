@@ -1,10 +1,10 @@
-import { stationAddress } from "../agent/lib/station-access.ts";
+import { stationAddress } from "../runtime/lib/station-access.ts";
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { applyReview,newDelivery,operationFor,deliveryRequest,referenceState,claimAdvance,commitAdvance,transition,requestResume } from '../agent/lib/delivery-state.ts';
-import { hostResult,eventsForDelivery,snapshotEvents,resumeMessage,resumeReceipt } from '../agent/lib/delivery-events.ts';
-import { validateJiraManifest,verificationCommands } from '../agent/lib/jira-policy.ts';
-import { allowedWorkPath } from '../agent/lib/work-github.ts';
+import { applyReview,newDelivery,operationFor,deliveryRequest,referenceState,claimAdvance,commitAdvance,transition,requestResume } from '../runtime/lib/delivery-state.ts';
+import { hostResult,eventsForDelivery,snapshotEvents,resumeMessage,resumeReceipt } from '../runtime/lib/delivery-events.ts';
+import { validateJiraManifest,verificationCommands } from '../runtime/lib/jira-policy.ts';
+import { allowedWorkPath } from '../runtime/lib/work-github.ts';
 const task=deliveryRequest.parse({operationId:'11111111-1111-4111-8111-111111111111',title:'Jira state',brief:'Create a useful stateful issue list'});
 function state(){const s=newDelivery('tester',task);s.publication={number:1,url:'https://github.com/example/pull/1',headSha:'a'.repeat(40),targetHeadSha:'b'.repeat(40),targetBranch:'main',ownerSessionId:'wrun_owner',branch:'factory/owner'};return s;}
 const review={verdict:'approve',summary:'reviewed',headSha:'a'.repeat(40),baseSha:'b'.repeat(40),targetBranch:'main',findings:[],limitations:[]};

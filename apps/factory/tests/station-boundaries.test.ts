@@ -5,9 +5,9 @@ import { mkdtemp,mkdir,writeFile,rm,symlink } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { execFileSync } from "node:child_process";
-import { stationOf,requireStation,stationRequest,workerRequest } from "../agent/lib/station-access.ts";
-import { collectChangesCommand,validateCollectedChanges,changesDigest } from "../agent/lib/work-changes.ts";
-import { approvalBlockers, hostReviewLimitations } from "../agent/lib/review-policy.ts";
+import { stationOf,requireStation,stationRequest,workerRequest } from "../runtime/lib/station-access.ts";
+import { collectChangesCommand,validateCollectedChanges,changesDigest } from "../runtime/lib/work-changes.ts";
+import { approvalBlockers, hostReviewLimitations } from "../runtime/lib/review-policy.ts";
 const op="22222222-2222-4222-8222-222222222222";
 test("station privileges come only from immutable initiator auth, not current delivery",()=>{
  const spoof={session:{auth:{initiator:{attributes:{}},current:{attributes:{factoryStation:"worker"}}}}};
