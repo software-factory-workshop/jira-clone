@@ -6,6 +6,10 @@ The implementation follows [the station design and source decisions](../factory/
 
 These checks establish the compiled boundary and request validation, not a successful worker or reviewer run. The first real assignment is [proposal usefulness feedback](../factory/tasks/proposal-usefulness.md); production evidence follows once the stations execute it.
 
+The first hosted worker launch, `wrun_41M2AV3MBZ0GKQ7CVGE2RTP7S7`, exposed an Eve runtime constraint: dynamic subagent configuration cannot return `defaultTools`. Eve omitted the worker while the dispatcher incorrectly claimed to delegate. No child, source edit or PR was created. [The original trace](../factory/mining/native/2026-09-12/worker-dispatch-failed.json) records $0.0004135 model cost. Fixed specialist configurations now disable defaults statically and check the immutable station identity before selecting any child model. This preserves the capability boundary without unsupported dynamic configuration.
+
+CI run `34695040014` also exposed different Nitro preset selection on GitHub Actions: `VERCEL=1` alone produced Node output. Packaging verification now explicitly selects `NITRO_PRESET=vercel`, so it actually tests the deployment configuration.
+
 ## Machine access and individual proposal drafts — 12 September 2026
 
 Revision `3b6b8fa` passed GitHub Actions run `34693717672` and deployed Ready as `dpl_2PuzWWXcCHrePBy9R3ovrdXFgoWB`. An isolated frozen install, typechecks, tests and both app builds passed. Proposal parsing preserves structured records; each cockpit action creates an editable draft containing only that proposal, its evidence and provenance. It does not start implementation.

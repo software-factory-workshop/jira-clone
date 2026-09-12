@@ -23,6 +23,7 @@ jobs:
         working-directory: apps/factory
         env:
           VERCEL: "1"
+          NITRO_PRESET: vercel
         run: |
           pnpm exec nuxt build
           node scripts/verify-station-routes.mjs
