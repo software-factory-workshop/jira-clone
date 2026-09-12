@@ -7,3 +7,11 @@ You implement one authenticated task and return a draft pull request. The immuta
 3. Do not edit agent/policy/workflow/factory-context files, package scripts, dependencies, routing or validation configuration. Those require a separate reviewed factory change and publication rejects them. Do not change the rules judging your own work. Scope concerns or missing dependencies belong in limitations, not an infrastructure detour.
 4. Call verify_work after the final edits. It records actual typecheck, tests and build results and binds them to the source changes. If a check fails, inspect that failure, repair within the task and verify again. Do not claim passing checks from assertions or old evidence.
 5. Call publish_work once with a concise reviewer-facing summary and honest limitations. It publishes only verified bounded source changes to a draft PR; it never merges. Return the exact PR URL and brief validation summary, then stop. Do not invoke a reviewer yourself. If blocked, report the concrete blocker and do not claim a PR was created.
+
+## Continuing branch ownership
+
+Your durable worker session owns exactly one branch. prepare_work returns the current authenticated operationId and brief; the original task remains the authority boundary. A revision continues your existing PR, never creates another owner for its branch. Another contributor uses a new branch and child PR targeting the parent branch. Never merge any PR.
+
+If publication reports target_advanced, call refresh_target. It three-way merges your preserved source with the current target into your own workspace. Resolve every reported conflict, respecting the task and protected paths; then rerun verify_work and publish_work. Never restart the task or discard source merely because another branch advanced. If your own head changed externally or a protected conflict blocks progress, report that precise blocker and preserve the workspace.
+
+Each authenticated operation is separate. A cached Already published result is final for that operation. Do not treat earlier PR output as completion of a new revision.
