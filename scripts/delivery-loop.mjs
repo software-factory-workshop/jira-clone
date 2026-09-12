@@ -3,14 +3,24 @@
 import { readFile,writeFile } from 'node:fs/promises';
 import { randomUUID } from 'node:crypto';
 import { parseArgs } from 'node:util';
-const {values}=parseArgs({options:{base:{type:'string'},task:{type:'string'},state:{type:'string'},resume:{type:'string'},revision:{type:'string'},once:{type:'boolean',default:false}}});
+import { spawn } from 'node:child_process';
+const {values}=parseArgs({options:{base:{type:'string'},task:{type:'string'},state:{type:'string'},resume:{type:'string'},revision:{type:'string'},once:{type:'boolean',default:false},'vercel-cwd':{type:'string'}}});
 if(!values.state)throw new Error('--state <checkpoint.json> is required; it stores IDs only, never credentials.');
 let checkpoint;
 try{checkpoint=JSON.parse(await readFile(values.state,'utf8'));}catch(error){if(error.code!=='ENOENT')throw error;}
 const base=(values.base||checkpoint?.base)?.replace(/\/$/,'');if(!base)throw new Error('--base is required on first use');
+const vercelCwd=values['vercel-cwd']||checkpoint?.vercelCwd;
 const token=process.env.FACTORY_TOKEN;if(!token)throw new Error('Set FACTORY_TOKEN to the factory machine bearer token.');
-async function api(path,body){const response=await fetch(`${base}/factory/delivery${path}`,{method:body===undefined?'GET':'POST',headers:{Authorization:`Bearer ${token}`,'Content-Type':'application/json',Origin:base,...(process.env.FACTORY_PROTECTION_BYPASS?{'x-vercel-protection-bypass':process.env.FACTORY_PROTECTION_BYPASS}:{})},...(body===undefined?{}:{body:JSON.stringify(body)})});const value=await response.json();if(!response.ok)throw new Error(`HTTP ${response.status}: ${JSON.stringify(value)}`);return value;}
-async function save(value){checkpoint={...checkpoint,...value,base};await writeFile(values.state,JSON.stringify(checkpoint,null,2)+'\n',{mode:0o600});}
+async function api(path,body){
+ const endpoint=`/factory/delivery${path}`;
+ if(vercelCwd){
+  const args=['curl',endpoint,'--deployment',base,'--scope','demo-software-factory','--cwd',vercelCwd,'--','--silent','--show-error','--fail-with-body','--header','@-','--request',body===undefined?'GET':'POST',...(body===undefined?[]:['--data',JSON.stringify(body)])];
+  const raw=await new Promise((resolve,reject)=>{const child=spawn('vercel',args,{stdio:['pipe','pipe','pipe']});let stdout='',stderr='';child.stdout.on('data',chunk=>stdout+=chunk);child.stderr.on('data',chunk=>stderr+=chunk);child.on('error',reject);child.on('close',code=>code===0?resolve(stdout):reject(new Error(`Vercel API transport failed (${code}): ${stdout.slice(-1200)}`)));child.stdin.end(`Authorization: Bearer ${token}\nContent-Type: application/json\nOrigin: ${base}\n`);});
+  return JSON.parse(raw);
+ }
+ const response=await fetch(`${base}${endpoint}`,{method:body===undefined?'GET':'POST',headers:{Authorization:`Bearer ${token}`,'Content-Type':'application/json',Origin:base,...(process.env.FACTORY_PROTECTION_BYPASS?{'x-vercel-protection-bypass':process.env.FACTORY_PROTECTION_BYPASS}:{})},...(body===undefined?{}:{body:JSON.stringify(body)})});const value=await response.json();if(!response.ok)throw new Error(`HTTP ${response.status}: ${JSON.stringify(value)}`);return value;
+}
+async function save(value){checkpoint={...checkpoint,...value,base,...(vercelCwd?{vercelCwd}:{})};await writeFile(values.state,JSON.stringify(checkpoint,null,2)+'\n',{mode:0o600});}
 let id=values.resume||checkpoint?.id;
 if(!id){if(!values.task)throw new Error('--task <request.json> is required for a new delivery.');const task=JSON.parse(await readFile(values.task,'utf8'));await save({request:{...task,operationId:checkpoint?.request?.operationId||task.operationId||randomUUID()}});const created=await api('',checkpoint.request);id=created.id;await save({id});}
 if(values.revision){const brief=await readFile(values.revision,'utf8');const request=checkpoint?.pendingRevision?.brief===brief?checkpoint.pendingRevision:{operationId:randomUUID(),brief};await save({pendingRevision:request});await api(`/${id}/revise`,request);await save({pendingRevision:null});}
