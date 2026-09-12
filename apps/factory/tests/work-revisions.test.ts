@@ -38,8 +38,8 @@ test("protected conflicts reject before workspace replacement",async()=>{
  await assert.rejects(mergeSources(snapshot({"package.json":"base"}),snapshot({"package.json":"owner"}),snapshot({"package.json":"target"}),[],mergeText),/protected/);
 });
 test("revision writes only owned ref, uses expected-head nonforce update and retains child target",async t=>{
- const writes:any[]=[];let current=h;let message="";let parents:string[]=[];
- const pr=()=>({number:4,html_url:"https://github.com/software-factory-workshop/jira-clone/pull/4",title:"revise",body:"",state:"open",draft:true,head:{sha:current,ref:branch,repo:{full_name:"software-factory-workshop/jira-clone"}},base:{sha:a,ref:"factory/parent",repo:{full_name:"software-factory-workshop/jira-clone"}}});
+ const writes:any[]=[];let current=h;let message="";let parents:string[]=[];let targetRef="factory/parent";
+ const pr=()=>({number:4,html_url:"https://github.com/software-factory-workshop/jira-clone/pull/4",title:"revise",body:"",state:"open",draft:true,head:{sha:current,ref:branch,repo:{full_name:"software-factory-workshop/jira-clone"}},base:{sha:a,ref:targetRef,repo:{full_name:"software-factory-workshop/jira-clone"}}});
  t.mock.method(globalThis,"fetch",async(url,init:any)=>{
   const path=new URL(String(url)).pathname.split("/jira-clone/")[1];
   if(init.method!=="GET"){
@@ -63,6 +63,8 @@ test("revision writes only owned ref, uses expected-head nonforce update and ret
  const result=await publishWork("test",request);const retry=await publishWork("test",request);assert.deepEqual(result,retry);assert.equal(result.number,4);assert.equal(result.targetBranch,"factory/parent");
  assert.equal(writes.filter(w=>w.path===`git/refs/heads/${branch}`).length,1);assert(!writes.some(w=>w.path.includes("refs/heads/factory/parent")));assert.deepEqual(parents,[h]);
  await assert.rejects(publishWork("test",{...request,operationId:"different-operation"}),/changed/);
+ targetRef="retargeted";await assert.rejects(publishWork("test",request),/replacement PR/);
+ assert(!writes.some(w=>w.path==="pulls"));
 });
 
 test("last stream chunk supplies owner proof, including one-event streams",async()=>{

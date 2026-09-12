@@ -170,7 +170,12 @@ export async function publishWork(token: string, input: PublishWorkInput, signal
    return c.tree.sha===treeSha&&JSON.stringify(c.parents.map(p=>p.sha))===JSON.stringify(parents)&&c.message.includes(marker)&&c.message.includes(ownerMarker);
   }
   let headSha=await currentHead();
-  if(headSha&&await samePublication(headSha)) { /* Idempotent retry after the ref update. */ }
+  if(headSha&&await samePublication(headSha)) {
+   if(input.previous){
+    const existing=await readPull(token,input.previous.number,signal);
+    if(existing.state!=="open"||existing.head.ref!==branch||existing.base.ref!==targetBranch||existing.head.sha!==headSha)throw new WorkError("stale_head","Original owner PR changed after publication; a retry cannot create a replacement PR.");
+   }
+  }
   else {
    if(await readBranch(token,targetBranch,signal)!==targetHeadSha)throw new WorkError("target_advanced","Target advanced; call refresh_target to preserve and merge your work before rechecking.");
    if(input.parentPrNumber){const parent=await readPull(token,input.parentPrNumber,signal);if(parent.state!=="open"||parent.head.ref!==targetBranch)throw new WorkError("target_closed","Parent PR closed or changed; preserve source and request an explicit target decision.");}
