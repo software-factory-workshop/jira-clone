@@ -1,7 +1,7 @@
 export const repository = {
   name: "software-factory-workshop/jira-clone",
   url: "https://github.com/software-factory-workshop/jira-clone",
-  stage: "00",
+  stage: "01",
 };
 export const stages = [
   {
@@ -9,14 +9,14 @@ export const stages = [
     title: "A place to begin",
     description:
       "Review the cockpit, draft requests and inspect the project context.",
-    status: "Current",
+    status: "Established",
   },
   {
     number: "01",
-    title: "Understand the work",
+    title: "Mine useful tasks",
     description:
-      "An Eve agent turns a request into a supported work order or a focused question.",
-    status: "Planned",
+      "An Eve agent investigates the goal, source and GitHub work, then proposes bounded tasks with evidence and a reflection.",
+    status: "Current",
   },
   {
     number: "02",
@@ -54,7 +54,7 @@ export const references = [
     kind: "Working agreement",
     icon: "i-lucide-target",
     content:
-      "Grow a project-owned software factory with Eve. Use a recognizable ADEO-branded Jira demo as its test subject. Measure improvements to the factory, not the number of Jira features shipped. Stage zero is a reviewable home for requests and context. There is no agent execution yet.",
+      "Grow a project-owned software factory with Eve. Use a recognizable ADEO-branded Jira demo as its test subject. Measure improvements to the factory, not the number of Jira features shipped. The first station investigates the repository in a sandbox and returns proposals for human review. Implementation and rule activation remain separate steps.",
   },
   {
     id: "adeo",

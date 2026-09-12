@@ -8,7 +8,7 @@ The primary outcome is a software factory that we can grow and explain in a 3–
 
 Start with a task-mining station focused on understanding the goal, codebase, existing issues and relevant evidence. Run it asynchronously so a person can return to review proposals. First establish that a bounded invocation returns useful work; then build the cockpit experience around the observed needs.
 
-For now the developer runs an isolated AI SDK Harness/fx experiment manually. That runner is not an Eve service, a scheduled workflow or a shipped cockpit feature. The deployed applications remain stage-zero shells. The current authorization is to investigate, improve repository context and evaluate proposals. Mining itself does not implement proposals or publish issues.
+The initial manual AI SDK Harness/fx calibration is complete. Remi then authorized shipping it as an Eve agent wired to the cockpit. The current station uses that shared sandbox miner, pinned GitHub source, current issues/PRs, durable sessions and human review. See `factory/task-mining-station.md` for the implemented contract and `docs/verification.md` for dated verification. The Jira application remains a fixture shell. Mining itself does not implement proposals or publish issues.
 
 A useful proposal connects a present gap to the goal, checks what already exists, names a small outcome and explains how we would tell whether it helped. It can be a context improvement, an investigation or a bounded factory capability. A Jira task is justified when it tests or teaches something relevant to the factory now. There is no required proposal count, and no task is preferable to invented work.
 
@@ -18,7 +18,7 @@ The near-term question is: can a fresh agent understand enough of this project t
 
 The demo should have recognizable Jira issue, list and board behavior using the ADEO Nuxt UI design system. Eventual targets include the Jira API operations needed by demos, Vercel Connect, Jira MCP using MCP Toolkit, accounts derived from verified Passport identity, SAML and directory sync. The exact compatibility subset and identity behavior need concrete demo scenarios before implementation. The earlier phrase "feature parity" is not evidence of a complete, agreed endpoint specification.
 
-Task-mining source selection, cadence, proposal persistence, deduplication and review behavior remain design choices. Do not assume these were settled because a UI sketch or research example shows them.
+The first station uses on-demand investigations, a pinned main-branch snapshot, live GitHub work and a durable Eve result. Recent session links and editable request drafts are browser-local. Scheduled mining, shared proposal indexing, automated deduplication and promotion of reviewed reflections remain design choices.
 
 ## Learning and authority
 

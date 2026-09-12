@@ -8,7 +8,7 @@ import {
   type Draft,
 } from "@jira-clone/context";
 const config = useRuntimeConfig();
-const section = ref("work");
+const section = ref("mining");
 const drafts = ref<Draft[]>([]);
 const activeId = ref<string | null>(null);
 const title = ref("");
@@ -89,6 +89,7 @@ const issueUrl = computed(
         </div>
         <div class="nav-label">WORKSPACE</div>
         <nav aria-label="Cockpit navigation">
+          <button :class="{ active: section === 'mining' }" @click="section = 'mining'"><UIcon name="i-lucide-search" />Task mining</button>
           <button
             :class="{ active: section === 'work' }"
             @click="section = 'work'"
@@ -110,7 +111,7 @@ const issueUrl = computed(
         </nav>
         <div class="sidebar-bottom">
           <div class="stage-marker">
-            <span class="status-dot" />Stage 00 · A place to begin
+            <span class="status-dot" />Station 01 · Task mining
           </div>
           <p>Build the factory.<br />Learn by making something useful.</p>
           <UButton
@@ -134,16 +135,18 @@ const issueUrl = computed(
           <span
             >Workshop /
             <strong>{{
-              section === "work"
-                ? "Work"
+              section === "mining"
+                ? "Task mining"
+                : section === "work" ? "Work"
                 : section === "knowledge"
                   ? "Project knowledge"
                   : "Factory growth"
             }}</strong></span
-          ><UBadge color="neutral" variant="subtle">Stage zero</UBadge>
+          ><UBadge color="neutral" variant="subtle">Task mining</UBadge>
         </header>
         <div class="page-content">
-          <template v-if="section === 'work'">
+          <MiningStation v-if="section === 'mining'" @draft="compose" />
+          <template v-else-if="section === 'work'">
             <AdeoPageHeader
               eyebrow="THE FACTORY STARTS HERE"
               title="What should we work on?"
@@ -236,11 +239,9 @@ const issueUrl = computed(
                 <div class="stage-note">
                   <UIcon name="i-lucide-sprout" />
                   <div>
-                    <strong>The next capability: understand the work</strong>
+                    <strong>Start with an investigation</strong>
                     <p>
-                      Stage one will turn a request into a grounded work order
-                      or a focused question. For now, we are reviewing the
-                      starting point together.
+                      Task mining reads the goal, code and current GitHub work. Review its proposals here before opening an issue.
                     </p>
                   </div>
                 </div>
@@ -390,7 +391,7 @@ const issueUrl = computed(
                 v-for="stage in stages"
                 :key="stage.number"
                 class="panel growth-card"
-                :class="{ current: stage.number === '00' }"
+                :class="{ current: stage.number === '01' }"
               >
                 <span class="stage-number">{{ stage.number }}</span>
                 <div>
@@ -398,7 +399,7 @@ const issueUrl = computed(
                   <p>{{ stage.description }}</p>
                 </div>
                 <UBadge
-                  :color="stage.number === '00' ? 'primary' : 'neutral'"
+                  :color="stage.number === '01' ? 'primary' : 'neutral'"
                   variant="soft"
                   >{{ stage.status }}</UBadge
                 >

@@ -1,4 +1,6 @@
 export default defineNuxtConfig({
+  modules: ["eve/nuxt"],
+  vite: { optimizeDeps: { include: ["eve/vue"] } },
   extends: ["@software-factory-workshop/nuxt-adeo-ds"],
   css: ["~/assets/css/main.css"],
   compatibilityDate: "2026-09-12",

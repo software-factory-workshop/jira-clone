@@ -1,13 +1,15 @@
 # Project map for an investigation
 
-Source review: 12 September 2026, application source at `9f22e30`. Recheck the files below against the run snapshot. This is a navigation aid, not proof that a deployed route works today.
+Source review: 12 September 2026, updated during the Eve station delivery. Recheck the files below against the run snapshot. This is a navigation aid, not proof that a deployed route works today.
 
 | Question | Start here | What the source currently supports |
 | --- | --- | --- |
 | What is already underway? | `factory/context/work-in-progress.md`, current GitHub reads | Developer work can be active without an issue; inspect both |
 | What are we trying to learn? | `factory/context/goal.md` | Current owner direction and unresolved decisions |
-| What does the cockpit do? | `apps/factory/app/app.vue` | Starter requests, browser-local drafts, knowledge and growth views; issue composition opens GitHub for human submission |
+| What does the cockpit do? | `apps/factory/app/app.vue` | Task mining, starter requests, browser-local drafts, knowledge and growth views; issue composition opens GitHub for human submission |
 | What GitHub access exists? | `apps/factory/server/api/github.get.ts` | Fixed-repository metadata GET through Connect; it does not list issues or run agents |
+| How does task mining execute? | `apps/factory/agent/tools/investigate_repository.ts`, `packages/task-miner/runtime.mjs`, `packages/task-miner/github.mjs` | Eve owns a durable investigation; fx reads a pinned GitHub snapshot in a fresh Sandbox, with a fixed-repository GET tool |
+| How are findings reviewed? | `apps/factory/app/components/MiningStation.vue`, `MiningRun.vue` | Resume sessions, review reports and evidence, move findings into editable browser-local drafts |
 | What Jira behavior exists? | `apps/jira/app/app.vue` | Search, status filter, list, board and details over synthetic fixtures; no issue mutation or application API |
 | Which context is shared with the UI? | `packages/project-context/src/index.ts` | Stage copy, reference summaries, starter examples, draft parser and fixture issues |
 | What was observed in real Jira? | `packages/project-context/src/jira-reference.json` | Dated sandbox capture; distinguish observed statuses from an unobserved transition graph |

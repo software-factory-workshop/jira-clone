@@ -1,0 +1,64 @@
+import { createHash } from 'node:crypto';
+import { githubInput } from './github-input.mjs';
+
+export const repository = 'software-factory-workshop/jira-clone';
+export const scope = { team: 'demo-software-factory', teamId: 'team_Ljrc7ENgQWsCySwCwijvA0zy', projectId: 'prj_ZXLHFUJhgo5EdvSf1IstOMn0ft0A' };
+export const model = 'meta/muse-spark-1.3-contributor';
+
+export function verifyScope(oidc) {
+  const claims = JSON.parse(Buffer.from(oidc.split('.')[1], 'base64url').toString());
+  if (claims.owner !== scope.team || claims.owner_id !== scope.teamId || claims.project_id !== scope.projectId || !Number.isFinite(claims.exp) || claims.exp * 1000 < Date.now() + 300000) {
+    throw new Error('Wrong team/project or expiring OIDC token; refusing to spend.');
+  }
+  return claims;
+}
+
+async function github(path, token, signal) {
+  const response = await fetch(`https://api.github.com/repos/${repository}/${path}`, {
+    headers: { Authorization: `Bearer ${token}`, Accept: 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28' },
+    signal: AbortSignal.any([signal ?? new AbortController().signal, AbortSignal.timeout(20000)]),
+    redirect: 'error',
+  });
+  if (!response.ok) throw new Error(`GitHub read failed: HTTP ${response.status}`);
+  return { data: await response.json(), next: response.headers.get('link')?.includes('rel="next"') };
+}
+
+export async function readGithub(input, token, signal) {
+  const { resource, number } = githubInput.parse(input);
+  const endpoint = resource === 'issue_comments' ? `issues/${number}/comments` : resource;
+  const items = [];
+  for (let page = 1; page <= 10; page++) {
+    const { data, next } = await github(`${endpoint}?state=all&per_page=100&page=${page}`, token, signal);
+    if (!Array.isArray(data)) throw new Error('Unexpected GitHub inventory response.');
+    items.push(...data.map(item => ({ number: item.number, url: item.html_url, title: item.title, body: item.body, state: item.state, updatedAt: item.updated_at, labels: item.labels?.map(label => label.name), isPullRequest: !!item.pull_request })));
+    if (!next) return { repository, resource, capturedAt: new Date().toISOString(), complete: true, items };
+  }
+  throw new Error('GitHub inventory exceeds the bounded pagination limit.');
+}
+
+export function includeSource(file) {
+  return !file.startsWith('factory/mining/') && !file.includes('.env') && !file.endsWith('.tgz') && file !== 'pnpm-lock.yaml' && /\.(md|ts|mts|mjs|json|vue|css|yaml|yml)$/.test(file);
+}
+
+export function manifestFor(entries) {
+  return entries.map(({ file, content }) => ({ file, bytes: Buffer.byteLength(content), sha256: createHash('sha256').update(content).digest('hex') }));
+}
+
+export async function loadRepository(token, signal) {
+  const { data: commit } = await github('commits/main', token, signal);
+  if (!/^[a-f0-9]{40}$/.test(commit.sha) || !/^[a-f0-9]{40}$/.test(commit.commit?.tree?.sha)) throw new Error('Invalid repository revision.');
+  const { data: tree } = await github(`git/trees/${commit.commit.tree.sha}?recursive=1`, token, signal);
+  if (tree.truncated || !Array.isArray(tree.tree)) throw new Error('Repository tree is incomplete.');
+  const selected = tree.tree.filter(item => item.type === 'blob' && item.mode !== '120000' && includeSource(item.path));
+  if (selected.length > 250 || selected.reduce((sum, item) => sum + (item.size ?? 0), 0) > 2000000) throw new Error('Source snapshot exceeds the station limit.');
+  const entries = [];
+  for (let offset = 0; offset < selected.length; offset += 6) {
+    entries.push(...await Promise.all(selected.slice(offset, offset + 6).map(async item => {
+      if (!/^[a-f0-9]{40}$/.test(item.sha) || item.path.split('/').includes('..') || item.path.startsWith('/')) throw new Error('Invalid source path.');
+      const { data: blob } = await github(`git/blobs/${item.sha}`, token, signal);
+      if (blob.encoding !== 'base64') throw new Error('Unsupported source encoding.');
+      return { file: item.path, content: Buffer.from(blob.content, 'base64') };
+    })));
+  }
+  return { revision: commit.sha, entries };
+}

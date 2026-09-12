@@ -2,9 +2,10 @@
   "name": "@jira-clone/task-miner",
   "private": true,
   "type": "module",
+  "exports": { "./runtime": "./runtime.mjs", "./github": "./github.mjs" },
   "scripts": {
     "mine": "node run.mjs",
-    "test": "node --test github-input.test.mjs"
+    "test": "node --test *.test.mjs"
   },
   "dependencies": {
     "@ai-sdk/harness": "1.0.107",

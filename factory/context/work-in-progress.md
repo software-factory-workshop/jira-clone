@@ -12,6 +12,8 @@ The initial same-prompt and transfer comparisons are complete. A subsequent mini
 
 Artifacts exist in `factory/mining/`, intentionally outside your snapshot. Completion, usefulness and owner acceptance are different states. A completed model call does not establish owner acceptance. Current run scores and candidate answers are withheld to keep your judgment independent.
 
-## Other work
+## Cockpit task-mining station
 
-The deployed applications remain stage zero. No implementation or publication of mined proposals is underway as part of this experiment. Check GitHub issues and PRs for work started elsewhere. Do not assume this dated local record supersedes newer repository or GitHub evidence.
+Owner: Codex development session, explicitly requested by Remi after context calibration. The current delivery wires the tested fx miner into an Eve agent and the Nuxt cockpit. It includes pinned GitHub snapshots, live issue/PR reads, scoped Sandbox and Gateway access, durable sessions, progress, cancellation, browser reconnection, evidence and editable drafts. Inspect `apps/factory/agent`, the mining components, and `packages/task-miner/runtime.mjs` before proposing these capabilities again. Deployment and verification evidence belongs in `docs/verification.md`.
+
+This delivery also aligns the cockpit stage copy with task mining. A new investigation should identify a specific remaining gap, not propose building the station from scratch. Remi has not automatically accepted other mined proposals. No Jira feature implementation, issue publication or automatic rule activation is underway. Check GitHub issues and PRs for work started elsewhere. Do not assume this dated local record supersedes newer repository or GitHub evidence.

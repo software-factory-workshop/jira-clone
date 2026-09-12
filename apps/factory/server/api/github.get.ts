@@ -1,3 +1,4 @@
+import { defineEventHandler, setResponseHeader, setResponseStatus } from "h3";
 import { getToken, ConnectError } from "@vercel/connect";
 import { z } from "zod";
 import { repository } from "@jira-clone/context";

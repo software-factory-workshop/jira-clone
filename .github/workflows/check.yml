@@ -1,4 +1,4 @@
-name: Check stage zero
+name: Check factory and Jira
 on:
   push:
     branches: [main]
@@ -19,3 +19,4 @@ jobs:
       - run: pnpm typecheck
       - run: pnpm test
       - run: pnpm build
+      - run: pnpm --filter @jira-clone/factory exec eve build

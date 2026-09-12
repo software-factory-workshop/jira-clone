@@ -2,7 +2,7 @@
 
 Grow a software factory with Eve, using an ADEO-branded Jira demo as its test subject. The factory is the workshop outcome. Jira gives us concrete work and product feedback with which to improve it.
 
-**Deployed stage: 00 — a place to begin.** The cockpit has no agent execution. A separate developer-run task-mining experiment is being evaluated; see [the factory goal](factory/context/goal.md).
+**Station 01 — task mining.** An Eve agent investigates the goal, source and GitHub work in a Vercel Sandbox, then returns proposals and a reflection for human review. See [the station contract](factory/task-mining-station.md) and [verification](docs/verification.md).
 
 ## Review the starting point
 
@@ -10,7 +10,7 @@ Grow a software factory with Eve, using an ADEO-branded Jira demo as its test su
 - Jira shell: https://adeo-jira-clone.vercel.app
 - Both applications use the ADEO Nuxt UI layer v0.1.1.
 
-The cockpit has browser-local request drafts, starter prompts, project knowledge and the factory growth path. “Review in GitHub” opens a prefilled issue; the user decides whether to submit it. Draft storage is local to a browser, not shared team state. GitHub repository context uses Vercel Connect when installed.
+The cockpit starts and resumes durable Eve investigations. It also has browser-local request drafts, starter prompts, project knowledge and the factory growth path. “Review in GitHub” opens a prefilled issue; the user decides whether to submit it. Draft storage is local to a browser, not shared team state. GitHub repository context uses Vercel Connect when installed.
 
 The Jira shell has searchable fixture issues, status filtering, list/board views and issue details. Its rows are synthetic. It has no issue mutations, accounts, permissions, Jira-compatible API or integration endpoints yet.
 
@@ -35,11 +35,11 @@ pnpm build
 
 | Location | Purpose |
 | --- | --- |
-| `apps/factory` | Nuxt cockpit; home for requests and project context |
+| `apps/factory` | Nuxt cockpit and its Eve agent |
 | `apps/jira` | Nuxt Jira demo shell |
 | `packages/project-context` | Shared stage definitions, references and labelled fixtures |
 | `factory` | Goal, project context, reflections and mining experiments |
-| `packages/task-miner` | Isolated AI SDK Harness/fx experiment runner |
+| `packages/task-miner` | Shared AI SDK Harness/fx runtime and calibration CLI |
 | `.agents/skills/adeo-nuxt-ui` | Versioned design-system instructions |
 | `docs` | Workshop experiment, cockpit rationale and verification |
 | `vendor` | Private ADEO v0.1.1 package artifact |
@@ -65,4 +65,4 @@ Stage zero consumes the existing v0.1.1 package tarball, checked into this **pri
 
 ## Next review
 
-Read [the cockpit scope](docs/cockpit.md) and [the growth experiment](docs/factory-growth-experiment.md). Review the mining evidence before implementing a cockpit workflow.
+Read [the cockpit scope](docs/cockpit.md) and [the growth experiment](docs/factory-growth-experiment.md). Review an investigation in the cockpit, then improve its context or select one bounded task.
