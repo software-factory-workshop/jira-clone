@@ -1,3 +1,4 @@
+import { jiraManifest } from "../../../lib/jira-policy";
 import { defineTool } from "eve/tools";
 import { z } from "zod";
 import { getToken } from "@vercel/connect";
@@ -34,7 +35,7 @@ export default defineTool({description:"Prepare a clean pinned main snapshot, fr
   // A completed operation may have deleted files: reconstruct source, never overlay stale files.
   const cleared=await sandbox.run({command:"rm -rf /workspace/repo"});if(cleared.exitCode!==0)throw new Error("Cannot reconstruct worker source.");
   const setup=await prepareRepository(sandbox,token,ctx.abortSignal,snapshot);
-  workState.update(s=>({...s,prepared:setup.prepared,revision:setup.revision,operationId,activeBrief:revision?.brief||original.brief,targetBranch:target.targetBranch,targetHeadSha:target.targetHeadSha,parentPrNumber:target.parentPrNumber,mergeTarget:false,recorded:false,verifiedDigest:null,baseline:setup.files.map(({file,sha256})=>({file,sha256})),commands:setup.commands}));
+  workState.update(s=>({...s,prepared:setup.prepared,revision:setup.revision,operationId,activeBrief:revision?.brief||original.brief,targetBranch:target.targetBranch,targetHeadSha:target.targetHeadSha,parentPrNumber:target.parentPrNumber,mergeTarget:false,recorded:false,verifiedDigest:null,jiraManifest:jiraManifest(snapshot.entries),baseline:setup.files.map(({file,sha256})=>({file,sha256})),commands:setup.commands}));
   yield{phase:setup.prepared?"Prepared":"Setup failed",revision:setup.revision,request:{...original,brief:revision?.brief||original.brief,originalBrief:original.brief},operationId,targetBranch:target.targetBranch,targetHeadSha:target.targetHeadSha,workspace:"/workspace/repo",fileCount:setup.files.length,commands:setup.commands,limitations:setup.contextGaps};
  },
  toModelOutput(output){

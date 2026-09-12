@@ -14,7 +14,7 @@ export default defineTool({description:"Publish verified source changes as one d
   if(operationId!==state.operationId)throw new Error("Prepare this authenticated operation before publishing.");
   let publication;
   {
-   const changes=await collectChanges(await ctx.getSandbox(),state.baseline);
+   const changes=await collectChanges(await ctx.getSandbox(),state.baseline,false,state.jiraManifest);
    if(!state.verifiedDigest||changesDigest(changes)!==state.verifiedDigest)throw new Error("Current source changes must pass verify_work before publication.");
    const token=await getToken("github/jira-clone",{subject:{type:"app"}});
    publication=await publishWork(token,{sessionId:ctx.session.id,baseSha:state.revision,operationId:state.operationId,targetBranch:state.targetBranch,targetHeadSha:state.targetHeadSha,parentPrNumber:state.parentPrNumber,previous:state.publication?{number:state.publication.number,headSha:state.publication.headSha}:undefined,mergeTarget:state.mergeTarget,title:request.title,body:`${input.summary}\n\n## Original task\n${request.brief}\n\n## Requested revision\n${state.activeBrief}\n\n## Validation\n${state.commands.slice(-3).map(c=>`- ${c.command}: exit ${c.exitCode}`).join("\n")}\n\n## Limitations\n${input.limitations.join("\n")||"None reported."}\n\nNative Eve session: ${ctx.session.id}\nSource: ${state.revision}`,changes},ctx.abortSignal);
