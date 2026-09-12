@@ -308,3 +308,47 @@ tr:hover td {
     font-size: 13px;
   }
 }
+.save-notice {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border-radius: 4px;
+  padding: 12px 16px;
+  font-size: 12px;
+  line-height: 1.6;
+  margin: 16px 0 0;
+}
+.save-notice.success {
+  border: 1px solid #cfe7d8;
+  background: #f2faf5;
+  color: #256b43;
+}
+.save-notice.error {
+  border: 1px solid #f0d4d4;
+  background: #fdf3f3;
+  color: #8f2f2f;
+}
+.demo-controls {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-bottom: 18px;
+}
+.row-error {
+  color: #8f2f2f;
+  font-size: 12px;
+  margin-top: 6px;
+  max-width: 240px;
+  white-space: normal;
+}
+.detail-actions {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.card-priority {
+  font-style: normal;
+  margin-left: auto;
+  margin-right: 8px;
+}
