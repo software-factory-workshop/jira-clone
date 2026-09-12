@@ -45,3 +45,11 @@ test('storage failures propagate without changing an accepted record',async()=>{
  await assert.rejects(mutateCockpit({read:async()=>({document:structuredClone(actual),etag:undefined}),write:async()=>{throw Error('outage');}},doc=>changeRecord(doc,'drafts','one',draft,0)),/outage/);
  assert.equal(actual.drafts.one,undefined);
 });
+
+test('both durable stores request identity encoding for strong conditional-write ETags',async()=>{
+ const {readFile}=await import('node:fs/promises');
+ for(const file of ['cockpit-store.ts','delivery-store.ts']){
+  const source=await readFile(new URL('../agent/lib/'+file,import.meta.url),'utf8');
+  assert.match(source,/'accept-encoding':'identity'/);assert.match(source,/etag\.startsWith\('W\/'\)/);
+ }
+});
