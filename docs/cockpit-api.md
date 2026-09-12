@@ -10,11 +10,11 @@ Private Vercel Blob stores `factory/cockpit-v1.json`. `BLOB_READ_WRITE_TOKEN` mu
 
 ## Drafts, feedback and run history
 
-- `GET /factory/cockpit/{drafts|feedback|runs}` → `{items:[...]}`.
-- `GET /factory/cockpit/{collection}/{id}` → `{item: record|null}`.
-- `POST /factory/cockpit/{collection}` with `{id,value}` creates a record. Supply a stable caller-generated ID to reconcile uncertain responses.
-- `PUT /factory/cockpit/{collection}/{id}` with `{value,expectedVersion}` creates with version `0` or updates the version last read.
-- `DELETE /factory/cockpit/{collection}/{id}` with `{expectedVersion}` clears it.
+- `GET /factory/cockpit/records/{drafts|feedback|runs}` → `{items:[...]}`.
+- `GET /factory/cockpit/records/{collection}/{id}` → `{item: record|null}`.
+- `POST /factory/cockpit/records/{collection}` with `{id,value}` creates a record. Supply a stable caller-generated ID to reconcile uncertain responses.
+- `PUT /factory/cockpit/records/{collection}/{id}` with `{value,expectedVersion}` creates with version `0` or updates the version last read.
+- `DELETE /factory/cockpit/records/{collection}/{id}` with `{expectedVersion}` clears it.
 
 A record contains `id`, `version`, `createdAt`, `updatedAt`, and `value`. Draft value is `{title,request}`; feedback is `{verdict:'useful'|'not-useful',reason}`; run metadata is `{label,station,operationId?,execution?,deliveryId?}`. Versions remain monotonic across delete/recreate. HTTP409 means the item changed; preserve typed text and reload before explicitly retrying. Whole-document CAS retries preserve unrelated item writes.
 
