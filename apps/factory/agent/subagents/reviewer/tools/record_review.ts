@@ -12,7 +12,7 @@ export default defineTool({description:"Record an independent structured review 
   if(input.verdict==="approve"&&(!state.prepared||!state.reviewVerified||input.findings.some(f=>f.severity==="blocking")||input.limitations.length||state.contextGaps.length))throw new Error("Approval requires prepared workspace, passing independent checks, no blocking findings or unresolved limitations.");
   if(input.verdict==="approve"&&(await collectChanges(await ctx.getSandbox(),state.baseline,true)).length)throw new Error("Candidate changed after verification; approval refused.");
   const token=await getToken("github/jira-clone",{subject:{type:"app"}});
-  await verifyPullRequestHead(token,state.pull.number,state.pull.headSha,ctx.abortSignal,state.pull.baseSha);
+  await verifyPullRequestHead(token,state.pull.number,state.pull.headSha,ctx.abortSignal,state.pull.baseSha,state.pull.targetBranch);
   workState.update(s=>({...s,recorded:true}));
-  return{station:"reviewer" as const,sessionId:ctx.session.id,prNumber:state.pull.number,url:state.pull.url,baseSha:state.pull.baseSha,headSha:state.pull.headSha,...input,limitations:[...state.contextGaps,...input.limitations],commands:state.commands,capturedAt:new Date().toISOString()};
+  return{station:"reviewer" as const,sessionId:ctx.session.id,prNumber:state.pull.number,url:state.pull.url,baseSha:state.pull.baseSha,targetBranch:state.pull.targetBranch,headSha:state.pull.headSha,...input,limitations:[...state.contextGaps,...input.limitations],commands:state.commands,capturedAt:new Date().toISOString()};
  }});
