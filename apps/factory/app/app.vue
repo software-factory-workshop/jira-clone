@@ -14,6 +14,7 @@ const activeId = ref<string | null>(null);
 const title = ref("");
 const request = ref("");
 const notice = ref("");
+const editor = ref<HTMLElement | null>(null);
 const selectedReference = ref(references[0]!);
 const {
   data: github,
@@ -32,18 +33,25 @@ onMounted(() => {
       "Browser storage is unavailable. You can still compose a request.";
   }
 });
-function compose(starter?: { title: string; body: string }) {
+async function compose(starter?: { title: string; body: string }) {
   activeId.value = null;
   title.value = starter?.title || "";
   request.value = starter?.body || "";
   section.value = "work";
   notice.value = "";
+  await focusEditor();
 }
-function openDraft(draft: Draft) {
+async function openDraft(draft: Draft) {
   activeId.value = draft.id;
   title.value = draft.title;
   request.value = draft.request;
   notice.value = "";
+  await focusEditor();
+}
+async function focusEditor() {
+  await nextTick();
+  editor.value?.scrollIntoView({ block: "start", behavior: "instant" });
+  editor.value?.querySelector("input")?.focus({ preventScroll: true });
 }
 function save() {
   if (!title.value.trim() || !request.value.trim()) return;
@@ -178,7 +186,7 @@ const issueUrl = computed(
                   >
                 </button>
               </section>
-              <section class="editor panel">
+              <section ref="editor" class="editor panel">
                 <div class="panel-heading">
                   <h2>
                     {{ activeId ? "Review your request" : "A new request" }}
