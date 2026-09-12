@@ -69,6 +69,23 @@ export function getIssues(): DemoIssue[] {
   }));
 }
 
+/**
+ * Demo-only single-issue read. Returns the same synthetic issue shape as
+ * `getIssues` with current in-memory overrides applied, or `undefined` for
+ * an unknown key without writing.
+ */
+export function getIssue(key: string): DemoIssue | undefined {
+  const seed = seeds.find((issue) => issue.key === key);
+  if (!seed) {
+    return undefined;
+  }
+  return {
+    ...seed,
+    status: statusOverrides.get(key) ?? seed.status,
+    priority: priorityOverrides.get(key) ?? seed.priority,
+  };
+}
+
 export type UpdateResult =
   | { ok: true; issue: DemoIssue }
   | { ok: false; error: string; statusCode: number };
