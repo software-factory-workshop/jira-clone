@@ -4,7 +4,7 @@ The input is a question or an open request to find useful work. The output is up
 
 ## Execution
 
-The Nuxt cockpit and Eve 0.52.5 deploy together through `eve/nuxt`. Eve owns the durable session and streams the investigation tool's progress and result. The tool fetches the current `main` commit, then its immutable Git tree and blobs through the app's `github/jira-clone` Connect connection. It excludes environment files, binary packages, dependencies, the lockfile and held-out mining evaluations/runs. The source manifest records each supplied path, byte count and SHA-256.
+The Nuxt cockpit and Eve 0.52.5 deploy together through `eve/nuxt`. Its service uses `pnpm run build:agent`: after Eve builds, the repository verifies and supplies the ACP bridge assets omitted by this pinned bundler release. CI runs the same command; review this workaround when upgrading Eve. Eve owns the durable session and streams the investigation tool's progress and result. The tool fetches the current `main` commit, then its immutable Git tree and blobs through the app's `github/jira-clone` Connect connection. It excludes environment files, binary packages, dependencies, the lockfile and held-out mining evaluations/runs. The source manifest records each supplied path, byte count and SHA-256.
 
 The shared `packages/task-miner/runtime.mjs` runs fx through AI SDK Harness in a fresh Vercel Sandbox. Its only custom tool reads this repository's issues, pull requests and comments. Inventories include closed items and follow pagination; failed or truncated reads fail the investigation rather than becoming an empty backlog. A successful result requires a completed model response and complete issue and PR inventories.
 

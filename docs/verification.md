@@ -13,7 +13,7 @@ The Eve station supersedes the historical stage-zero execution status below. Loc
 
 - The second browser run was stopped during its sandbox phase. Eve emitted `turn.cancelled`, the cockpit settled to Stopped, and no report was presented as complete.
 
-Hosted verification is recorded below once checked against the Git deployment.
+Initial hosted verification: revision `14dae90` passed CI and deployed Ready, and the signed-in browser created session `wrun_41M2AKG76A0GH9FWYTZ7XZ476Z`. The run failed safely during sandbox startup because the bundle omitted ACP bridge assets. `build:agent` now copies and byte-checks those four assets; the successful hosted rerun is recorded below after deployment.
 
 ## Historical stage-zero checks
 
