@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { allowedWorkPath, publishWork, workBranch, verifyPullRequestHead, loadPullRequest } from "../agent/lib/work-github.ts";
@@ -42,6 +43,8 @@ test("publication creates only one immutable feature branch and draft PR across 
  assert.deepEqual(first,second);assert.equal(first.headSha,head);
  assert.equal(writes.filter(x=>x.path==="git/refs").length,1);assert.equal(writes.filter(x=>x.path==="git/commits").length,1);assert.equal(writes.filter(x=>x.path==="pulls").length,1);
  const body=writes.find(x=>x.path==="pulls")!.body;assert.equal(body.draft,true);assert.equal(body.base,"main");assert.equal(body.head,workBranch(input.sessionId));
+ assert.ok(body.body.startsWith(input.body+"\n\n<!-- Factory-Owner: "+input.sessionId));
+ assert.ok(body.body.endsWith(`Factory-Session: ${createHash("sha256").update(input.sessionId).digest("hex")}\nFactory-Base: ${base} -->`));
 });
 test("publication preserves existing executable mode but refuses symlinks",async t=>{
  const writes=mockGitHub(t,{mode:"100755"});await publishWork("test-token",input);assert.equal(writes.find(x=>x.path==="git/trees")!.body.tree[0].mode,"100755");
