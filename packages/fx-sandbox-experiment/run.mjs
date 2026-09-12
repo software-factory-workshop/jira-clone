@@ -10,7 +10,7 @@ import path from 'node:path';
 
 const root = fileURLToPath(new URL('../../', import.meta.url));
 const runName = process.argv[2];
-if (!runName || !/^[a-z0-9-]+$/.test(runName)) throw new Error('Provide a run name: pnpm --filter @jira-clone/task-miner mine baseline');
+if (!runName || !/^[a-z0-9-]+$/.test(runName)) throw new Error('Provide a run name: pnpm --filter @jira-clone/fx-sandbox-experiment mine baseline');
 const env = parseEnv(await readFile(path.join(root, 'apps/factory/.env.local'), 'utf8'));
 const oidc = env.VERCEL_OIDC_TOKEN;
 if (!oidc) throw new Error('Run vercel env pull .env.local --scope demo-software-factory from apps/factory first.');

@@ -10,7 +10,8 @@
     "build": "turbo run build",
     "typecheck": "turbo run typecheck",
     "test": "turbo run test",
-    "check": "turbo run typecheck test build"
+    "check": "turbo run typecheck test build",
+    "mine:fx": "pnpm --filter @jira-clone/fx-sandbox-experiment mine"
   },
   "devDependencies": {
     "turbo": "2.10.12",

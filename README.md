@@ -39,7 +39,7 @@ pnpm build
 | `apps/jira` | Nuxt Jira demo shell |
 | `packages/project-context` | Shared stage definitions, references and labelled fixtures |
 | `factory` | Goal, project context, reflections and mining experiments |
-| `packages/task-miner` | Shared AI SDK Harness/fx runtime and calibration CLI |
+| `packages/fx-sandbox-experiment` | Developer fx experiment for context calibration in Vercel Sandbox |
 | `.agents/skills/adeo-nuxt-ui` | Versioned design-system instructions |
 | `docs` | Workshop experiment, cockpit rationale and verification |
 | `vendor` | Private ADEO v0.1.1 package artifact |

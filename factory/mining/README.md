@@ -1,6 +1,6 @@
 # Growing the task-mining station
 
-This experiment asks whether a fresh agent can propose useful work from repository context and current GitHub issues. It is the first factory capability under investigation. The cockpit remains stage zero.
+This experiment asks whether a fresh agent can propose useful work from repository context and current GitHub issues. The original fx experiment informed the native Eve task-mining station. This directory preserves its prompts, evaluation and run evidence.
 
 Read the comparison in `report.md`, then inspect the underlying run outputs and reviews. The [prompt](prompt.md) stays small. The [review rubric](evaluation.md) was written before reviewing a complete baseline. The [transfer probe](probe.md) uses different wording with the same context.
 
@@ -9,10 +9,10 @@ Read the comparison in `report.md`, then inspect the underlying run outputs and 
 - The current goal in `../context/goal.md` records owner direction without requiring conversation history.
 - The source map in `../context/project-map.md` points to actual code and names evidence limits.
 - Reviewed notes in `../reflections/` separate observations, hypotheses and owner decisions.
-- `../../packages/task-miner/run.mjs` assembles an isolated snapshot, checks team scope, runs fx with AI SDK Harness, and brokers fixed-repository GitHub reads through Connect.
+- `../../packages/fx-sandbox-experiment/run.mjs` assembles an isolated snapshot, checks team scope, runs fx with AI SDK Harness, and brokers fixed-repository GitHub reads through Connect.
 - Each run directory retains source hashes, its prompt, document context, live GitHub evidence, output and available usage. Evaluation notes are separate from raw output.
 
-These pieces can inform an asynchronous Eve station later. No durable cockpit queue, scheduler, issue publication or Jira implementation is added by this experiment.
+The deployed station uses native Eve. The fx experiment remains a separate developer command for checking context and tool access; it does not publish issues or implement Jira features.
 
 ## Interpreting the evidence
 

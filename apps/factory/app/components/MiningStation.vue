@@ -50,7 +50,7 @@ function choose(id: string) {
       <button v-for="item in history" :key="item.id" class="history-item" :class="{ selected: selected === item.id }" @click="choose(item.id)">
         <UIcon name="i-lucide-search" /><span>{{ item.label }}<small>{{ new Date(item.createdAt).toLocaleString() }}</small></span>
       </button>
-      <div class="stage-note"><UIcon name="i-lucide-git-branch" /><p>Each run reads a pinned revision of <strong>jira-clone</strong>, plus current issues and pull requests through GitHub Connect.</p></div>
+      <div class="stage-note"><UIcon name="i-lucide-git-branch" /><p>Each run reads a pinned revision of <strong>jira-clone</strong>, plus current GitHub work and Vercel deployment evidence. Checks run in a disposable sandbox.</p></div>
     </aside>
   </div>
 </template>

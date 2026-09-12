@@ -9,7 +9,7 @@ The factory's project instructions, tools, context, evaluations and reviewed les
 - `context/`: current goal and source navigation.
 - `reflections/`: reviewed observations and hypotheses, with provenance and limits.
 - `mining/`: experiment prompt, evaluation criteria, recorded runs and comparison.
-- `../packages/task-miner/`: shared sandbox miner and calibration CLI.
+- `../packages/fx-sandbox-experiment/`: developer fx experiment and preserved context-calibration evidence.
 - `../apps/factory/agent/`: Eve configuration, authentication and investigation tool.
 - `task-mining-station.md`: execution, evidence and review contract.
 
