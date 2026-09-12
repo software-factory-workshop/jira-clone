@@ -6,6 +6,9 @@ const deliverySnapshotSchema = z.object({
   id: z.string().min(1),
   phase: z.string().min(1),
   updatedAt: z.string().optional(),
+  error: z.string().optional(),
+  review: z.object({ summary: z.string().optional() }).passthrough().optional(),
+  mergeDecision: z.object({ reason: z.string().optional() }).passthrough().optional(),
   request: z.object({ title: z.string().optional() }).passthrough().optional(),
   publication: z.object({
     number: z.number().int().positive(),
@@ -25,6 +28,7 @@ export interface DeliverySummary {
   targetBranch?: string;
   prNumber?: number;
   prUrl?: string;
+  attentionReason?: string;
 }
 
 const phaseLabels: Record<string, { label: string; color: DeliveryBadgeColor }> = {
@@ -43,6 +47,32 @@ const phaseLabels: Record<string, { label: string; color: DeliveryBadgeColor }> 
   blocked: { label: "Blocked", color: "error" },
   cancelled: { label: "Cancelled", color: "neutral" },
 };
+
+export const attentionPhases: ReadonlySet<string> = new Set([
+  "human_review",
+  "needs_revision",
+  "blocked",
+  "cancelled",
+]);
+
+const maxAttentionReasonLength = 180;
+
+export function deriveAttentionReason(value: {
+  error?: string;
+  review?: { summary?: string };
+  mergeDecision?: { reason?: string };
+}): string | undefined {
+  const candidates = [value.error, value.review?.summary, value.mergeDecision?.reason];
+  for (const candidate of candidates) {
+    if (typeof candidate !== "string") continue;
+    const collapsed = candidate.replace(/\s+/g, " ").trim();
+    if (!collapsed) continue;
+    return collapsed.length > maxAttentionReasonLength
+      ? `${collapsed.slice(0, maxAttentionReasonLength - 1).trimEnd()}…`
+      : collapsed;
+  }
+  return undefined;
+}
 
 export function describeDeliveryPhase(phase: string): { label: string; color: DeliveryBadgeColor } {
   return phaseLabels[phase] ?? { label: phase, color: "neutral" };
@@ -78,6 +108,7 @@ export function summarizeDelivery(value: unknown, fallbackTitle?: string, now: D
     prNumber = snapshot.publication.number;
     prUrl = snapshot.publication.url;
   }
+  const attentionReason = deriveAttentionReason(snapshot);
   return {
     id: snapshot.id,
     title,
@@ -88,6 +119,7 @@ export function summarizeDelivery(value: unknown, fallbackTitle?: string, now: D
     targetBranch: snapshot.publication?.targetBranch || undefined,
     prNumber,
     prUrl,
+    ...(attentionReason ? { attentionReason } : {}),
   };
 }
 

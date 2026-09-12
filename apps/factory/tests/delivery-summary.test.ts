@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { describeDeliveryPhase, formatDeliveryUpdatedAt, isLoopRun, summarizeDelivery } from "../app/utils/delivery-summary.ts";
+import { attentionPhases, deriveAttentionReason, describeDeliveryPhase, formatDeliveryUpdatedAt, isLoopRun, summarizeDelivery } from "../app/utils/delivery-summary.ts";
 
 const now = new Date("2026-09-12T12:00:00.000Z");
 
@@ -55,4 +55,32 @@ test("only loop history rows request delivery state", () => {
   assert.equal(isLoopRun({ id: "one", value: { station: "loop" } }), true);
   assert.equal(isLoopRun({ id: "one", value: { station: "worker" } }), false);
   assert.equal(isLoopRun(null), false);
+});
+
+test("attention reasons prefer errors, then review summaries, then merge reasons", () => {
+  assert.equal(
+    deriveAttentionReason({ error: "Worker failed", review: { summary: "Review notes" }, mergeDecision: { reason: "Merge note" } }),
+    "Worker failed",
+  );
+  assert.equal(deriveAttentionReason({ review: { summary: "  Review  notes\nwith spacing " } }), "Review notes with spacing");
+  assert.equal(deriveAttentionReason({ mergeDecision: { reason: "Needs an owner" } }), "Needs an owner");
+  assert.equal(deriveAttentionReason({ error: "   ", review: { summary: "" } }), undefined);
+  assert.equal(deriveAttentionReason({}), undefined);
+});
+
+test("long attention reasons are safely bounded", () => {
+  const reason = deriveAttentionReason({ error: `${"a".repeat(250)} end` });
+  assert.ok(reason);
+  assert.ok(reason.length <= 180);
+  assert.ok(reason.endsWith("\u2026"));
+});
+
+test("terminal attention cards keep a bounded reason while active cards do not need a line", () => {
+  const blocked = summarizeDelivery({ id: "delivery-blocked", phase: "blocked", error: "Delivery is blocked" }, "History label", now);
+  assert.equal(blocked?.phaseLabel, "Blocked");
+  assert.equal(blocked?.attentionReason, "Delivery is blocked");
+  assert.equal(attentionPhases.has(blocked?.phase ?? ""), true);
+  const reviewing = summarizeDelivery({ id: "delivery-reviewing", phase: "reviewing", error: "Delivery is blocked" }, "History label", now);
+  assert.equal(reviewing?.attentionReason, "Delivery is blocked");
+  assert.equal(attentionPhases.has(reviewing?.phase ?? ""), false);
 });
