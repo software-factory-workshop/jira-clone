@@ -2,6 +2,8 @@
 import { demoIssues } from "@jira-clone/context";
 import {
   OBSERVED_STATUSES,
+  PRIORITIES,
+  changePriority,
   columnIssues,
   moveIssue,
   moveTargets,
@@ -13,11 +15,13 @@ const view = ref("list");
 const search = ref("");
 const status = ref("All statuses");
 const statuses: string[] = [...OBSERVED_STATUSES];
+const priorities: string[] = [...PRIORITIES];
 const selectedKey = ref<string | null>(null);
 const issues = ref<BoardIssue[]>(demoIssues.map((issue) => ({ ...issue })));
 const loading = ref(true);
 const loadError = ref<string | null>(null);
 const moveError = ref<string | null>(null);
+const priorityError = ref<string | null>(null);
 const saveNotice = ref<string | null>(null);
 const pendingKeys = ref<string[]>([]);
 const draggedKey = ref<string | null>(null);
@@ -30,9 +34,11 @@ const selectedTargets = computed(() =>
   selected.value ? moveTargets(statuses, selected.value.status) : [],
 );
 const selectedTarget = ref("");
+const selectedPriority = ref("");
 
 watch(selected, (issue) => {
   selectedTarget.value = issue ? moveTargets(statuses, issue.status)[0] ?? "" : "";
+  selectedPriority.value = issue ? issue.priority : "";
 });
 
 const filtered = computed(() =>
@@ -53,6 +59,14 @@ async function saveStatus(
   const saved = await $fetch<{ issue: BoardIssue }>(`/api/issues/${key}`, {
     method: "PATCH",
     body: { status: next, ...(fail ? { fail: true } : {}) },
+  });
+  return saved.issue;
+}
+
+async function savePriority(key: string, next: string): Promise<BoardIssue> {
+  const saved = await $fetch<{ issue: BoardIssue }>(`/api/issues/${key}`, {
+    method: "PATCH",
+    body: { priority: next },
   });
   return saved.issue;
 }
@@ -92,6 +106,25 @@ async function moveCard(key: string, toStatus: string) {
   pendingKeys.value = pendingKeys.value.filter((pending) => pending !== key);
 }
 
+async function changePriorityCard(key: string, next: string) {
+  if (pendingKeys.value.includes(key)) return;
+  pendingKeys.value = [...pendingKeys.value, key];
+  priorityError.value = null;
+  saveNotice.value = null;
+  const before = selectedKey.value;
+  const result = await changePriority(issues.value, key, next, (k, priority) =>
+    savePriority(k, priority),
+  );
+  issues.value = result.issues;
+  if (result.ok) {
+    saveNotice.value = `Demo-only save: ${key} priority set to ${next}. Reload to confirm it persists on this server.`;
+  } else {
+    priorityError.value = result.error;
+  }
+  selectedKey.value = before;
+  pendingKeys.value = pendingKeys.value.filter((pending) => pending !== key);
+}
+
 function onDragStart(event: DragEvent, key: string) {
   draggedKey.value = key;
   dropColumn.value = null;
@@ -115,6 +148,7 @@ function onDropColumn(toStatus: string) {
 
 async function resetBoard() {
   moveError.value = null;
+  priorityError.value = null;
   saveNotice.value = null;
   try {
     const data = await $fetch<{ issues: BoardIssue[] }>("/api/issues/reset", {
@@ -131,6 +165,10 @@ async function resetBoard() {
 
 function cardMoveLabel(issue: BoardIssue) {
   return `Move ${issue.key} to another column`;
+}
+
+function priorityLabel(issue: BoardIssue) {
+  return `Change priority for ${issue.key}`;
 }
 
 await refresh();
@@ -182,10 +220,11 @@ await refresh();
             <UIcon name="i-lucide-info" />
             <p>
               <strong>Synthetic demo data.</strong> Review the layout and open
-              an issue. Status moves use a labelled
+              an issue. Status moves and priority edits use a labelled
               <strong>demo-only save path</strong>: they persist across reload
               on this server and reset on redeploy. Allowed demo statuses are
-              To Do, In Progress, In Review and Done; no Jira transition
+              To Do, In Progress, In Review and Done; allowed demo priorities
+              are Highest, High, Medium, Low and Lowest. No Jira transition
               enforcement is claimed.
             </p>
           </div>
@@ -212,6 +251,11 @@ await refresh();
             <UIcon name="i-lucide-triangle-alert" /> Demo save failed:
             {{ moveError }} The card stays in its original column and your
             selection is preserved.
+          </p>
+          <p v-if="priorityError" class="save-error" role="alert">
+            <UIcon name="i-lucide-triangle-alert" /> Demo save failed:
+            {{ priorityError }} The priority stays unchanged and your draft
+            selection is preserved for retry.
           </p>
           <p v-if="saveNotice" class="save-note" role="status">
             <UIcon name="i-lucide-check" /> {{ saveNotice }}
@@ -278,7 +322,27 @@ await refresh();
                     >
                   </td>
                   <td class="assignee">{{ issue.assignee }}</td>
-                  <td>{{ issue.priority }}</td>
+                  <td>
+                    <USelect
+                      :model-value="issue.priority"
+                      :items="priorities"
+                      :aria-label="priorityLabel(issue)"
+                      :disabled="pendingKeys.includes(issue.key)"
+                      size="sm"
+                      @update:model-value="
+                        (next) => {
+                          if (typeof next === 'string' && next !== issue.priority)
+                            void changePriorityCard(issue.key, next);
+                        }
+                      "
+                    />
+                    <span
+                      v-if="pendingKeys.includes(issue.key)"
+                      class="saving"
+                    >
+                      Saving demo edit…
+                    </span>
+                  </td>
                 </tr>
               </tbody>
             </table>
@@ -412,6 +476,31 @@ await refresh();
               "
             >
               Move to {{ selectedTarget || "…" }}
+            </UButton>
+            <label class="move-row">
+              <span class="move-label">
+                <UIcon name="i-lucide-flag" />Demo-only priority for
+                {{ selected.key }}
+              </span>
+              <USelect
+                v-model="selectedPriority"
+                :items="priorities"
+                :aria-label="`Change priority for ${selected.key}`"
+                :disabled="pendingKeys.includes(selected.key)"
+                size="sm"
+              />
+            </label>
+            <UButton
+              icon="i-lucide-flag"
+              :loading="pendingKeys.includes(selected.key)"
+              :disabled="!selectedPriority || selectedPriority === selected.priority"
+              @click="
+                selected &&
+                  selectedPriority &&
+                  void changePriorityCard(selected.key, selectedPriority)
+              "
+            >
+              Save priority{{ selectedPriority && selectedPriority !== selected.priority ? ` (${selectedPriority})` : "" }}
             </UButton>
             <UButton :to="config.public.factoryUrl" variant="outline"
               >Shape the next capability in the cockpit</UButton
