@@ -1,6 +1,11 @@
 <script setup lang="ts">
 import { demoIssues } from "@jira-clone/context";
 import {
+  failedDetail,
+  fetchIssueDetail,
+  loadedDetail,
+} from "~/utils/issueDetail";
+import {
   ALL_ASSIGNEES,
   OBSERVED_STATUSES,
   PRIORITIES,
@@ -21,6 +26,10 @@ const assignee = ref(ALL_ASSIGNEES);
 const statuses: string[] = [...OBSERVED_STATUSES];
 const priorities: string[] = [...PRIORITIES];
 const selectedKey = ref<string | null>(null);
+const detailIssue = ref<BoardIssue | null>(null);
+const detailLoading = ref(false);
+const detailError = ref<string | null>(null);
+const detailDemoOnly = ref(false);
 const issues = ref<BoardIssue[]>(demoIssues.map((issue) => ({ ...issue })));
 const loading = ref(true);
 const loadError = ref<string | null>(null);
@@ -33,9 +42,7 @@ const dropColumn = ref<string | null>(null);
 
 const assignees = computed(() => assigneeOptions(issues.value));
 
-const selected = computed(
-  () => issues.value.find((issue) => issue.key === selectedKey.value) ?? null,
-);
+const selected = computed(() => detailIssue.value);
 const selectedTargets = computed(() =>
   selected.value ? moveTargets(statuses, selected.value.status) : [],
 );
@@ -55,6 +62,36 @@ const createTypes = ["Story", "Task", "Bug"];
 watch(selected, (issue) => {
   selectedTarget.value = issue ? moveTargets(statuses, issue.status)[0] ?? "" : "";
   selectedPriority.value = issue ? issue.priority : "";
+});
+
+async function loadDetail(key: string) {
+  detailLoading.value = true;
+  try {
+    const result = await fetchIssueDetail(key, (url) =>
+      $fetch<{ issue: BoardIssue; demoOnly?: boolean }>(url),
+    );
+    if (selectedKey.value !== key) return;
+    const loaded = loadedDetail(result);
+    detailIssue.value = loaded.issue;
+    detailDemoOnly.value = loaded.demoOnly;
+    detailError.value = loaded.error;
+  } catch (error) {
+    if (selectedKey.value !== key) return;
+    const failed = failedDetail(error);
+    detailIssue.value = failed.issue;
+    detailDemoOnly.value = failed.demoOnly;
+    detailError.value = failed.error;
+  } finally {
+    if (selectedKey.value === key) detailLoading.value = false;
+  }
+}
+
+watch(selectedKey, (key) => {
+  detailIssue.value = null;
+  detailDemoOnly.value = false;
+  detailError.value = null;
+  detailLoading.value = false;
+  if (key) void loadDetail(key);
 });
 
 const filtered = computed(() =>
@@ -117,6 +154,7 @@ async function moveCard(key: string, toStatus: string) {
     moveError.value = result.error;
   }
   selectedKey.value = before;
+  if (selectedKey.value === key && result.ok) void loadDetail(key);
   pendingKeys.value = pendingKeys.value.filter((pending) => pending !== key);
 }
 
@@ -136,6 +174,7 @@ async function changePriorityCard(key: string, next: string) {
     priorityError.value = result.error;
   }
   selectedKey.value = before;
+  if (selectedKey.value === key && result.ok) void loadDetail(key);
   pendingKeys.value = pendingKeys.value.filter((pending) => pending !== key);
 }
 
@@ -595,8 +634,8 @@ await refresh();
         </template>
       </UModal>
       <USlideover
-        :open="!!selected"
-        :title="selected?.key"
+        :open="!!selectedKey"
+        :title="selected?.key ?? selectedKey ?? undefined"
         :description="selected?.title"
         @update:open="
           (value) => {
@@ -604,8 +643,19 @@ await refresh();
           }
         "
         ><template #body
-          ><div v-if="selected" class="issue-details">
+          ><p v-if="detailLoading" class="empty" role="status">
+            Loading issue detail…
+          </p>
+          <p v-else-if="detailError" class="save-error" role="alert">
+            <UIcon name="i-lucide-triangle-alert" /> Could not load
+            {{ selectedKey }}: {{ detailError }} List data is unchanged and
+            nothing was saved.
+          </p>
+          <div v-else-if="selected" class="issue-details">
             <UBadge color="warning" variant="soft">Synthetic issue</UBadge>
+            <UBadge v-if="detailDemoOnly" color="neutral" variant="subtle"
+              >Demo-only read</UBadge
+            >
             <h2>{{ selected.title }}</h2>
             <p>{{ selected.description }}</p>
             <dl>
