@@ -22,6 +22,20 @@ The initial publication allowlist is `apps/factory/app/`, `apps/factory/tests/`,
 
 A reviewer receives no publication tool. Its final report rechecks the PR head and base so a changed candidate requires another review. A review verdict is an assessment, not a merge authorization. Model quality, hosted behavior and GitHub app write permissions require real-run evidence beyond the helper's fixture tests.
 
+## Branch ownership invariant — accepted direction, implementation pending
+
+Remi's decision on 12 September 2026: at most one agent owns write access to a branch at a time. Another agent needing to contribute must create its own branch and open a PR targeting the existing branch. It cannot queue for direct write access, adopt that branch because its owner is idle, or push a fix directly to the parent PR. PR merges remain manual.
+
+Example: agent A owns `feature/core` and its PR targets `main`. Agent B owns `feature/core-fix`; its contribution PR targets `feature/core`. Agent C can independently own another contribution branch targeting `feature/core`. Each branch follows the same ownership rule.
+
+Resuming the owning logical agent may use a fresh Eve execution, but only one execution may write for that owner at a time. An ownership transfer must be explicit and revoke the previous writer before admitting its successor; session expiry or inactivity must not silently transfer ownership. A different contributing agent uses a child PR by default.
+
+The host must bind repository, owned branch, owner, expected head and PR target before execution, and enforce these bindings on every publication. A changed-head check remains a safeguard against stale work, human merges or unexpected writes; it is not the mechanism for allowing competing agents to write the same branch. No force push or silent overwrite.
+
+A conflict with the parent branch is resolved on the contributing agent's own branch, then checked and reviewed again before manual merge into the parent. Every PR is assessed against its actual target branch, which may be another feature branch rather than `main`. Incorporating a contribution changes the parent head and requires refreshed checks/review for the parent PR.
+
+This replaces the earlier suggestion to let multiple workers target the same branch and reject whichever publishes second. The current deployed publisher still creates one immutable branch/PR per session and only targets `main`; ownership-aware revisions and child PRs are not implemented yet.
+
 ## Source decisions
 
 The following source revisions were inspected locally on 12 September 2026:
