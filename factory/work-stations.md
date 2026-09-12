@@ -6,7 +6,7 @@ Task mining remains read-only. A station is selected by an authenticated server 
 
 ## Reuse the context, separate the authority
 
-Both jobs reuse the current goal, source map, active work, ADEO guidance and pinned dependency setup. The worker starts from a pinned `main` commit. The reviewer gets independently fetched base and head snapshots, the GitHub file inventory and the original task. The worker's summary is evidence to check, not the review's authority.
+Both jobs reuse the current goal, source map, active work, ADEO guidance and pinned dependency setup. The worker starts from a pinned `main` commit, or the current head of an explicitly selected parent PR. The reviewer gets independently fetched base and head snapshots, the GitHub file inventory and the original task. The worker's summary is evidence to check, not the review's authority.
 
 Review instructions and applicable repository policy come from the base snapshot. Candidate changes to `AGENTS.md`, factory instructions, tests or other policy cannot replace the rules judging the candidate. The reviewer inspects actual changes and reruns focused checks. If an excluded or unsupported file prevents a complete comparison, the result must identify that gap.
 
@@ -16,7 +16,11 @@ Eve 0.52.5's declared subagents support separate authored tool sets and Sandboxe
 
 The Sandbox has no GitHub credential. The host reads bounded changed text files, verifies the assigned task and checks, then obtains the existing app-scoped `github/jira-clone` Connect token. The publisher can create Git tree and commit objects, one feature branch and a draft PR in `software-factory-workshop/jira-clone`. There is no generic URL, repository, Git command or branch argument supplied by the model.
 
-The branch is `factory/work-<session hash>`. A retry reuses a branch only when its tree, parent and host-written session marker match the same publication. A different head fails. The publisher does not update existing refs, force push, write `main`, merge or submit a GitHub approval. If `main` advances before the initial publication, the worker must start from a fresh snapshot.
+The branch is `factory/work-<session hash>`, owned by that durable worker session. Initial publication creates a draft PR. Authenticated revisions queue on the same owner and update only its ref with `force: false`, an expected head, and an idempotent operation marker. A contributing worker receives its own branch and targets the parent PR's branch. No station writes another owner's branch or merges a PR.
+
+If the target advances, `refresh_target` merges the recorded target, preserved owner source and new target using three-way text merging. It exposes conflicts for resolution in the owner's workspace, inherits unchanged protected files from the target, and blocks protected conflicts without replacing source. The full merged tree is staged before replacing the working source; the previous source remains available during dependency setup. Conflict markers block verification/publication. Checks run again against the resulting source. Publishing a target refresh adds a merge commit on the owned branch; it does not merge the GitHub PR.
+
+A human merge into the owned branch is accepted only if its head descends from the verified owner publication. Replaced history or a changed target remains a blocker. Publication retries recognize a previously successful owned commit even if the target subsequently advances; the receipt marks that target as advanced instead of silently creating another commit.
 
 The initial publication allowlist is `apps/factory/app/`, `apps/factory/tests/`, `apps/jira/app/`, `apps/jira/tests/` and `docs/`. Root files, packages and other directories cannot be published by this station. Within those roots, the limit is 30 text files, 500 KB per file and 2 MB total. Existing executable modes are preserved; new files are ordinary files. Symlinks, submodules, directory replacement and traversal fail. Credentials, generated output, evaluation artifacts, the fx experiment, factory/agent policy, workflow files, dependency manifests, verifier configuration and server/module routing are protected in this first station. Checks must reject changes to those protected files before executing candidate code, not merely omit them from the final PR. Expanding that boundary is a separate reviewed factory change.
 
@@ -34,7 +38,11 @@ The host must bind repository, owned branch, owner, expected head and PR target 
 
 A conflict with the parent branch is resolved on the contributing agent's own branch, then checked and reviewed again before manual merge into the parent. Every PR is assessed against its actual target branch, which may be another feature branch rather than `main`. Incorporating a contribution changes the parent head and requires refreshed checks/review for the parent PR.
 
-This replaces the earlier suggestion to let multiple workers target the same branch and reject whichever publishes second. The current deployed publisher still creates one immutable branch/PR per session and only targets `main`; ownership-aware revisions and child PRs are not implemented yet.
+The revisions route resolves the owner from PR metadata, then verifies a successful host-emitted `publish_work` event in that durable session and its Git commit marker. Metadata alone grants no ownership. `prepare_work` independently verifies the durable publication state. Each queued request stamps its unique operation ID in trusted auth attributes: Eve combines queued messages only when their full auth contexts match, so different revisions remain separate turns. Results carry both delivery and operation identity; duplicates return the recorded result.
+
+API: `POST /factory/stations/worker` accepts `{operationId,title,brief,parentPrNumber?}`; `POST /factory/stations/revisions` accepts `{operationId,prNumber,brief}`. A revision returns the existing owner session and accepted `deliveryId`. An unavailable, expired or pre-revision owner returns `owner_unavailable`; the alternative is a child PR, never silent ownership transfer. Eve resumes existing sessions on their original deployment, so legacy PR2 cannot gain these tools by resuming it on a newer preview. Reviewer snapshots use the actual target branch head and record an integration gap when the candidate does not contain it.
+
+This branch has deterministic identity, publication and real three-way conflict tests. Hosted create/revise/contribute verification is still pending; no claim of deployed success follows from those tests.
 
 ## Source decisions
 

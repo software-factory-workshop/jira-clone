@@ -8,6 +8,7 @@ export function validateCollectedChanges(value:unknown,allowEmpty=false):WorkCha
  let size=0;
  for(const c of changes){
   if(!allowedWorkPath(c.path))throw new Error(`Protected path changed: ${c.path}`);
+  if(c.content&&/^(<<<<<<< |\|\|\|\|\|\|\| |=======\s*$|>>>>>>> )/m.test(c.content))throw new Error(`Unresolved merge conflict in ${c.path}`);
   const bytes=Buffer.byteLength(c.content||"");size+=bytes;
   if(bytes>MAX_WORK_FILE_BYTES||size>MAX_WORK_BYTES||c.content?.includes("\0"))throw new Error("Changed text exceeds publication bounds.");
  }

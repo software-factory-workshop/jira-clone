@@ -48,8 +48,8 @@ test("publication preserves existing executable mode but refuses symlinks",async
  t.mock.restoreAll();const symlinkWrites=mockGitHub(t,{mode:"120000"});await assert.rejects(publishWork("test-token",input),/symlinks/);assert.equal(symlinkWrites.length,0);
 });
 test("stale main and unexpected branch heads never create a ref or PR",async t=>{
- const writes=mockGitHub(t,{main:"f".repeat(40)});await assert.rejects(publishWork("test-token",input),/Main advanced/);assert(!writes.some(x=>x.path==="git/refs"||x.path==="pulls"));
- t.mock.restoreAll();const collisionWrites=mockGitHub(t,{existingDifferent:true});await assert.rejects(publishWork("test-token",input),/different head/);assert(!collisionWrites.some(x=>x.path==="git/refs"||x.path==="pulls"));
+ const writes=mockGitHub(t,{main:"f".repeat(40)});await assert.rejects(publishWork("test-token",input),/Target advanced/);assert(!writes.some(x=>x.path==="git/refs"||x.path==="pulls"));
+ t.mock.restoreAll();const collisionWrites=mockGitHub(t,{existingDifferent:true});await assert.rejects(publishWork("test-token",input),/cannot adopt/);assert(!collisionWrites.some(x=>x.path==="git/refs"||x.path==="pulls"));
 });
 test("protected or oversized changes fail before any provider request",async t=>{
  t.mock.method(globalThis,"fetch",async()=>{throw Error("must not call");});
