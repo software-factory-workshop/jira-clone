@@ -1,13 +1,42 @@
 <script setup lang="ts">
 import { demoIssues } from "@jira-clone/context";
+import {
+  OBSERVED_STATUSES,
+  columnIssues,
+  moveIssue,
+  moveTargets,
+  type BoardIssue,
+} from "~/utils/boardMove";
+
 const config = useRuntimeConfig();
 const view = ref("list");
 const search = ref("");
 const status = ref("All statuses");
-const statuses = ["To Do", "In Progress", "In Review", "Done"];
-const selected = ref<(typeof demoIssues)[number] | null>(null);
-const issues = computed(() =>
-  demoIssues.filter(
+const statuses: string[] = [...OBSERVED_STATUSES];
+const selectedKey = ref<string | null>(null);
+const issues = ref<BoardIssue[]>(demoIssues.map((issue) => ({ ...issue })));
+const loading = ref(true);
+const loadError = ref<string | null>(null);
+const moveError = ref<string | null>(null);
+const saveNotice = ref<string | null>(null);
+const pendingKeys = ref<string[]>([]);
+const draggedKey = ref<string | null>(null);
+const dropColumn = ref<string | null>(null);
+
+const selected = computed(
+  () => issues.value.find((issue) => issue.key === selectedKey.value) ?? null,
+);
+const selectedTargets = computed(() =>
+  selected.value ? moveTargets(statuses, selected.value.status) : [],
+);
+const selectedTarget = ref("");
+
+watch(selected, (issue) => {
+  selectedTarget.value = issue ? moveTargets(statuses, issue.status)[0] ?? "" : "";
+});
+
+const filtered = computed(() =>
+  issues.value.filter(
     (issue) =>
       `${issue.key} ${issue.title}`
         .toLowerCase()
@@ -15,6 +44,96 @@ const issues = computed(() =>
       (status.value === "All statuses" || issue.status === status.value),
   ),
 );
+
+async function saveStatus(
+  key: string,
+  next: string,
+  fail = false,
+): Promise<BoardIssue> {
+  const saved = await $fetch<{ issue: BoardIssue }>(`/api/issues/${key}`, {
+    method: "PATCH",
+    body: { status: next, ...(fail ? { fail: true } : {}) },
+  });
+  return saved.issue;
+}
+
+async function refresh() {
+  loading.value = true;
+  loadError.value = null;
+  try {
+    const data = await $fetch<{ issues: BoardIssue[] }>("/api/issues");
+    issues.value = data.issues;
+  } catch (error) {
+    loadError.value =
+      error instanceof Error
+        ? error.message
+        : "Could not load demo issues. Showing labelled fixtures.";
+  } finally {
+    loading.value = false;
+  }
+}
+
+async function moveCard(key: string, toStatus: string) {
+  if (pendingKeys.value.includes(key)) return;
+  pendingKeys.value = [...pendingKeys.value, key];
+  moveError.value = null;
+  saveNotice.value = null;
+  const before = selectedKey.value;
+  const result = await moveIssue(issues.value, key, toStatus, (k, next) =>
+    saveStatus(k, next),
+  );
+  issues.value = result.issues;
+  if (result.ok) {
+    saveNotice.value = `Demo-only save: ${key} moved to ${toStatus}. Reload to confirm it persists on this server.`;
+  } else {
+    moveError.value = result.error;
+  }
+  selectedKey.value = before;
+  pendingKeys.value = pendingKeys.value.filter((pending) => pending !== key);
+}
+
+function onDragStart(event: DragEvent, key: string) {
+  draggedKey.value = key;
+  dropColumn.value = null;
+  if (event.dataTransfer) {
+    event.dataTransfer.setData("text/plain", key);
+    event.dataTransfer.effectAllowed = "move";
+  }
+}
+
+function onDragEnd() {
+  draggedKey.value = null;
+  dropColumn.value = null;
+}
+
+function onDropColumn(toStatus: string) {
+  const key = draggedKey.value;
+  dropColumn.value = null;
+  draggedKey.value = null;
+  if (key) void moveCard(key, toStatus);
+}
+
+async function resetBoard() {
+  moveError.value = null;
+  saveNotice.value = null;
+  try {
+    const data = await $fetch<{ issues: BoardIssue[] }>("/api/issues/reset", {
+      method: "POST",
+    });
+    issues.value = data.issues;
+    saveNotice.value =
+      "Demo board reset to labelled fixture identities. Reset only affects this demo-only store.";
+  } catch (error) {
+    moveError.value =
+      error instanceof Error ? error.message : "Demo reset failed.";
+  }
+}
+
+function cardMoveLabel(issue: BoardIssue) {
+  return `Move ${issue.key} to another column`;
+}
+
+await refresh();
 </script>
 <template>
   <UApp
@@ -63,10 +182,40 @@ const issues = computed(() =>
             <UIcon name="i-lucide-info" />
             <p>
               <strong>Synthetic demo data.</strong> Review the layout and open
-              an issue. Changes, accounts and Jira-compatible APIs arrive in
-              later stages.
+              an issue. Status moves use a labelled
+              <strong>demo-only save path</strong>: they persist across reload
+              on this server and reset on redeploy. Allowed demo statuses are
+              To Do, In Progress, In Review and Done; no Jira transition
+              enforcement is claimed.
             </p>
           </div>
+          <div class="demo-save-bar">
+            <UButton
+              icon="i-lucide-rotate-ccw"
+              variant="outline"
+              color="neutral"
+              size="sm"
+              @click="resetBoard()"
+            >
+              Reset demo board
+            </UButton>
+            <span class="demo-save-hint">
+              Reset restores the labelled fixture identities and only affects
+              the demo-only store.
+            </span>
+          </div>
+          <p v-if="loading" class="empty" role="status">Loading demo board…</p>
+          <p v-if="loadError" class="save-error" role="alert">
+            <UIcon name="i-lucide-triangle-alert" /> {{ loadError }}
+          </p>
+          <p v-if="moveError" class="save-error" role="alert">
+            <UIcon name="i-lucide-triangle-alert" /> Demo save failed:
+            {{ moveError }} The card stays in its original column and your
+            selection is preserved.
+          </p>
+          <p v-if="saveNotice" class="save-note" role="status">
+            <UIcon name="i-lucide-check" /> {{ saveNotice }}
+          </p>
           <div class="filters">
             <UInput
               v-model="search"
@@ -77,7 +226,7 @@ const issues = computed(() =>
               v-model="status"
               :items="['All statuses', ...statuses]"
               aria-label="Filter by status"
-            /><span>{{ issues.length }} issues</span>
+            /><span>{{ filtered.length }} issues</span>
           </div>
           <div v-if="view === 'list'" class="table-wrap">
             <table>
@@ -92,7 +241,7 @@ const issues = computed(() =>
                 </tr>
               </thead>
               <tbody>
-                <tr v-for="issue in issues" :key="issue.key">
+                <tr v-for="issue in filtered" :key="issue.key">
                   <td>
                     <UIcon
                       :name="
@@ -108,7 +257,10 @@ const issues = computed(() =>
                   </td>
                   <td class="issue-key">{{ issue.key }}</td>
                   <td>
-                    <button class="issue-title" @click="selected = issue">
+                    <button
+                      class="issue-title"
+                      @click="selectedKey = issue.key"
+                    >
                       {{ issue.title }}
                     </button>
                   </td>
@@ -130,7 +282,7 @@ const issues = computed(() =>
                 </tr>
               </tbody>
             </table>
-            <p v-if="!issues.length" class="empty">
+            <p v-if="!filtered.length" class="empty">
               No issues match your filters.
             </p>
           </div>
@@ -139,23 +291,32 @@ const issues = computed(() =>
               v-for="column in statuses"
               :key="column"
               class="board-column"
+              :class="{ 'drop-active': dropColumn === column }"
+              :aria-label="`${column} column. Drop cards here to move them.`"
+              @dragover.prevent="dropColumn = column"
+              @dragleave="dropColumn = null"
+              @drop.prevent="onDropColumn(column)"
             >
               <header>
                 <h2>{{ column }}</h2>
                 <span>{{
-                  issues.filter((issue) => issue.status === column).length
+                  columnIssues(filtered, column).length
                 }}</span>
               </header>
-              <button
-                v-for="issue in issues.filter(
-                  (issue) => issue.status === column,
-                )"
+              <article
+                v-for="issue in columnIssues(filtered, column)"
                 :key="issue.key"
                 class="issue-card"
-                @click="selected = issue"
+                :class="{ dragging: draggedKey === issue.key }"
+                draggable="true"
+                :aria-label="`${issue.key} ${issue.title}`"
+                @dragstart="onDragStart($event, issue.key)"
+                @dragend="onDragEnd()"
               >
-                <strong>{{ issue.title }}</strong
-                ><span
+                <button class="issue-title" @click="selectedKey = issue.key">
+                  <strong>{{ issue.title }}</strong>
+                </button>
+                <span
                   >{{ issue.key
                   }}<UIcon
                     :name="
@@ -164,11 +325,39 @@ const issues = computed(() =>
                         : 'i-lucide-square-check'
                     "
                 /></span>
-              </button>
+                <label class="move-row">
+                  <span class="move-label">
+                    <UIcon name="i-lucide-move" />{{ cardMoveLabel(issue) }}
+                  </span>
+                  <USelect
+                    :model-value="issue.status"
+                    :items="statuses"
+                    :aria-label="cardMoveLabel(issue)"
+                    :disabled="pendingKeys.includes(issue.key)"
+                    size="sm"
+                    @update:model-value="
+                      (next) => {
+                        if (typeof next === 'string' && next !== issue.status)
+                          void moveCard(issue.key, next);
+                      }
+                    "
+                  />
+                </label>
+                <span v-if="pendingKeys.includes(issue.key)" class="saving">
+                  Saving demo move…
+                </span>
+              </article>
+              <p
+                v-if="!columnIssues(filtered, column).length"
+                class="empty drop-hint"
+              >
+                Drop cards here to move them to {{ column }}.
+              </p>
             </section>
           </div>
           <p class="footer-note">
-            Observed Jira statuses · ADEO Nuxt UI v0.1.1 · Fixture content
+            Observed Jira statuses · ADEO Nuxt UI v0.1.1 · Fixture content ·
+            Demo-only saves reset on redeploy
           </p>
         </main>
       </div>
@@ -178,7 +367,7 @@ const issues = computed(() =>
         :description="selected?.title"
         @update:open="
           (value) => {
-            if (!value) selected = null;
+            if (!value) selectedKey = null;
           }
         "
         ><template #body
@@ -196,6 +385,34 @@ const issues = computed(() =>
               <dt>Assignee</dt>
               <dd>{{ selected.assignee }}</dd>
             </dl>
+            <label class="move-row">
+              <span class="move-label">
+                <UIcon name="i-lucide-move" />Move
+                {{ selected.key }} to another column
+              </span>
+              <USelect
+                v-model="selectedTarget"
+                :items="selectedTargets"
+                :aria-label="`Move ${selected.key} to another column`"
+                :disabled="
+                  !selectedTargets.length ||
+                  pendingKeys.includes(selected.key)
+                "
+                size="sm"
+              />
+            </label>
+            <UButton
+              icon="i-lucide-move"
+              :loading="pendingKeys.includes(selected.key)"
+              :disabled="!selectedTarget"
+              @click="
+                selected &&
+                  selectedTarget &&
+                  void moveCard(selected.key, selectedTarget)
+              "
+            >
+              Move to {{ selectedTarget || "…" }}
+            </UButton>
             <UButton :to="config.public.factoryUrl" variant="outline"
               >Shape the next capability in the cockpit</UButton
             >

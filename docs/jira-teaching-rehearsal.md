@@ -63,3 +63,10 @@ Derived from `factory/tasks/jira-teaching-loop.md`. Delivery mechanics follow
   insufficient).
 - [ ] Review head/target and browser behavior for the changed routes.
 - [ ] Unfinished or missing evidence kept visible, not filled in by assertion.
+
+> Board status-move note (worker draft, 12 Sep 2026): Kanban cards now move
+> through a keyboard-first `Move to …` control with HTML5 drag-and-drop as a
+> pointer enhancement. Moves save through `PATCH /api/issues/:key`, a labelled
+> demo-only in-memory path that survives reload on the same server, resets on
+> redeploy, and keeps the card in its original column on deterministic failure.
+> Pointer-drag approval still needs trusted human browser evidence.
