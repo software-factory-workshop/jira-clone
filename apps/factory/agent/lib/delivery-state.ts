@@ -3,13 +3,13 @@ import { z } from 'zod';
 import { workerRequest } from './station-access.ts';
 export const deliveryRequest=workerRequest.extend({maxRevisions:z.number().int().min(0).max(10).default(3)});
 export type DeliveryRequest=z.infer<typeof deliveryRequest>;
-export type Phase='worker_starting'|'working'|'review_starting'|'reviewing'|'revision_starting'|'revising'|'human_review'|'ready'|'blocked'|'cancelled'|'needs_revision';
+export type Phase='worker_starting'|'working'|'review_starting'|'reviewing'|'revision_starting'|'revising'|'human_review'|'ready'|'blocked'|'cancelled'|'needs_revision'|'owner_resuming';
 export interface Delivery {
  id:string;version:number;request:DeliveryRequest;principalId:string;phase:Phase;cycle:number;
  createdAt:string;updatedAt:string;leaseUntil?:number;sessionId?:string;childSessionId?:string;
  operationId:string;deliveryId?:string;publication?:{number:number;url:string;headSha:string;targetHeadSha:string;targetBranch:string;ownerSessionId:string;branch:string};
  review?:{verdict:string;summary:string;headSha:string;baseSha:string;targetBranch:string;findings:Array<{severity:string;path:string;message:string;evidence:string}>;limitations:string[]};
- failedPhase?:Phase;revisionRequests?:Record<string,string>;revisionBrief?:string;error?:string;history:Array<{phase:Phase;at:string;sessionId?:string;headSha?:string}>;
+ resumeAttemptedAt?:number;resumeOperationId?:string;resumeRequests?:Record<string,boolean>;failedPhase?:Phase;revisionRequests?:Record<string,string>;revisionBrief?:string;error?:string;history:Array<{phase:Phase;at:string;sessionId?:string;headSha?:string}>;
 }
 export const terminal=(phase:Phase)=>['human_review','ready','blocked','cancelled','needs_revision'].includes(phase);
 export function operationFor(id:string,kind:string,cycle:number){const h=createHash('sha256').update(`${id}:${kind}:${cycle}`).digest('hex');return `${h.slice(0,8)}-${h.slice(8,12)}-4${h.slice(13,16)}-8${h.slice(17,20)}-${h.slice(20,32)}`;}
@@ -39,4 +39,14 @@ export function claimAdvance(state:Delivery,now=Date.now()) {
 export function commitAdvance(current:Delivery,candidate:Delivery,claimedVersion:number) {
  if(current.version!==claimedVersion)return current;
  delete candidate.leaseUntil;candidate.version=current.version+1;candidate.updatedAt=new Date().toISOString();return candidate;
+}
+
+export function requestResume(state:Delivery,operationId?:string){
+ if(operationId&&state.resumeRequests?.[operationId])return state;
+ if(state.phase==='human_review'&&!state.publication&&state.childSessionId){
+  if(!operationId)throw new Error('An operation ID is required to resume the original worker.');
+  state.resumeRequests={...state.resumeRequests,[operationId]:true};state.resumeOperationId=operationId;delete state.resumeAttemptedAt;transition(state,'owner_resuming');
+ }else if(state.phase==='blocked'&&state.failedPhase){transition(state,state.failedPhase);if(operationId)state.resumeRequests={...state.resumeRequests,[operationId]:true};}
+ else throw new Error('This delivery requires review or a published-owner revision, not worker recovery.');
+ delete state.error;return state;
 }

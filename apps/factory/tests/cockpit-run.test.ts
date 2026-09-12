@@ -2,8 +2,8 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { projectRunEvent,readRun,readStationRun } from '../agent/lib/cockpit-run.ts';
-const proof=JSON.parse(readFileSync(new URL('../../../factory/mining/native/2026-09-12/branch-ownership-proof.json',import.meta.url),'utf8'));
-const liveEvents:unknown[]=Object.values(proof.sessions).flatMap((s:any)=>s.events??[]);
+const proof=JSON.parse(readFileSync(new URL('./fixtures/cockpit-run-events.json',import.meta.url),'utf8'));
+const liveEvents:unknown[]=[proof.publication];
 function session(events:unknown[],tail=events.length-1){return {getStreamTailIndex:async()=>tail,getEventStream:async()=>new ReadableStream({start(controller){for(const event of events)controller.enqueue(event);controller.close();}})};}
 test('actual recorded owner event projects the exact operation and delivery',async()=>{
  const event:any=liveEvents.find((e:any)=>e.type==='action.result'&&e.data?.result?.toolName==='publish_work'&&e.data?.result?.output?.operationId&&e.meta?.deliveryIds?.length);
@@ -21,8 +21,7 @@ test('new turn removes stale completion and truncated snapshots cannot activate'
  assert.equal((await readRun(session(events,4))).complete,false);
 });
 test('dispatcher result follows actual recorded child call',async()=>{
- const dispatchProof=JSON.parse(readFileSync(new URL('../../../factory/mining/native/2026-09-12/worker-context-limit.json',import.meta.url),'utf8'));
- const event:any=dispatchProof.rootEvents.find((e:any)=>e.type==='subagent.called');assert.ok(event);
+ const event=proof.dispatch;assert.ok(event);
  const child=event.data.childSessionId;const seen:string[]=[];
  const result=await readStationRun(id=>{seen.push(id);return session(id==='root'?[event]:[{type:'turn.started',data:{}}]);},'root');
  assert.deepEqual(seen,['root',child]);assert.equal(result.sessionId,child);

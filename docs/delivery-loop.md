@@ -42,3 +42,11 @@ Workers may author Jira `app/`, `tests/`, `server/api/` and `server/utils/` text
 Research reused: the extracted task-dispatch block's stable request identity and payload-conflict rules; review-gate's exact-candidate evidence; Eve declared specialist isolation and custom channel continuation semantics. Source corpus: `research/walkthroughs/eve-software-factory-template.md`, `research/walkthroughs/vercel-factory.md` and `eve-software-factory-blocks/blocks/task-dispatch/README.md` in the software-factories research repository.
 
 For a deployment protected by Vercel, the CLI also accepts `--vercel-cwd <linked-project-directory>`. It uses the authenticated Vercel CLI's protection bypass in scope `demo-software-factory`, while passing the Eve bearer header through stdin. The token is not placed in subprocess arguments. The checkpoint remembers this transport for reconnects.
+
+## Recover an unpublished worker
+
+If the original worker stopped before publication because a factory baseline check failed, fix that baseline and call `/resume` with a fresh `operationId`, or run `node scripts/delivery-loop.mjs --state /tmp/jira-delivery.json --continue`. The loop queues the same durable owner, preserves its original publication operation and pending source, and asks it to refresh the target and rerun checks. A stopped reviewer or an already published worker requires review or `/revise` instead.
+
+Recovery records send intent before queueing. If the receipt is lost, the loop looks for the exact recovery message in the owner's durable stream and recovers its delivery ID; it does not send twice. An uncertain intent without a receipt stops for manual inspection after a minute. This deliberately leaves the rare crash-before-send case unresolved instead of guessing whether another message is safe.
+
+The cockpit run regression fixtures live under `apps/factory/tests/fixtures/`. They are selected real event excerpts from the earlier ownership proof, so worker snapshots can execute the tests without exposing the intentionally excluded mining history.
