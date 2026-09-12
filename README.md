@@ -54,7 +54,7 @@ Two Vercel projects on `demo-software-factory`, each linked to this repository:
 | `adeo-factory-cockpit` | `apps/factory` |
 | `adeo-jira-clone` | `apps/jira` |
 
-Both projects include files outside their root, use Node 24, and build the Nuxt application. Their workspace dependency and vendored design-system artifact must be present during installation.
+Both projects include files outside their root, use Node 24, and build the Nuxt application. The team allows production deployment from Git only: push to `main`; do not use `vercel deploy --prod`. Their workspace dependency and vendored design-system artifact must be present during installation.
 
 The cockpit's GitHub connector is `github/jira-clone`. Keep all cockpit deployments protected before enabling private repository reads. No personal GitHub token belongs in app configuration.
 

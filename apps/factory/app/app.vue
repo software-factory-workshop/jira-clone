@@ -19,9 +19,10 @@ const {
   data: github,
   status: githubStatus,
   refresh: refreshGithub,
-} = useFetch("/api/github", { server: false });
+} = useFetch("/api/github", { server: false, immediate: false });
 const storageKey = "adeo-factory-drafts-v1";
 onMounted(() => {
+  void refreshGithub();
   try {
     drafts.value = parseDrafts(
       JSON.parse(localStorage.getItem(storageKey) || "[]"),
@@ -266,7 +267,7 @@ const issueUrl = computed(
                     "
                     variant="soft"
                     >{{
-                      githubStatus === "pending"
+                      (githubStatus === "pending" || githubStatus === "idle")
                         ? "Checking…"
                         : github?.state === "connected"
                           ? "Connected"
@@ -280,7 +281,7 @@ const issueUrl = computed(
                     open issues and pull requests<br />Read through Vercel
                     Connect
                   </p>
-                  <p v-else-if="githubStatus === 'pending'">Checking repository access through Vercel Connect.</p>
+                  <p v-else-if="githubStatus === 'pending' || githubStatus === 'idle'">Checking repository access through Vercel Connect.</p>
                   <p v-else>
                     Repository access is not available in this session. Check
                     the connection installation and project access.
