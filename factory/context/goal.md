@@ -6,6 +6,14 @@ The primary outcome is a software factory that we can grow and explain in a 3–
 
 ## Current experiment
 
+### Current owner instruction, 12 September 2026
+
+Grow an API-controlled factory that builds the Jira teaching application. The development session may change the factory, its context, publication policy and verification tools. Jira implementation changes must be authored by the native Eve worker and published as PRs. The current assignment is a stateful teaching slice: seeded issues, editable priority, assignee filtering and a reproducible save path with failure cases. Comment permissions follow once that foundation exists. Fixtures are acceptable when labelled; a static shell does not prove a persistence exercise.
+
+Everything the cockpit UI can do must also be possible through authenticated APIs. The UI and API clients must share saved drafts, proposal feedback and run references. Reuse Eve for execution, streams, controls and durable owners. Add a small explicit build/review/revise loop, preserving one writer per branch and child PRs for separate contributors. Missing review evidence must remain a stopping condition, not something the model can remove to obtain approval.
+
+The owner has authorized integrating reviewed progress into main. This authority belongs to the development session; factory workers and reviewers still cannot merge or activate their own policy changes. Keep main current as factory increments are verified. The sections below preserve the earlier mining experiment and its evidence; they do not override this current delivery direction.
+
 Start with a task-mining station focused on understanding the goal, codebase, existing issues and relevant evidence. Run it asynchronously so a person can return to review proposals. First establish that a bounded invocation returns useful work; then build the cockpit experience around the observed needs.
 
 The initial AI SDK Harness/fx experiment tested whether the agent received useful context. It remains an experimental runner, separate from the deployed station. Remi clarified that shipping means a native Eve investigator: Eve runs the model and its sandbox tools directly. There is no nested fx model loop.
