@@ -12,7 +12,6 @@
   },
   "dependencies": {
     "@jira-clone/context": "workspace:*",
-    "@modelcontextprotocol/sdk": "1.30.0",
     "@software-factory-workshop/nuxt-adeo-ds": "file:../../vendor/software-factory-workshop-nuxt-adeo-ds-0.1.1.tgz",
     "@vercel/connect": "2.0.4",
     "@vercel/oidc": "3.8.7",
