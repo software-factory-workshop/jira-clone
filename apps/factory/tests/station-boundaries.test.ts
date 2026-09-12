@@ -29,6 +29,17 @@ test("change collector finds edits additions deletions and ignores unchanged bin
   await symlink("/etc/passwd",join(root,"escape"));assert.throws(()=>execFileSync("sh",["-c",collectChangesCommand(baseline,root)],{stdio:"pipe"}));
  }finally{await rm(root,{recursive:true,force:true});}
 });
+test("change collector ignores generated SWC output created by a reviewer build",async()=>{
+ const root=await mkdtemp(join(tmpdir(),"station-diff-swc-"));
+ try{
+  await mkdir(join(root,".swc","plugins"),{recursive:true});
+  await writeFile(join(root,".swc","plugins","generated.wasm"),Buffer.from([0,1,2,3]));
+  await writeFile(join(root,"README.md"),"baseline");
+  const hash=createHash("sha256").update("baseline").digest("hex");
+  const values=JSON.parse(execFileSync("sh",["-c",collectChangesCommand([{file:"README.md",sha256:hash}],root)],{encoding:"utf8"}));
+  assert.deepEqual(values,[]);
+ }finally{await rm(root,{recursive:true,force:true});}
+});
 test("protected policy or validation edits cannot reach verification/publication",()=>{
  for(const path of ["AGENTS.md","apps/factory/agent/instructions.ts","package.json","apps/factory/package.json",".github/workflows/ci.yml","factory/context/goal.md","../escape"]){assert.throws(()=>validateCollectedChanges([{path,content:"changed"}]),path);}
  assert.throws(()=>validateCollectedChanges([{path:"apps/factory/app/x.ts",content:"a"},{path:"apps/factory/app/x.ts",content:"b"}]));
