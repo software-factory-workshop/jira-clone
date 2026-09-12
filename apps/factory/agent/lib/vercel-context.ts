@@ -13,7 +13,7 @@ export const vercelInput = z.object({
 export type VercelInput = z.infer<typeof vercelInput>;
 export interface VercelReceipt {
   resource: string; projectId: string; capturedAt: string; complete: boolean;
-  items: unknown[]; gap?: string;
+  items: unknown[]; gap?: string; coverage?: string;
 }
 // Preserve receipt history but judge availability from the last attempt at each
 // resource. A recovered read must not permanently poison the investigation.
@@ -27,70 +27,69 @@ export function latestVercelGaps(reads: readonly { resource: string; projectId?:
     .map(receipt => receipt.gap || `Vercel ${receipt.resource} evidence is incomplete for ${receipt.projectId || "unknown project"}.`);
 }
 
-export interface EvidenceClient {
-  tools: Set<string>;
-  call(name: string, args: Record<string, unknown>): Promise<unknown>;
-}
+export const vercelMachineConnector = "factory/jira-clone-machine";
 const object = z.record(z.string(), z.unknown());
-function data(result: unknown): unknown {
-  const envelope = object.parse(result);
-  if (envelope.isError) throw new Error("Vercel MCP returned an error.");
-  if (envelope.structuredContent) return envelope.structuredContent;
-  const text = z.array(z.object({ type: z.string(), text: z.string().optional() }).passthrough()).parse(envelope.content)
-    .filter(part => part.type === "text").map(part => part.text || "").join("\n");
-  try { return JSON.parse(text); } catch { return { text }; }
-}
 
-// Only these operations are callable, even if the MCP server advertises writes.
-export async function readVercel(inputValue: VercelInput, client: EvidenceClient): Promise<VercelReceipt> {
+// Paths and request parameters follow the official vercel/sdk operation sources.
+// The only transport capability exposed here is fixed-host HTTP GET.
+export async function readVercel(inputValue: VercelInput, token: string, signal?: AbortSignal, fetcher: typeof fetch = fetch): Promise<VercelReceipt> {
   const input = vercelInput.parse(inputValue);
   const projectId = vercelProjects[input.project];
   const receipt: VercelReceipt = { resource: input.resource, projectId, capturedAt: new Date().toISOString(), complete: false, items: [] };
-  const unavailable = (gap: string) => ({ ...receipt, gap });
-  async function call(name: string, args: Record<string, unknown>) {
-    if (!client.tools.has(name)) throw new Error(`Vercel MCP does not expose ${name}.`);
-    return data(await client.call(name, { ...args, teamId: vercelTeamId }));
+  const abortSignal = AbortSignal.any([signal || new AbortController().signal, AbortSignal.timeout(20000)]);
+  async function request(path: string, query: Record<string, string> = {}, accept = "application/json") {
+    const url = new URL(path, "https://api.vercel.com");
+    url.search = new URLSearchParams({ ...query, teamId: vercelTeamId }).toString();
+    const response = await fetcher(url, { method: "GET", headers: { Authorization: `Bearer ${token}`, Accept: accept }, redirect: "error", signal: abortSignal });
+    if (!response.ok) throw new Error(`Vercel ${input.resource} read failed: HTTP ${response.status}.`);
+    return response;
   }
-  // Runtime log tools are not part of the verified contract yet. Never invent
-  // a tool name or replace unavailable logs with an empty successful read.
-  if (input.resource === "runtime_logs") return unavailable("Runtime-log access is not verified for this Vercel MCP connection.");
   if (input.resource === "project") {
-    const result = object.parse(await call("get_project", { projectId }));
-    const project = object.parse(result.project || result);
-    if (project.id !== projectId) throw new Error("Vercel returned a different project.");
+    const project = object.parse(await (await request(`/v9/projects/${projectId}`)).json());
+    if (project.id !== projectId || (project.accountId && project.accountId !== vercelTeamId)) throw new Error("Vercel returned a different project or team.");
     const { id, name, framework, link, updatedAt } = project;
     return { ...receipt, complete: true, items: [{ id, name, framework, link, updatedAt }] };
   }
   if (input.resource === "deployments") {
-    const result = object.parse(await call("list_deployments", { projectId }));
+    const result = object.parse(await (await request("/v6/deployments", { projectId, limit: "20" })).json());
     const deployments = z.array(object).parse(result.deployments);
     if (deployments.some(item => item.projectId && item.projectId !== projectId)) throw new Error("Vercel returned an out-of-scope deployment.");
     const pagination = result.pagination ? object.parse(result.pagination) : undefined;
-    return { ...receipt, complete: !pagination || !pagination.next, items: deployments,
-      ...(pagination && pagination.next ? { gap: "Only the returned deployment page is included; older deployments remain uninspected." } : {}) };
+    // The requested evidence is a recent page, not a claim about all history.
+    return { ...receipt, complete: true, items: deployments.map(({uid,id,url,state,readyState,created,createdAt,meta,target,projectId}) => ({uid,id,url,state,readyState,created,createdAt,meta,target,projectId})),
+      coverage: pagination?.next ? "Most recent 20 deployments; older deployment history exists and was not requested." : "All deployments returned by the project listing." };
   }
-  if (!input.deploymentId) return unavailable("Choose a deployment ID from this project's deployment evidence before reading build logs.");
-  const deploymentData = object.parse(await call("get_deployment", { idOrUrl: input.deploymentId }));
-  const deployment = object.parse(deploymentData.deployment || deploymentData);
-  if (deployment.projectId !== projectId || (deployment.id || deployment.uid) !== input.deploymentId) {
-    throw new Error("Deployment does not belong to the selected project.");
+  if (!input.deploymentId) return { ...receipt, gap: "Choose a deployment ID from this project's deployment evidence before reading logs." };
+  const deployment = object.parse(await (await request(`/v13/deployments/${input.deploymentId}`)).json());
+  if (deployment.projectId !== projectId || (deployment.id || deployment.uid) !== input.deploymentId) throw new Error("Deployment does not belong to the selected project.");
+  if (input.resource === "build_logs") {
+    const logs = z.array(object).parse(await (await request(`/v3/deployments/${input.deploymentId}/events`, { limit: "100", direction: "backward", follow: "0", builds: "1" })).json());
+    return { ...receipt, complete: true, items: logs, coverage: "Most recent 100 build events; this is a bounded log sample." };
   }
-  const logs = await call("get_deployment_build_logs", { idOrUrl: input.deploymentId });
-  return { ...receipt, complete: true, items: [logs] };
-}
-
-export async function withVercelClient<T>(token: string, signal: AbortSignal, action: (client: EvidenceClient) => Promise<T>): Promise<T> {
-  const { Client } = await import("@modelcontextprotocol/sdk/client/index.js");
-  const { StreamableHTTPClientTransport } = await import("@modelcontextprotocol/sdk/client/streamableHttp.js");
-  const client = new Client({ name: "adeo-task-mining", version: "1.0.0" });
-  const transport = new StreamableHTTPClientTransport(new URL("https://mcp.vercel.com"), {
-    requestInit: { headers: { Authorization: `Bearer ${token}` }, signal },
-  });
+  // Official runtime endpoint returns application/stream+json. Bound this read
+  // to ten seconds and 100 records; do not confuse a sample with full history.
+  const response = await request(`/v1/projects/${projectId}/deployments/${input.deploymentId}/runtime-logs`, {}, "application/stream+json");
+  if (!response.body) throw new Error("Vercel runtime-log response had no body.");
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  const items: unknown[] = [];
+  let pending = "";
+  let bytes = 0;
+  let ended = false;
+  const deadline = Date.now() + 10000;
   try {
-    await client.connect(transport, { signal, timeout: 20000 });
-    const catalog = await client.listTools(undefined, { signal, timeout: 20000 });
-    return await action({ tools: new Set(catalog.tools.map(tool => tool.name)),
-      call: (name, args) => client.callTool({ name, arguments: args }, undefined, { signal, timeout: 20000 }),
-    });
-  } finally { await client.close(); }
+    while (items.length < 100 && Date.now() < deadline) {
+      let timer: ReturnType<typeof setTimeout> | undefined;
+      const chunk = await Promise.race([reader.read(), new Promise<null>(resolve => { timer = setTimeout(() => resolve(null), Math.max(1, deadline - Date.now())); })]).finally(() => { if (timer) clearTimeout(timer); });
+      if (!chunk) break;
+      if (chunk.done) { ended = true; break; }
+      bytes += chunk.value.byteLength;
+      if (bytes > 512000) throw new Error("Vercel runtime-log sample exceeded the byte limit.");
+      pending += decoder.decode(chunk.value, { stream: true });
+      const lines = pending.split("\n"); pending = lines.pop() || "";
+      for (const line of lines) if (line.trim() && items.length < 100) items.push(object.parse(JSON.parse(line)));
+    }
+    if (ended && pending.trim() && items.length < 100) items.push(object.parse(JSON.parse(pending)));
+  } finally { await reader.cancel(); }
+  return { ...receipt, complete: true, items, coverage: "Runtime stream sample, up to 10 seconds or 100 records; no claim of complete retained history." };
 }

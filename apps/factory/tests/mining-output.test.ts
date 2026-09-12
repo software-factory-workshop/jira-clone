@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { authorizationLink, miningProgress, parseMiningOutput } from "../app/utils/mining-output.ts";
+import { authorizationLink, miningProgress, parseMiningOutput, proposalDraft, terminalMiningFailure } from "../app/utils/mining-output.ts";
 
 const capturedAt = "2026-09-12T12:00:00.000Z";
 const revision = "a".repeat(40);
@@ -42,4 +42,46 @@ test("authorization links permit secure provider redirects but reject script URL
   assert.equal(authorizationLink("javascript:alert(1)"), undefined);
   assert.equal(authorizationLink("http://example.com"), undefined);
   assert.equal(authorizationLink(undefined), undefined);
+});
+
+const firstProposal = { title: "First candidate", outcome: "A bounded first outcome", whyNow: "A verified gap", evidence: ["app.ts:12"], existingWork: "No duplicate", scope: ["First scope"], acceptanceCriteria: ["First criterion"], uncertainties: ["Owner preference pending"] };
+const secondProposal = { ...firstProposal, title: "Second candidate", outcome: "A different selected outcome", scope: ["Second scope"] };
+
+test("each task draft contains only the selected proposal and retains host provenance and gaps", () => {
+  const output = parseMiningOutput({ phase: "Incomplete", report: "Combined report", revision, capturedAt, proposals: [firstProposal, { ...secondProposal, id: "wrun_host:proposal:2", rank: 2, provenance: { sessionId: "wrun_host", repository: "software-factory-workshop/jira-clone", revision, capturedAt, executionSurface: "native-eve", source: "git-revision" } }], contextGaps: ["Deployment access pending"] });
+  const selected = output?.proposals?.[1];
+  assert(selected);
+  const draft = proposalDraft({ proposal: selected, index: 1, sessionId: "wrun_host", revision, capturedAt, phase: "Incomplete", contextGaps: output.contextGaps });
+  assert.equal(draft.title, "Second candidate");
+  assert(draft.body.includes("Second scope"));
+  assert(!draft.body.includes("First scope"));
+  assert(!draft.body.includes("Combined report"));
+  assert(draft.body.includes("wrun_host:proposal:2"));
+  assert(draft.body.includes(revision));
+  assert(draft.body.includes("Deployment access pending"));
+  assert(draft.body.includes("Investigation status: Incomplete"));
+  assert(draft.body.includes("Implementation has not started"));
+});
+
+test("legacy structured proposal identifiers are stable and explicitly derived", () => {
+  const input = { proposal: firstProposal, index: 0, sessionId: "wrun_legacy", phase: "Complete" };
+  assert.deepEqual(proposalDraft(input), proposalDraft(input));
+  assert(proposalDraft(input).body.includes("wrun_legacy:proposal:1"));
+  assert(proposalDraft(input).body.includes("Derived from the legacy session"));
+  assert(!proposalDraft({ ...input, sessionId: "wrun_other" }).body.includes("wrun_legacy"));
+});
+
+test("Vercel evidence preserves the bounded coverage alongside completion", () => {
+  const output = parseMiningOutput({ phase: "Complete", vercelReads: [{ resource: "deployments", projectId: "project", capturedAt, complete: true, coverage: "Most recent 20 deployments; older history was not inspected." }] });
+  assert.equal(output?.vercelReads?.[0]?.coverage, "Most recent 20 deployments; older history was not inspected.");
+  assert.equal(output?.vercelReads?.[0]?.complete, true);
+});
+
+test("recoverable tool errors do not become terminal investigation failures", () => {
+  const input = { status: "streaming", events: [{ type: "step.failed" }], hasReport: false, awaitingAuthorization: false, outputError: false };
+  assert.equal(terminalMiningFailure(input), false);
+  assert.equal(terminalMiningFailure({ ...input, status: "idle" }), false, "a disconnected stream with a historical step failure remains recoverable");
+  assert.equal(terminalMiningFailure({ ...input, status: "idle", events: [...input.events, { type: "turn.failed" }] }), true);
+  assert.equal(terminalMiningFailure({ ...input, status: "idle", events: [{ type: "turn.completed" }], hasReport: true }), false, "recorded findings supersede earlier tool failures");
+  assert.equal(terminalMiningFailure({ ...input, status: "idle", events: [{ type: "turn.cancelled" }] }), false);
 });

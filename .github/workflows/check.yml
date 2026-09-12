@@ -23,7 +23,9 @@ jobs:
         working-directory: apps/factory
         env:
           VERCEL: "1"
+          NITRO_PRESET: vercel
         run: |
           pnpm exec nuxt build
+          node scripts/verify-station-routes.mjs
           EVE_INTERNAL_BUILD_OUTPUT_DIRECTORY=.eve/packaging-verification/.vercel/output EVE_INTERNAL_HOST_BUILD_OUTPUT_DIRECTORY=.vercel/output pnpm build:agent
           node -e 'const fs=require("node:fs"); const files=fs.readdirSync(".eve/packaging-verification/.vercel/output",{recursive:true}); const forbidden=files.filter(path=>/harness[-_](fx|acp)/i.test(path)); if(forbidden.length) throw new Error("Experimental fx runtime leaked into deployment: "+forbidden.join(", ")); console.log("Native Eve output contains no fx or ACP runtime bundles.");'

@@ -7,14 +7,15 @@ import {
   parseDrafts,
   type Draft,
 } from "@jira-clone/context";
+import { stationLinkSchema } from "./utils/work-station";
 
 type DraftApiResponse = {
   apiVersion: string;
   data: { draft?: Draft; drafts: Draft[] };
 };
-
 const config = useRuntimeConfig();
-const section = ref("mining");
+const route = useRoute();
+const section = ref(stationLinkSchema.safeParse(route.query).success ? "work" : "mining");
 const drafts = ref<Draft[]>([]);
 const activeId = ref<string | null>(null);
 const title = ref("");
@@ -275,7 +276,7 @@ const issueUrl = computed(
                   <div>
                     <strong>Start with an investigation</strong>
                     <p>
-                      Task mining reads the goal, code and current GitHub work. Review its proposals here before opening an issue.
+                      Task mining reads the goal, code and current GitHub work. Review a proposal as a draft, then explicitly choose whether to build a PR.
                     </p>
                   </div>
                 </div>
@@ -345,6 +346,7 @@ const issueUrl = computed(
                 </div>
               </aside>
             </div>
+            <WorkActions :title="title" :brief="request" />
             <section class="starters">
               <h2>Start with a concrete problem</h2>
               <p class="muted">

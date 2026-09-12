@@ -1,26 +1,28 @@
+import { defineDynamic } from "eve";
+import { stationOf } from "../lib/station-access";
 import { defineTool } from "eve/tools";
-import { connect } from "@vercel/connect/eve";
+import { getToken } from "@vercel/connect";
 import { miningState } from "../lib/mining-state";
-import { vercelInput, vercelProjects, readVercel, withVercelClient } from "../lib/vercel-context";
+import { vercelInput, vercelProjects, vercelMachineConnector, readVercel } from "../lib/vercel-context";
 
-const vercelAuth = connect({ connector: "vercel/jira-clone", principalType: "user" });
-
-export default defineTool({
-  description: "Read Vercel project, deployment or build evidence for the ADEO cockpit or Jira project in demo-software-factory. Uses your Vercel authorization. Missing authorization or unsupported logs are context gaps. No deployment or configuration writes are available.",
+const tool = defineTool({
+  description: "Read Vercel project, deployment or build evidence for the ADEO cockpit or Jira project in demo-software-factory. Uses the factory machine credential. Missing configuration or unavailable logs are context gaps. No deployment or configuration writes are available.",
   inputSchema: vercelInput,
   async execute(input, ctx) {
-    // Eve must receive its authorization suspension to drive the durable consent
-    // flow. Do not catch it and misreport an interrupted sign-in as a tool result.
-    const { token } = await ctx.getToken(vercelAuth);
     let receipt;
     try {
-      receipt = await withVercelClient(token, ctx.abortSignal, client => readVercel(input, client));
-    } catch {
+      const token = await getToken(vercelMachineConnector, { subject: { type: "app" } });
+      receipt = await readVercel(input, token, ctx.abortSignal);
+    } catch (error) {
       if (ctx.abortSignal.aborted) throw ctx.abortSignal.reason;
       receipt = { resource: input.resource, projectId: vercelProjects[input.project], capturedAt: new Date().toISOString(), complete: false, items: [],
-        gap: "Vercel evidence was unavailable or did not satisfy the fixed-project read contract. No empty successful result is inferred." };
+        gap: error instanceof Error && error.name === "TimeoutError"
+          ? `Vercel ${input.resource} did not finish within the 20-second read deadline; its evidence is unavailable for this attempt.`
+          : "Vercel machine access was not configured, expired, denied or returned invalid evidence. Configure the app-scoped factory/jira-clone-machine connector; no user sign-in or empty successful result is inferred." };
     }
     miningState.update(state => ({ ...state, vercelReads: [...state.vercelReads, receipt] }));
     return receipt;
   },
 });
+
+export default defineDynamic({events:{"session.started":(_,ctx)=>stationOf(ctx) ? null : tool}});

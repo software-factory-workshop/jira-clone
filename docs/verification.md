@@ -1,5 +1,65 @@
 # Factory verification
 
+## First worker PR — 12 September 2026
+
+Native Eve worker `wrun_41M2AVC0FK0GPK3KVJFW3B1QA3`, dispatched by cockpit session `wrun_41M2AVBS640GXB6E761Y5HCQTT`, published [draft PR #2](https://github.com/software-factory-workshop/jira-clone/pull/2). The host created branch `factory/work-014995639614c448c6e56d11`, head `a6d6e591207918a81bc4f8f2c9e4bc7d345d3b70`, from source `65ff1fb74af68344d8042a1b655e0c0c00e99d39`. This proves the app-scoped GitHub publication path on actual useful work. No merge occurred.
+
+The worker wrote the feedback component, browser-storage utility, MiningRun integration and focused tests. Its `verify_work` ran typecheck, 44 factory tests and both app builds successfully before publication. GitHub Actions run `34695846890` passed, and both PR previews reached Ready. The original PR explicitly says it has no live-browser evidence; independent review and browser verification are recorded separately when completed.
+
+This was an assisted run: excessive preliminary reads exhausted the original input allowance, then a continued run needed an explicit steer to implement and later an output-budget continuation. The same sandbox state resumed and the same worker published. No feature code was written by the supervising development session. The resulting context changes make the existing control choices explicit, bound preliminary exploration and shorten dependency-install output shown to the model. Their impact on a fresh worker is not yet measured.
+
+[Original publication, command and usage evidence](../factory/mining/native/2026-09-12/worker-proposal-feedback.json) records 1,050,658 input / 32,825 output tokens for the child. Root plus child model cost was $0.023956004; Sandbox compute is separate. The original dispatch failure cost an additional $0.0004135. A stopped sandbox with a saved snapshot was confirmed after publication.
+
+The run also exposed a cockpit projection bug: the dispatcher completed before the background `subagent.called` event, so the chat composable stopped before discovering its child. The UI now follows the durable station stream beyond that boundary, exposes explicit budget choices, and judges cancellation from the latest turn rather than an earlier interrupted turn. Live replay verification follows deployment.
+
+### PR #2 browser verification
+
+The authenticated Chrome check used the actual PR preview at `https://adeo-factory-cockpit-j3aku1zxp-demo-software-factory.vercel.app`, head `a6d6e591`. A fresh preview investigation, `wrun_41M2AW710Q0GTFT56P7E0TXN1Z`, returned two structured proposals. Production session links did not restore in the preview environment, so no production findings were fabricated or imported.
+
+On the two actual proposal cards, Useful and Not useful stayed independent. A reason saved and restored with both selections after reload; editing the reason worked; clearing the first proposal left the second unchanged. Space activated the focused radio control. “Use this proposal” still opened the correct editable draft with its evidence and provenance, and the existing worker/reviewer controls remained available; no additional work was started or draft saved. Both temporary feedback entries were cleared afterward; these test judgments do not represent Remi's opinion. Malformed/unavailable storage and legacy IDs are covered by the worker's tests, not by this hosted browser exercise.
+
+The preview miner's result was Incomplete for missing issue inventory and Jira deployment evidence. Its first proposal overlapped the independent review already underway; this is an observed context-quality limitation. The run is useful browser verification, not evidence of new-task originality. [Its compact evidence](../factory/mining/native/2026-09-12/preview-feedback-mining.json) records a clean completed turn, 202,283 input / 9,040 output tokens and $0.008552186 model cost, excluding Sandbox compute.
+
+### Independent review of PR #2
+
+On runtime `a4dda9b`, cockpit root `wrun_41M2AWE0HZ0GWQQZ5PXHSK3VD9` dispatched reviewer `wrun_41M2AWE9GG0GY9AH1YT9M7XY8C` with only PR number 2. It independently prepared source, inspected all four changed files and ran typecheck, tests and build successfully. The recorded verdict was **approve**, with one nonblocking finding at `apps/factory/app/components/ProposalFeedback.vue:29`: the storage warning may linger after storage recovers. No steering or budget continuation was needed.
+
+The reviewed head was `a6d6e591207918a81bc4f8f2c9e4bc7d345d3b70`; the GitHub PR API reported base `65ff1fb74af68344d8042a1b655e0c0c00e99d39`, even though `main` had advanced to `a4dda9b`. Both PR-reported revisions were rechecked when recording. This is a review of those snapshots, not verification of a hypothetical merge into newer main. PR #2 remains a draft and unmerged.
+
+The first approval attempt included missing browser/assistive checks as limitations and was rejected by the host. The reviewer then classified those checks as optional under the task's allowance to list checks not run, disclosed them in its summary, and retried with an empty limitations array. It obtained no new browser evidence. That classification is the model's judgment, not an independently proven host guarantee. The separate browser verification above was not supplied to this reviewer.
+
+[Original review evidence](../factory/mining/native/2026-09-12/reviewer-proposal-feedback.json) retains both attempts, command evidence and the exact result. Root plus child model cost was $0.009976374; the child used 268,228 input / 9,161 output tokens. The reviewer sandbox was confirmed stopped afterward. The cockpit displayed its running verification step and then the recorded verdict, exact head, finding and command evidence.
+
+Combined model cost for the failed dispatch, successful assisted worker, preview miner and independent reviewer was **$0.042898064**, excluding Sandbox compute and development-session costs. All used Muse Spark under `demo-software-factory`. This demonstrates the two stations on real work; it does not establish general autonomous delivery or review accuracy.
+
+The final cockpit follow-up makes a recorded child result supersede stale parent budget prompts and Stop controls. Its typecheck, 43 factory tests and production build passed locally; deployed replay is the final delivery check.
+
+## Worker and reviewer bootstrap — 12 September 2026
+
+The implementation follows [the station design and source decisions](../factory/work-stations.md). Root typecheck, tests and both app builds passed, including 38 factory tests. A Vercel-mode Nuxt build confirmed both `/eve/v1/*` and `/factory/stations/*` route to the existing Eve service with their original paths. The native Eve Vercel build also passed. A local HTTP probe of the custom worker route returned 400 for invalid input without starting a model run.
+
+These checks establish the compiled boundary and request validation, not a successful worker or reviewer run. The first real assignment is [proposal usefulness feedback](../factory/tasks/proposal-usefulness.md); production evidence follows once the stations execute it.
+
+The first hosted worker launch, `wrun_41M2AV3MBZ0GKQ7CVGE2RTP7S7`, exposed an Eve runtime constraint: dynamic subagent configuration cannot return `defaultTools`. Eve omitted the worker while the dispatcher incorrectly claimed to delegate. No child, source edit or PR was created. [The original trace](../factory/mining/native/2026-09-12/worker-dispatch-failed.json) records $0.0004135 model cost. Fixed specialist configurations now disable defaults statically and check the immutable station identity before selecting any child model. This preserves the capability boundary without unsupported dynamic configuration.
+
+CI run `34695040014` also exposed different Nitro preset selection on GitHub Actions: `VERCEL=1` alone produced Node output. Packaging verification now explicitly selects `NITRO_PRESET=vercel`, so it actually tests the deployment configuration.
+
+## Machine access and individual proposal drafts — 12 September 2026
+
+Revision `3b6b8fa` passed GitHub Actions run `34693717672` and deployed Ready as `dpl_2PuzWWXcCHrePBy9R3ovrdXFgoWB`. An isolated frozen install, typechecks, tests and both app builds passed. Proposal parsing preserves structured records; each cockpit action creates an editable draft containing only that proposal, its evidence and provenance. It does not start implementation.
+
+Native Eve evaluation `wrun_01M2ASCWZAT1J2P6G5JGCT287E` inspected source `3b6b8fa`, passed all six operational and proposal-identity gates, and recorded two proposals with distinct host-assigned IDs. Both explicitly acknowledge that Remi's review is pending. The run read project metadata and deployments for both apps through app-scoped Connect without viewer authorization. Its report was Complete for the evidence requested; runtime logs were not exercised by this evaluation. [Stored findings](../factory/mining/native/2026-09-12/structured-proposals.json) record 200,504 input / 5,861 output tokens and $0.010145464 model cost; Sandbox compute is separate. This validates the structured handoff and access path, not owner acceptance or broad task-mining quality.
+
+[Machine access evidence and rotation](vercel-machine-access.md) records successful independent build-log reads and unsuccessful runtime-stream probes. The dedicated team token expires on 12 October 2026. The historical per-user authorization limitation below is superseded by this machine credential.
+
+Proposal-quality limitation: the first finding incorrectly describes earlier runs as Incomplete because owner usefulness judgment was missing. Their operational gap was unavailable Vercel evidence; owner acceptance is a separate review dimension. The original output is retained, and this wording should not be treated as an accurate status explanation.
+
+Hosted native investigation `wrun_41M2ASGX7J0GQQ5XJY7ETJ54F7` recorded findings at 12:31:11 UTC against that same source revision. It produced one independently selectable proposal with ID `wrun_41M2ASGX7J0GQQ5XJY7ETJ54F7:proposal:1`. The authenticated Chrome check opened its “Use this proposal” action, verified a proposal-only editable draft with source provenance and explicit context gaps, saved it locally, and reloaded. The report and one saved draft both survived. No implementation or GitHub publication was started. Two-proposal selection isolation is covered by utility tests and the separate native evaluation; this hosted run returned one proposal.
+
+The hosted report is Incomplete: the agent requested build logs without a deployment ID and did not retry with an ID already available from deployment evidence. It also treated unsampled runtime logs as necessary for sizing a browser-local feedback feature without demonstrating that dependency. These are investigation-quality limitations, not failed machine authentication. [Hosted evidence](../factory/mining/native/2026-09-12/hosted-structured-proposals.json) confirms a cleanly completed turn at 12:31:20 UTC with no step, turn or session failure events. Usage was 292,730 input / 6,401 output tokens and $0.011206628 model cost.
+
+The browser initially retained a Running state alongside a generic failure alert; reload restored the durable report. The status-display correction separates connection errors from terminal failures and prevents historical tool errors from labeling an active or recovered investigation failed. Ten mining-output tests, Nuxt typecheck and a production build pass. This correction does not claim to eliminate live-stream disconnections.
+
 ## Native Eve task mining — 12 September 2026
 
 The cockpit now invokes native Eve tools directly. The historical fx-backed runs below remain useful evidence about that experiment, but do not verify this replacement.
@@ -28,7 +88,7 @@ The two final native probes cost $0.014316592 in reported model usage combined; 
 
 Paid validation uses `env -u AI_GATEWAY_API_KEY pnpm exec eve eval task-mining --verbose` from `apps/factory`, with the linked project's OIDC environment. Evaluation prompts and stored findings are excluded from future mining snapshots. Tool-completion gates are operational checks; Remi must still judge proposal usefulness.
 
-### Hosted native boundary
+### Historical hosted native boundary before machine access
 
 Revision `b81899e` passed GitHub Actions run `34691922199` and deployed Ready as `dpl_A3iiXVyKQRh9Td8CcYynvbrGNcVj`. The authenticated cockpit started native session `wrun_41M2AQ5JY10GN0TN3HNBGDRNR6`. It passed source preparation and reached the Vercel evidence step, but no report or authorization card was observed. A stop was requested through the cockpit; terminal cancellation still needs confirmation. An earlier native session restored its active state after reload but ended without findings. This does not establish a successful hosted native investigation or report-to-draft handoff.
 
