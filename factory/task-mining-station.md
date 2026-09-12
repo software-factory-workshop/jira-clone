@@ -26,11 +26,11 @@ A record is incomplete if context preparation failed, either issue or PR invento
 
 The cockpit presents each structured proposal as its own card. "Use this proposal" opens an editable task draft containing only that proposal, its identity and provenance, and the investigation's completion status and context gaps. This is selection for review, not approval or implementation. Reflection and shared evidence remain separate. Historical reports that lack structured proposals retain their Markdown view and whole-report draft action. Saving remains browser-local. Publishing requires the person to submit the prefilled GitHub issue.
 
-## Persistence, limits and access
+## Persistence and access
 
 The recent-investigation index stores session links in this browser. Opening a link replays the Eve stream and follows an active turn. Navigating away disconnects the browser without cancelling the run. "Stop investigation" requests cancellation; a disconnected stream is not evidence of cancellation. The station records findings once per session, and another investigation starts a fresh session.
 
-Eve enforces the configured session model limits: 500,000 input tokens, 16,000 output tokens and USD 0.20 model cost. Sandbox infrastructure is a separate charge. There is no nested fx model budget. The run uses the cockpit's explicit Vercel team/project scope. Do not automatically approve additional budget or treat an interrupted step as an exactly-once billing guarantee.
+Input-token, output-token and model-cost limits are explicitly disabled. The run uses the cockpit's explicit Vercel team/project scope. Sandbox infrastructure is billed separately.
 
 Turn-completion and cancellation hooks stop Sandbox compute, with its ten-minute expiry as a backstop. See dated cancellation verification for the paths actually exercised.
 
