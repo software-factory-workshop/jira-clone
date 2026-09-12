@@ -152,9 +152,9 @@ onUnmounted(() => {
         @click="clear"
       >Clear</UButton>
     </div>
-    <p v-if="storageProblem === 'malformed'" role="status" class="small muted">Saved feedback in this browser could not be read, so earlier marks are not shown. New marks overwrite the unreadable entry.</p>
-    <p v-else-if="storageProblem === 'unavailable'" role="status" class="small muted">Browser storage is not available right now, so your latest choice may not be kept after reload until saving succeeds.</p>
-    <p v-if="saveProblem" role="alert" class="small muted">Could not save feedback in this browser. Your selection above is not kept.</p>
+    <p v-if="storageProblem === 'malformed'" role="status" class="small muted">Some saved feedback in this browser could not be read, so those marks are hidden. Readable marks stay shown and your typed reason stays on screen. Saving a new mark replaces the unreadable saved data.</p>
+    <p v-else-if="storageProblem === 'unavailable'" role="status" class="small muted">Browser storage is not available right now, so your latest choice may not be kept after reload until saving succeeds. Your typed reason stays on screen — try saving again; the warning clears when storage recovers.</p>
+    <p v-if="saveProblem" role="alert" class="small muted">Could not save feedback in this browser yet, so that choice was not kept. Your typed reason stays on screen — try saving again.</p>
   </section>
   <p v-else class="small muted">Feedback is unavailable for findings without a recorded proposal ID.</p>
 </template>
