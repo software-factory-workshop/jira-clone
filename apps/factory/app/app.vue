@@ -1,42 +1,55 @@
 <script setup lang="ts">
 import {
-  repository,
-  references,
-  stages,
-  starterRequests,
+  repository as initialRepository,
+  references as initialReferences,
+  stages as initialStages,
+  starterRequests as initialStarters,
   parseDrafts,
   type Draft,
 } from "@jira-clone/context";
 import { stationLinkSchema } from "./utils/work-station";
+const {data:manifest}=useFetch<{repository:typeof initialRepository;references:typeof initialReferences;stages:typeof initialStages;starterRequests:typeof initialStarters}>("/factory/cockpit",{server:false});
+const repository=computed(()=>manifest.value?.repository??initialRepository);
+const references=computed(()=>manifest.value?.references??initialReferences);
+const stages=computed(()=>manifest.value?.stages??initialStages);
+const starterRequests=computed(()=>manifest.value?.starterRequests??initialStarters);
 const config = useRuntimeConfig();
 const route = useRoute();
-const section = ref(stationLinkSchema.safeParse(route.query).success ? "work" : "mining");
+const section = ref((stationLinkSchema.safeParse(route.query).success || route.query.delivery) ? "work" : "mining");
 const drafts = ref<Draft[]>([]);
 const activeId = ref<string | null>(null);
+const activeVersion=ref(0);
+const saving=ref(false);
 const title = ref("");
 const request = ref("");
 const notice = ref("");
 const editor = ref<HTMLElement | null>(null);
-const selectedReference = ref(references[0]!);
+const selectedReference = ref(initialReferences[0]!);
 const {
   data: github,
   status: githubStatus,
   refresh: refreshGithub,
 } = useFetch("/api/github", { server: false, immediate: false });
 const storageKey = "adeo-factory-drafts-v1";
-onMounted(() => {
+const cockpit = useCockpit();
+const draftVersions = ref<Record<string,number>>({});
+async function refreshDrafts() {
+ const rows=await cockpit.refresh("drafts");
+ drafts.value=rows.map(row=>({id:row.id,title:String(row.value.title),request:String(row.value.request),updatedAt:row.updatedAt}));
+ draftVersions.value=Object.fromEntries(rows.map(row=>[row.id,row.version]));
+}
+onMounted(async () => {
   void refreshGithub();
   try {
-    drafts.value = parseDrafts(
-      JSON.parse(localStorage.getItem(storageKey) || "[]"),
-    );
-  } catch {
-    notice.value =
-      "Browser storage is unavailable. You can still compose a request.";
-  }
+    let legacy: Draft[]=[];
+    try { legacy=parseDrafts(JSON.parse(localStorage.getItem(storageKey)||"[]")); } catch { /* Retain inaccessible legacy data. */ }
+    await cockpit.migrate("drafts",legacy.map(d=>({id:d.id,value:{title:d.title,request:d.request}})));
+    await refreshDrafts();
+  } catch { notice.value="Shared drafts are unavailable. Keep your work and retry; browser drafts remain untouched."; }
 });
-async function compose(starter?: { title: string; body: string }) {
-  activeId.value = null;
+async function compose(starter?: { title: string; body: string;id?:string;version?:number }) {
+  activeId.value = starter?.id??null;
+  activeVersion.value=starter?.version??0;
   title.value = starter?.title || "";
   request.value = starter?.body || "";
   section.value = "work";
@@ -45,6 +58,7 @@ async function compose(starter?: { title: string; body: string }) {
 }
 async function openDraft(draft: Draft) {
   activeId.value = draft.id;
+  activeVersion.value=draftVersions.value[draft.id]??0;
   title.value = draft.title;
   request.value = draft.request;
   notice.value = "";
@@ -55,29 +69,18 @@ async function focusEditor() {
   editor.value?.scrollIntoView({ block: "start", behavior: "instant" });
   editor.value?.querySelector("input")?.focus({ preventScroll: true });
 }
-function save() {
-  if (!title.value.trim() || !request.value.trim()) return;
-  const draft: Draft = {
-    id: activeId.value || crypto.randomUUID(),
-    title: title.value.trim(),
-    request: request.value.trim(),
-    updatedAt: new Date().toISOString(),
-  };
-  const next = [draft, ...drafts.value.filter((item) => item.id !== draft.id)];
+async function save() {
+  if (saving.value || !title.value.trim() || !request.value.trim()) return;
+  saving.value=true;
+  const id=activeId.value||crypto.randomUUID();
   try {
-    localStorage.setItem(storageKey, JSON.stringify(next));
-    drafts.value = next;
-    activeId.value = draft.id;
-    notice.value = "Draft saved in this browser.";
-  } catch {
-    notice.value =
-      "Could not save to browser storage. Keep a copy of your request.";
-  }
+    const saved=await cockpit.save("drafts",id,{title:title.value.trim(),request:request.value.trim()},activeVersion.value);
+    activeVersion.value=saved.version;
+    activeId.value=id;await refreshDrafts();notice.value="Draft saved in the shared cockpit.";
+  } catch { notice.value="Could not save. This draft may have changed elsewhere. Your text is retained; reload shared drafts before retrying."; }finally{saving.value=false;}
 }
-const issueUrl = computed(
-  () =>
-    `${repository.url}/issues/new?title=${encodeURIComponent(title.value)}&body=${encodeURIComponent(request.value)}`,
-);
+const issueUrl=ref("");let issueSequence=0;
+watch([title,request],async()=>{const sequence=++issueSequence;issueUrl.value="";try{const result=await $fetch<{url:string}>("/factory/cockpit/issue-link",{method:"POST",body:{title:title.value,request:request.value}});if(sequence===issueSequence)issueUrl.value=result.url;}catch{if(sequence===issueSequence)issueUrl.value="";}});
 </script>
 
 <template>
@@ -167,7 +170,7 @@ const issueUrl = computed(
                     drafts.length
                   }}</UBadge>
                 </div>
-                <p class="muted small">Saved in this browser</p>
+                <p class="muted small">Saved in the shared cockpit</p><UButton variant="ghost" size="xs" @click="refreshDrafts">Refresh drafts</UButton>
                 <div v-if="!drafts.length" class="empty-drafts">
                   <UIcon name="i-lucide-file-pen-line" />
                   <h3>A little context goes a long way</h3>
@@ -217,12 +220,13 @@ const issueUrl = computed(
                 /></UFormField>
                 <div class="editor-actions">
                   <UButton
-                    :disabled="!title.trim() || !request.trim()"
+                    :disabled="saving || !title.trim() || !request.trim()"
+                    :loading="saving"
                     icon="i-lucide-save"
                     @click="save"
                     >Save draft</UButton
                   ><UButton
-                    :disabled="!title.trim() || !request.trim()"
+                    :disabled="!title.trim() || !request.trim() || !issueUrl"
                     :to="issueUrl"
                     target="_blank"
                     color="neutral"
@@ -313,7 +317,7 @@ const issueUrl = computed(
                 </div>
               </aside>
             </div>
-            <WorkActions :title="title" :brief="request" />
+            <WorkActions :title="title" :brief="request" /><DeliveryLoop :title="title" :brief="request" /><WorkHistory />
             <section class="starters">
               <h2>Start with a concrete problem</h2>
               <p class="muted">

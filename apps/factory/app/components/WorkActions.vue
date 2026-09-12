@@ -16,10 +16,7 @@ const starting = ref<StationKind>();
 const error = ref("");
 let pendingLaunch: { key: string; operationId: string } | undefined;
 const active = ref<StationLink>();
-onMounted(() => {
-  const linked = stationLinkSchema.safeParse(route.query);
-  if (linked.success) active.value = linked.data;
-});
+watch(() => route.query, query => { const linked=stationLinkSchema.safeParse(query); if(linked.success)active.value=linked.data; },{immediate:true});
 async function start(station: StationKind) {
   if (starting.value) return;
   error.value = "";

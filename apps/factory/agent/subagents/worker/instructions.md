@@ -15,3 +15,5 @@ Your durable worker session owns exactly one branch. prepare_work returns the cu
 If publication reports target_advanced, call refresh_target. It three-way merges your preserved source with the current target into your own workspace. Resolve every reported conflict, respecting the task and protected paths; then rerun verify_work and publish_work. Never restart the task or discard source merely because another branch advanced. If your own head changed externally or a protected conflict blocks progress, report that precise blocker and preserve the workspace.
 
 Each authenticated operation is separate. A cached Already published result is final for that operation. Do not treat earlier PR output as completion of a new revision.
+
+For the Jira teaching assignment, host policy permits `apps/jira/server/api/` and `apps/jira/server/utils/`. You may add only `scripts.test = "node --test tests/*.test.ts"` to `apps/jira/package.json`; preserve all other manifest fields. Author the tests and script yourself. Jira changes must pass the explicit Jira test command. Keep demo persistence clearly labelled, and use `refresh_target` when your target has advanced.

@@ -1,3 +1,4 @@
+import { jiraManifest,validateJiraManifest } from "../../../lib/jira-policy";
 import { defineTool } from "eve/tools";
 import { z } from "zod";
 import { getToken } from "@vercel/connect";
@@ -15,6 +16,7 @@ export default defineTool({description:"Fetch the authenticated PR's exact base/
   verifyScope(await getVercelOidcToken());yield{phase:"Preparing independent review"};
   const token=await getToken("github/jira-clone",{subject:{type:"app"}});
   const pull=await loadPullRequest(token,reviewerRequest.parse(stationRequest(ctx)).prNumber,ctx.abortSignal);
+  if(pull.files.some(f=>f.filename==="apps/jira/package.json"))validateJiraManifest(jiraManifest(pull.baseSnapshot.entries),jiraManifest(pull.snapshot.entries));
   const sandbox=await ctx.getSandbox();workState.update(s=>({...s,sandboxStarted:true}));
   const setup=await prepareRepository(sandbox,token,ctx.abortSignal,pull.snapshot);
   // Baseline policy is taken from the exact PR base, not candidate-modified files.
@@ -24,7 +26,7 @@ export default defineTool({description:"Fetch the authenticated PR's exact base/
   for(const rule of rules)await sandbox.writeBinaryFile({path:`review-policy/${rule.file}`,content:rule.content});
   await sandbox.writeTextFile({path:"review-policy/pull-request.json",content:JSON.stringify({number:pull.number,title:pull.title,body:pull.body,baseSha:pull.baseSha,headSha:pull.headSha,targetBranch:pull.targetBranch,files:pull.files},null,2)});
   const metadata={number:pull.number,url:pull.url,title:pull.title,body:pull.body,baseSha:pull.baseSha,headSha:pull.headSha,targetBranch:pull.targetBranch,files:pull.files};
-  workState.update(s=>({...s,prepared:setup.prepared,revision:setup.revision,baseline:setup.files.map(({file,sha256})=>({file,sha256})),commands:setup.commands,pull:metadata,contextGaps:[...setup.contextGaps,...pull.contextGaps]}));
+  workState.update(s=>({...s,prepared:setup.prepared,revision:setup.revision,jiraManifest:jiraManifest(pull.snapshot.entries),baseline:setup.files.map(({file,sha256})=>({file,sha256})),commands:setup.commands,pull:metadata,contextGaps:[...setup.contextGaps,...pull.contextGaps]}));
   yield{phase:setup.prepared?"Prepared":"Setup failed",pull:metadata,policy:"/workspace/review-policy",originalChangedFiles:"/workspace/base",workspace:"/workspace/repo",commands:setup.commands,limitations:[...setup.contextGaps,...pull.contextGaps,...hostReviewLimitations(pull.files)]};
  },
  toModelOutput(output){

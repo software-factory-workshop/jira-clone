@@ -33,7 +33,7 @@ function mockGitHub(t: {mock:{method:Function}},options:{mode?:string;main?:stri
  return writes;
 }
 test("worker policy excludes rules, credentials, archives, traversal and generated files",()=>{
- for(const path of ["AGENTS.md","apps/jira/AGENTS.md",".agents/skills/a.md",".github/workflows/ci.yml","factory/context/goal.md","apps/factory/agent/agent.ts","apps/factory/scripts/build-eve.mjs","../escape","apps//file",".env.local","apps/jira/.env","vendor/pkg.tgz","apps/jira/.output/file","package.json","apps/jira/package.json","pnpm-lock.yaml","apps/factory/nuxt.config.ts","apps/factory/server/api/station.post.ts","tsconfig.json","apps/jira/tsconfig.app.json","vercel.json",".pnpmfile.cjs","packages/project-context/src/index.ts","README.md"]){assert.equal(allowedWorkPath(path),false,path);}
+ for(const path of ["AGENTS.md","apps/jira/AGENTS.md",".agents/skills/a.md",".github/workflows/ci.yml","factory/context/goal.md","apps/factory/agent/agent.ts","apps/factory/scripts/build-eve.mjs","../escape","apps//file",".env.local","apps/jira/.env","vendor/pkg.tgz","apps/jira/.output/file","package.json","pnpm-lock.yaml","apps/factory/nuxt.config.ts","apps/factory/server/api/station.post.ts","tsconfig.json","apps/jira/tsconfig.app.json","vercel.json",".pnpmfile.cjs","packages/project-context/src/index.ts","README.md"]){assert.equal(allowedWorkPath(path),false,path);}
  assert.equal(allowedWorkPath("apps/jira/app/app.vue"),true);assert.equal(allowedWorkPath("docs/jira-demo.md"),true);
 });
 test("publication creates only one immutable feature branch and draft PR across retries",async t=>{
