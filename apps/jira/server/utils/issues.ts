@@ -105,8 +105,10 @@ export type IssuePatch = {
 
 /**
  * Demo-only update for status and/or priority on the single in-memory save
- * boundary. Unknown values are rejected with a client error before any
- * write; the deterministic `fail` path never writes either.
+ * boundary. Seeded issues are stored as overrides; created demo issues are
+ * updated in place on the same boundary. Unknown values are rejected with a
+ * client error before any write; the deterministic `fail` path never writes
+ * either.
  */
 export function updateIssue(
   key: string,
@@ -122,7 +124,10 @@ export function updateIssue(
     };
   }
   const seed = seeds.find((issue) => issue.key === key);
-  if (!seed) {
+  const created = seed
+    ? undefined
+    : createdIssues.find((issue) => issue.key === key);
+  if (!seed && !created) {
     return { ok: false, error: `Unknown issue key: ${key}.`, statusCode: 404 };
   }
   if (patch.status !== undefined && !isObservedStatus(patch.status)) {
@@ -146,20 +151,32 @@ export function updateIssue(
       statusCode: 400,
     };
   }
+  if (seed) {
+    if (patch.status !== undefined) {
+      statusOverrides.set(key, patch.status);
+    }
+    if (patch.priority !== undefined) {
+      priorityOverrides.set(key, patch.priority);
+    }
+    return {
+      ok: true,
+      issue: {
+        ...seed,
+        status: statusOverrides.get(key) ?? seed.status,
+        priority: priorityOverrides.get(key) ?? seed.priority,
+      },
+    };
+  }
+  if (!created) {
+    return { ok: false, error: `Unknown issue key: ${key}.`, statusCode: 404 };
+  }
   if (patch.status !== undefined) {
-    statusOverrides.set(key, patch.status);
+    created.status = patch.status;
   }
   if (patch.priority !== undefined) {
-    priorityOverrides.set(key, patch.priority);
+    created.priority = patch.priority;
   }
-  return {
-    ok: true,
-    issue: {
-      ...seed,
-      status: statusOverrides.get(key) ?? seed.status,
-      priority: priorityOverrides.get(key) ?? seed.priority,
-    },
-  };
+  return { ok: true, issue: { ...created } };
 }
 
 export function updateIssueStatus(
