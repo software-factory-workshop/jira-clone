@@ -13,7 +13,15 @@ The Eve station supersedes the historical stage-zero execution status below. Loc
 
 - The second browser run was stopped during its sandbox phase. Eve emitted `turn.cancelled`, the cockpit settled to Stopped, and no report was presented as complete.
 
-Initial hosted verification: revision `14dae90` passed CI and deployed Ready, and the signed-in browser created session `wrun_41M2AKG76A0GH9FWYTZ7XZ476Z`. The run failed safely during sandbox startup because the bundle omitted ACP bridge assets. `build:agent` now copies and byte-checks those four assets; the successful hosted rerun is recorded below after deployment.
+Initial hosted verification: revision `14dae90` passed CI and deployed Ready, and the signed-in browser created session `wrun_41M2AKG76A0GH9FWYTZ7XZ476Z`. The run failed safely during sandbox startup because the bundle omitted ACP bridge assets. `build:agent` now copies and byte-checks those four assets in both the server and hidden Workflow function bundles. CI also builds that Vercel layout. The intermediate visible-bundle-only fix was insufficient; an incorrect separate-host-directory assumption then failed CI. The final layout check passed at `e33c729`.
+
+Hosted investigation `wrun_41M2AMEC0K0GKSGJ90PB36X1RY` completed on deployment `dpl_94BpV2bsagEWfBFM3MF8Uey6Qonb` from revision `e33c7299096312cf8322be00ed0cfe7be8ec11bf`. GitHub Actions run `34689821897` passed. An authenticated Chrome session started it at 11:01 UTC; the report was captured at 11:03:48 UTC. The source evidence displayed 62 files at that same revision and complete issue/PR inventories (zero items each, captured at 11:01:51 and 11:01:52 UTC).
+
+The browser reloaded during execution and resumed the same investigation. One live stream ended before completion and the old UI misleadingly showed Stopped; another reload restored Running and then the completed report. The follow-up UI change distinguishes disconnection from an explicit cancellation event and offers Reconnect. This is a transport-state correction, not a second mining run.
+
+Reloading again restored Ready to review with the original 62-file report. “Use findings in a draft” opened Work, populated the request body with the report and provenance, and focused the title. The verification draft was not saved or published; the user's existing tab was left untouched.
+
+Codex reviewed the hosted report: it proposed capturing human usefulness feedback, defining a bounded demo scope, and reconciling stale cockpit planning docs. The stale-doc contradiction was reproduced and corrected as part of this delivery. The other proposals remain for Remi's review. The report also incorrectly treated its truncated manifest read as unavailable revision evidence; the UI's recorded manifest and revision were present. This remains a model investigation-quality limitation, not a missing snapshot.
 
 ## Historical stage-zero checks
 

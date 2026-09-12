@@ -14,6 +14,7 @@ const { data, events, status, error, session, send, cancel, resume, respond } = 
 });
 const busy = computed(() => status.value === "submitted" || status.value === "streaming");
 const cancelled = computed(() => events.value.some(event => event.type === "turn.cancelled"));
+const turnEnded = computed(() => events.value.some(event => event.type === "turn.completed" || event.type === "turn.failed" || event.type === "session.failed"));
 const output = computed(() => {
   const parts = data.value.messages.flatMap(message => message.parts).filter(part => part.type === "dynamic-tool" && part.toolName === "investigate_repository");
   const last = parts.at(-1);
@@ -22,6 +23,7 @@ const output = computed(() => {
   return parsed.success ? parsed.data : undefined;
 });
 const toolError = computed(() => data.value.messages.flatMap(message => message.parts).find(part => part.type === "dynamic-tool" && part.state === "output-error"));
+const disconnected = computed(() => !!(session.value || props.sessionId) && !busy.value && status.value !== "resuming" && !cancelled.value && !turnEnded.value && !output.value?.report && !output.value?.error && !toolError.value);
 const reportHtml = computed(() => renderReport(output.value?.report || ""));
 const pendingRequests = computed(() => data.value.messages.flatMap(message => message.parts.flatMap(part => part.type === "dynamic-tool" && part.state === "approval-requested" && part.toolMetadata?.eve?.inputRequest ? [part.toolMetadata.eve.inputRequest] : [])));
 const summary = computed(() => data.value.messages.filter(message => message.role === "assistant").flatMap(message => message.parts.flatMap(part => part.type === "text" ? [part.text] : [])).join("\n"));
@@ -49,7 +51,7 @@ function draft() {
       <p class="small muted">Runs with Muse Spark in a Vercel Sandbox, billed to demo-software-factory. It can inspect source and GitHub work; it cannot change the repository.</p>
     </form>
     <div v-else>
-      <div class="panel-heading"><h2>Investigation</h2><UBadge :color="output?.report ? 'success' : output?.error || error || toolError ? 'error' : 'primary'" variant="soft">{{ status === 'resuming' ? 'Reconnecting' : busy ? 'Running' : output?.report ? 'Ready to review' : output?.error || error || toolError ? 'Incomplete' : 'Stopped' }}</UBadge></div>
+      <div class="panel-heading"><h2>Investigation</h2><UBadge :color="output?.report ? 'success' : output?.error || error || toolError ? 'error' : 'primary'" variant="soft">{{ status === 'resuming' ? 'Reconnecting' : busy ? 'Running' : output?.report ? 'Ready to review' : cancelled ? 'Stopped' : disconnected ? 'Disconnected' : 'Incomplete' }}</UBadge></div>
       <p v-if="busy || status === 'resuming'" role="status" class="progress"><UIcon name="i-lucide-loader-circle" class="animate-spin" />{{ output?.phase || (status === 'resuming' ? 'Restoring the investigation' : 'Starting the Eve session') }}</p>
       <p v-if="busy" class="small muted">You can leave this page. Eve continues the investigation and restores its result when you return.</p>
       <div v-if="output?.report" class="findings">
@@ -63,8 +65,9 @@ function draft() {
         </details>
       </div>
       <p v-else-if="cancelled" class="report">Investigation stopped before findings were ready.</p>
+      <p v-else-if="disconnected" class="report">The live connection ended before a final result arrived. The investigation may still be running. Reconnect to check its state.</p>
       <p v-else-if="!busy && summary" class="report">{{ summary }}</p>
-      <div class="mining-actions"><UButton v-if="busy" variant="outline" color="neutral" @click="stop">Stop investigation</UButton><UButton v-if="error || actionError" variant="outline" @click="reconnect">Reconnect</UButton><UButton v-if="!busy && !output?.report && status !== 'resuming'" @click="emit('new')">New investigation</UButton></div>
+      <div class="mining-actions"><UButton v-if="busy" variant="outline" color="neutral" @click="stop">Stop investigation</UButton><UButton v-if="error || actionError || disconnected" variant="outline" @click="reconnect">Reconnect</UButton><UButton v-if="!busy && !output?.report && status !== 'resuming'" @click="emit('new')">New investigation</UButton></div>
       <fieldset v-for="request in pendingRequests" :key="request.requestId"><legend>{{ request.prompt }}</legend><UButton v-for="option in request.options || []" :key="option.id" :disabled="status === 'resuming'" @click="respond([{ requestId: request.requestId, optionId: option.id }])">{{ option.label }}</UButton></fieldset>
       <p class="small muted session-id"><a :href="`?investigation=${session?.sessionId || sessionId}`">Open session {{ session?.sessionId || sessionId }}</a></p>
     </div>
