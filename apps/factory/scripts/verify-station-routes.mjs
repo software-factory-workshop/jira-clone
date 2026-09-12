@@ -10,7 +10,7 @@ for (const name of agents) {
   const service = authored.services[name];
   assert.equal(service.framework, 'eve');
   assert.equal(service.root, `agents/${name}`);
-  assert.equal(service.routePrefix, `/${name}`);
+  assert(!('routePrefix' in service), 'routePrefix is a generated Build Output field, not an authored Vercel service property');
   assert(authored.rewrites.some(route => route.source === `/${name}/(.*)` && route.destination?.service === name), `Missing public route for ${name}`);
   assert(service.routes.some(route => route.src === `^/${name}/(.*)$` && route.transforms?.some(transform => transform.type === 'request.path' && transform.op === 'set' && transform.args === '/$1')), `Missing namespace stripping for ${name}`);
   await access(`agents/${name}/agent/agent.ts`);

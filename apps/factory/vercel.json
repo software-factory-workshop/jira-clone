@@ -9,7 +9,6 @@
       "root": "agents/task-miner",
       "framework": "eve",
       "buildCommand": "node ../../scripts/build-eve.mjs task-miner",
-      "routePrefix": "/task-miner",
       "routes": [
         {
           "src": "^/task-miner/(.*)$",
@@ -27,7 +26,6 @@
       "root": "agents/worker",
       "framework": "eve",
       "buildCommand": "node ../../scripts/build-eve.mjs worker",
-      "routePrefix": "/worker",
       "routes": [
         {
           "src": "^/worker/(.*)$",
@@ -45,7 +43,6 @@
       "root": "agents/reviewer",
       "framework": "eve",
       "buildCommand": "node ../../scripts/build-eve.mjs reviewer",
-      "routePrefix": "/reviewer",
       "routes": [
         {
           "src": "^/reviewer/(.*)$",
