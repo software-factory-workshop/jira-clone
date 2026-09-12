@@ -32,3 +32,11 @@ export function referenceState(publication:NonNullable<Delivery['publication']>,
  if(actual.state!=="open"||actual.targetBranch!==publication.targetBranch)return 'blocked';
  return actual.headSha===publication.headSha&&actual.targetHeadSha===publication.targetHeadSha?'current':'needs_revision';
 }
+export function claimAdvance(state:Delivery,now=Date.now()) {
+ if(terminal(state.phase)||(state.leaseUntil||0)>now)return null;
+ state.leaseUntil=now+60000;state.version++;return structuredClone(state);
+}
+export function commitAdvance(current:Delivery,candidate:Delivery,claimedVersion:number) {
+ if(current.version!==claimedVersion)return current;
+ delete candidate.leaseUntil;candidate.version=current.version+1;candidate.updatedAt=new Date().toISOString();return candidate;
+}

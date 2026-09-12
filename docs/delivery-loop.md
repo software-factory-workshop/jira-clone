@@ -19,11 +19,11 @@ All routes require `factoryAuth`, including machine bearer identity or the prote
 
 Creation is idempotent for the same caller and operation ID, with conflicting payloads rejected. Revision request IDs stay recorded across subsequent reviews. CAS claims fence concurrent advances; external station starts keep stable Eve continuation keys across retries. Cancellation records intent first and requests cancellation of the parent and admitted child tasks, including a launch racing the request. A publication completed before cancellation is retained; cancellation cannot undo an existing PR.
 
-`working` and `revising` wait for successful host `publish_work` output, then `reviewing` waits for host `record_review`. Model prose cannot advance the loop. The host rechecks current PR head and target before dispatching review and accepting its result. Changed refs block stale evidence. Blocking findings automatically return to the same owner, up to the explicitly configured `maxRevisions` (default 3); this controls repeated repair attempts, not model token budgets. Missing browser evidence yields `human_review`; `ready` is never merge authorization.
+`working` and `revising` wait for successful host `publish_work` output, then `reviewing` waits for host `record_review`. Model prose cannot advance the loop. The host rechecks current PR head and target before dispatching review and accepting its result. Changed refs yield `needs_revision` with an explicit original-owner refresh request; closed or retargeted PRs remain blocked. Blocking findings automatically return to the same owner, up to the explicitly configured `maxRevisions` (default 3); this controls repeated repair attempts, not model token budgets. Missing browser evidence yields `human_review`; `ready` is never merge authorization.
 
 ## CLI and reconnect
 
-Supply a machine bearer token in `FACTORY_TOKEN`. It is never written to the checkpoint. The request JSON contains the title and brief; use `factory/tasks/jira-teaching-loop.md` as the assignment source.
+Supply a Vercel OIDC machine bearer token in `FACTORY_TOKEN` (not a Vercel REST API personal token). If the deployment also requires a protection bypass, supply `FACTORY_PROTECTION_BYPASS`. It is never written to the checkpoint. The request JSON contains the title and brief; use `factory/tasks/jira-teaching-loop.md` as the assignment source.
 
 ```sh
 node scripts/delivery-loop.mjs --base https://adeo-factory-cockpit.vercel.app --task /tmp/jira-task.json --state /tmp/jira-delivery.json

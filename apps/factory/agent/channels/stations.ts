@@ -1,11 +1,10 @@
-import { createHash } from "node:crypto";
 import { defineChannel, POST, type RouteHandlerArgs } from "eve/channels";
 import { routeAuth } from "eve/channels/auth";
 import { factoryAuth } from "../lib/route-auth";
 import { getToken } from "@vercel/connect";
 import { readPull,verifyOwnerCommit,WorkError } from "../lib/work-github";
 import { ownerFromBody,verifyOwnerStream } from "../lib/work-owner";
-import { workerRequest, reviewerRequest,revisionRequest } from "../lib/station-access";
+import { workerRequest, reviewerRequest,revisionRequest,stationAddress } from "../lib/station-access";
 export async function stationOperation(request:Request,{from,params,resolveSession,attachSession}:RouteHandlerArgs,addressPrefix?:string){
   const auth=await routeAuth(request,factoryAuth);
   if(auth instanceof Response) return auth;
@@ -27,7 +26,7 @@ export async function stationOperation(request:Request,{from,params,resolveSessi
   if(station!=="worker" && station!=="reviewer") return Response.json({error:"Unknown station"},{status:404});
   const parsed=(station==="worker"?workerRequest:reviewerRequest).safeParse(await request.json().catch(()=>null));
   if(!parsed.success) return Response.json({error:"Invalid station request",issues:parsed.error.issues},{status:400});
-  const address=createHash("sha256").update(JSON.stringify([addressPrefix||auth.principalId,station,parsed.data.operationId])).digest("hex");
+  const address=stationAddress(auth.principalId,station,parsed.data.operationId,addressPrefix);
   const prior=await resolveSession(address);
   if(prior) return Response.json({sessionId:prior.id,station,execution:"dispatcher",operationId:parsed.data.operationId},{status:200});
   const session=await from(address).send(`Run the authenticated ${station} station once. The immutable request is supplied in your system context.`,{auth:{...auth,attributes:{...auth.attributes,factoryStation:station,factoryRequest:JSON.stringify(parsed.data)}}});

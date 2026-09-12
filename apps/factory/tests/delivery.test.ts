@@ -1,6 +1,7 @@
+import { stationAddress } from "../agent/lib/station-access.ts";
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { applyReview,newDelivery,operationFor,deliveryRequest,referenceState } from '../agent/lib/delivery-state.ts';
+import { applyReview,newDelivery,operationFor,deliveryRequest,referenceState,claimAdvance,commitAdvance,transition } from '../agent/lib/delivery-state.ts';
 import { hostResult,eventsForDelivery,snapshotEvents } from '../agent/lib/delivery-events.ts';
 import { validateJiraManifest,verificationCommands } from '../agent/lib/jira-policy.ts';
 import { allowedWorkPath } from '../agent/lib/work-github.ts';
@@ -18,3 +19,9 @@ test('host policy opens Jira API/utils but keeps middleware/config protected and
 test('revision events use live Eve meta.deliveryIds and exclude the previous turn',()=>{const current={type:'turn.started',meta:{deliveryIds:['delivery-current']},data:{}};assert.deepEqual(eventsForDelivery([{type:'turn.completed',meta:{deliveryIds:['delivery-old']}},current],'delivery-current'),[current]);assert.deepEqual(eventsForDelivery([{type:'turn.started',deliveryIds:['delivery-current']}],'delivery-current'),[]);});
 test('stale refs demand an explicit owner revision instead of a retry loop',()=>{const p=state().publication!;assert.equal(referenceState(p,{state:'open',headSha:p.headSha,targetBranch:p.targetBranch,targetHeadSha:'c'.repeat(40)}),'needs_revision');assert.equal(referenceState(p,{state:'closed',headSha:p.headSha,targetBranch:p.targetBranch,targetHeadSha:p.targetHeadSha}),'blocked');});
 test('partial stream observations cannot produce trusted terminal evidence',async()=>{await assert.rejects(snapshotEvents({getStreamTailIndex:async()=>2,getEventStream:async()=>new ReadableStream({start(c){c.enqueue({type:'turn.completed'});c.close();}})} as never),/before captured tail/);});
+
+test('lost revision receipt recovers trusted cached prepare_work publication',()=>{const result={sessionId:'wrun_owner',operationId:'same',revisionProtocol:1,publication:{headSha:'a'.repeat(40)}};const event={type:'action.result',meta:{deliveryIds:['retry']},data:{status:'completed',result:{kind:'tool-result',toolName:'prepare_work',output:{phase:'Already published',result}}}};assert.deepEqual(hostResult(eventsForDelivery([event],'retry'),'publish_work','wrun_owner','same'),result);assert.equal(hostResult([event],'publish_work','wrun_owner','different'),undefined);});
+
+test('concurrent advance claims are fenced, including expired claims',()=>{const current=state();const first=claimAdvance(current,100)!;assert.equal(claimAdvance(current,101),null);const replacement=claimAdvance(current,60101)!;assert.notEqual(first.version,replacement.version);first.phase='ready';assert.equal(commitAdvance(current,first,first.version).phase,'worker_starting');});
+test('cancelled intent wins over a late launch receipt',()=>{const current=state();const claim=claimAdvance(current,100)!;const version=claim.version;transition(current,'cancelled');claim.sessionId='wrun_late';transition(claim,'working');assert.equal(commitAdvance(current,claim,version).phase,'cancelled');});
+test('machine-to-Passport resume keeps the same loop continuation',()=>{assert.equal(stationAddress('machine','worker','op','loop-id'),stationAddress('passport','worker','op','loop-id'));assert.notEqual(stationAddress('machine','worker','op'),stationAddress('passport','worker','op'));});

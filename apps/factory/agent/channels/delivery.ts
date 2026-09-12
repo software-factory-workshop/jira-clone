@@ -2,9 +2,11 @@ import { defineChannel,GET,POST,type RouteHandlerArgs } from 'eve/channels';
 import { routeAuth } from 'eve/channels/auth';
 import { z } from 'zod';
 import { getToken } from '@vercel/connect';
+import { updateCockpit } from '../lib/cockpit-store';
+import { changeRecord } from '../../shared/cockpit';
 import { factoryAuth } from '../lib/route-auth';
 import { stationOperation } from './stations';
-import { deliveryRequest,newDelivery,operationFor,transition,terminal,applyReview,referenceState,type Delivery } from '../lib/delivery-state';
+import { deliveryRequest,newDelivery,operationFor,transition,terminal,applyReview,referenceState,claimAdvance,commitAdvance,type Delivery } from '../lib/delivery-state';
 import { readDelivery,updateDelivery } from '../lib/delivery-store';
 import { snapshotEvents,childIn,hostResult,stoppedWithoutResult,eventsForDelivery } from '../lib/delivery-events';
 import { readPull,readBranch,WorkError,workBranch } from '../lib/work-github';
@@ -20,7 +22,7 @@ async function checkCurrent(p:NonNullable<Delivery['publication']>){
 }
 async function advance(request:Request,ctx:RouteHandlerArgs){
  const id=ctx.params.id;let state=await existing(id);if(terminal(state.phase))return Response.json(state);
- const claim=await updateDelivery(id,current=>{if(!current)throw new Error('Delivery not found');if(terminal(current.phase)||(current.leaseUntil||0)>Date.now())return{state:current,result:null};current.leaseUntil=Date.now()+60000;current.version++;return{state:current,result:structuredClone(current)};});
+ const claim=await updateDelivery(id,current=>{if(!current)throw new Error('Delivery not found');const result=claimAdvance(current);return{state:current,result};});
  if(!claim)return Response.json(await existing(id));state=claim;const claimedVersion=claim.version;const startedPhase=claim.phase;
  try{
   if(state.phase.endsWith('_starting')){
@@ -49,7 +51,7 @@ async function advance(request:Request,ctx:RouteHandlerArgs){
    }
   }
  }catch(error){state.failedPhase=startedPhase;state.error=error instanceof Error?error.message:'Delivery advance failed';transition(state,error instanceof WorkError&&error.code==='needs_revision'?'needs_revision':'blocked');}
- const committed=await updateDelivery(id,current=>{if(!current)throw new Error('Delivery missing');if(current.version!==claimedVersion)return{state:current,result:current};delete state.leaseUntil;state.version=current.version+1;state.updatedAt=new Date().toISOString();return{state,result:state};});
+ const committed=await updateDelivery(id,current=>{if(!current)throw new Error('Delivery missing');const next=commitAdvance(current,state,claimedVersion);return{state:next,result:next};});
  if(committed.phase==='cancelled'&&state.sessionId)await ctx.attachSession(state.sessionId).cancel({tasks:true});
  return Response.json(committed);
 }
@@ -57,7 +59,7 @@ export default defineChannel({routes:[
  POST('/factory/delivery',protectedRoute(async(request)=>{
   const auth=await routeAuth(request,factoryAuth);if(auth instanceof Response)return auth;
   const input=deliveryRequest.parse(await request.json());const fresh=newDelivery(auth.principalId,input);
-  const state=await updateDelivery(fresh.id,current=>{if(current&&JSON.stringify(current.request)!==JSON.stringify(input))throw new Error('Operation ID reused with a different task');return{state:current||fresh,result:current||fresh};});return Response.json(state,{status:202});
+  const state=await updateDelivery(fresh.id,current=>{if(current&&JSON.stringify(current.request)!==JSON.stringify(input))throw new Error('Operation ID reused with a different task');return{state:current||fresh,result:current||fresh};});await updateCockpit(doc=>doc.runs[state.id]||changeRecord(doc,'runs',state.id,{label:state.request.title,station:'loop',operationId:state.request.operationId},0));return Response.json(state,{status:202});
  })),
  GET('/factory/delivery/:id',protectedRoute(async(_,ctx)=>Response.json(await existing(ctx.params.id)))),
  POST('/factory/delivery/:id/advance',protectedRoute(advance)),
