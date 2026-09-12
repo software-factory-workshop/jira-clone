@@ -87,6 +87,12 @@
       "destination": {
         "service": "task-miner"
       }
+    },
+    {
+      "source": "/(.*)",
+      "destination": {
+        "service": "web"
+      }
     }
   ]
 }
