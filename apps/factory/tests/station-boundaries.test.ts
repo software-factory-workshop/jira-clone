@@ -7,6 +7,7 @@ import { join } from "node:path";
 import { execFileSync } from "node:child_process";
 import { stationOf,requireStation,stationRequest,workerRequest } from "../agent/lib/station-access.ts";
 import { collectChangesCommand,validateCollectedChanges,changesDigest } from "../agent/lib/work-changes.ts";
+import { approvalBlockers, hostReviewLimitations } from "../agent/lib/review-policy.ts";
 const op="22222222-2222-4222-8222-222222222222";
 test("station privileges come only from immutable initiator auth, not current delivery",()=>{
  const spoof={session:{auth:{initiator:{attributes:{}},current:{attributes:{factoryStation:"worker"}}}}};
@@ -31,4 +32,15 @@ test("change collector finds edits additions deletions and ignores unchanged bin
 test("protected policy or validation edits cannot reach verification/publication",()=>{
  for(const path of ["AGENTS.md","apps/factory/agent/instructions.ts","package.json","apps/factory/package.json",".github/workflows/ci.yml","factory/context/goal.md","../escape"]){assert.throws(()=>validateCollectedChanges([{path,content:"changed"}]),path);}
  assert.throws(()=>validateCollectedChanges([{path:"apps/factory/app/x.ts",content:"a"},{path:"apps/factory/app/x.ts",content:"b"}]));
+});
+test("model cannot reclassify required UI evidence to obtain approval",()=>{
+ const files=[{filename:"apps/factory/app/components/ProposalFeedback.vue"}];
+ assert.deepEqual(hostReviewLimitations(files),[
+  "Required host evidence missing: exercise the changed UI in a real browser.",
+  "Required host evidence missing: verify keyboard accessibility for the changed UI.",
+ ]);
+ const blockers=approvalBlockers({prepared:true,repositoryChecksPassed:true,hasBlockingFinding:false,contextGaps:[],modelLimitations:[],files});
+ assert.deepEqual(blockers,hostReviewLimitations(files));
+ assert.equal(hostReviewLimitations([{filename:"docs/removed-component.md",previous_filename:"apps/jira/app/components/Board.vue"}]).length,2);
+ assert.deepEqual(approvalBlockers({prepared:true,repositoryChecksPassed:true,hasBlockingFinding:false,contextGaps:[],modelLimitations:[],files:[{filename:"docs/review.md"}]}),[]);
 });
