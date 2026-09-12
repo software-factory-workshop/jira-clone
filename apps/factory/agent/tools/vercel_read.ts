@@ -1,9 +1,11 @@
+import { defineDynamic } from "eve";
+import { stationOf } from "../lib/station-access";
 import { defineTool } from "eve/tools";
 import { getToken } from "@vercel/connect";
 import { miningState } from "../lib/mining-state";
 import { vercelInput, vercelProjects, vercelMachineConnector, readVercel } from "../lib/vercel-context";
 
-export default defineTool({
+const tool = defineTool({
   description: "Read Vercel project, deployment or build evidence for the ADEO cockpit or Jira project in demo-software-factory. Uses the factory machine credential. Missing configuration or unavailable logs are context gaps. No deployment or configuration writes are available.",
   inputSchema: vercelInput,
   async execute(input, ctx) {
@@ -22,3 +24,5 @@ export default defineTool({
     return receipt;
   },
 });
+
+export default defineDynamic({events:{"session.started":(_,ctx)=>stationOf(ctx) ? null : tool}});

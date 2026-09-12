@@ -1,10 +1,12 @@
+import { defineDynamic } from "eve";
+import { stationOf } from "../lib/station-access";
 import { defineTool } from "eve/tools";
 import { z } from "zod";
 import { miningState } from "../lib/mining-state";
 import { latestVercelReads } from "../lib/vercel-context";
 import { repository, model, scope } from "../lib/github.mjs";
 import { proposalInputSchema, recordProposals, renderProposal } from "../lib/proposals";
-export default defineTool({
+const tool = defineTool({
  description:"Record up to three ranked proposals and reflection. Trusted repository, command and integration evidence are attached by the host. Missing setup or inventories make the investigation incomplete. Call once after investigation.",
  inputSchema:z.object({proposals:z.array(proposalInputSchema).max(3),noProposalReason:z.string().optional(),reflection:z.object({helpfulContext:z.array(z.string()),missingContext:z.array(z.string()),contradictions:z.array(z.string()),suggestedImprovements:z.array(z.string())}),contextGaps:z.array(z.string()).describe("Only unavailable evidence needed to answer the user focus. Intentional evaluation/history exclusions and nonexistent comment threads are not blocking gaps by themselves; explain informational limitations in reflection instead.")}),
  async execute(input,ctx){
@@ -29,3 +31,5 @@ export default defineTool({
  },
  toModelOutput(output){return {type:"text",value:`${output.phase}: original findings and trusted evidence recorded in the cockpit. Briefly invite the user to review; do not rewrite the report.`};}
 });
+
+export default defineDynamic({events:{"session.started":(_,ctx)=>stationOf(ctx) ? null : tool}});

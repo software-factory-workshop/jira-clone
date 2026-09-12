@@ -1,5 +1,13 @@
 # Work already underway
 
+## Worker and reviewer stations in development
+
+On 12 September Remi requested an implementation agent that produces PRs and an independent reviewer that accepts a PR. This delivery adds those two native Eve stations to the cockpit. Task mining stays read-only; an explicit work request admits execution. Workers may publish a draft PR but cannot merge or change active factory rules. Review evidence is bound to the PR head revision.
+
+The first selected worker assignment is `factory/tasks/proposal-usefulness.md`. Remi authorized choosing useful work autonomously for agent validation. The worker, rather than the development session, must implement this task. A resulting PR still needs review and owner acceptance. Do not rediscover this feedback task as unclaimed work during that run.
+
+PR #1, “Expose cockpit UI capabilities through tested APIs”, was reviewed at `71ed287` and left unmerged because of an incorrect issue URL and a draft restore/save race. See `docs/pr-1-review.md`. The stations do not depend on those unmerged APIs.
+
 Updated 12 September 2026 after native Eve machine-access and structured-proposal validation. This supplements GitHub; an empty issue list does not imply no active work. A focused run recognized both existing candidates as pending owner review rather than new discoveries.
 
 ## Native task-mining investigation and context experiments

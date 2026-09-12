@@ -1,5 +1,11 @@
 # Factory verification
 
+## Worker and reviewer bootstrap — 12 September 2026
+
+The implementation follows [the station design and source decisions](../factory/work-stations.md). Root typecheck, tests and both app builds passed, including 38 factory tests. A Vercel-mode Nuxt build confirmed both `/eve/v1/*` and `/factory/stations/*` route to the existing Eve service with their original paths. The native Eve Vercel build also passed. A local HTTP probe of the custom worker route returned 400 for invalid input without starting a model run.
+
+These checks establish the compiled boundary and request validation, not a successful worker or reviewer run. The first real assignment is [proposal usefulness feedback](../factory/tasks/proposal-usefulness.md); production evidence follows once the stations execute it.
+
 ## Machine access and individual proposal drafts — 12 September 2026
 
 Revision `3b6b8fa` passed GitHub Actions run `34693717672` and deployed Ready as `dpl_2PuzWWXcCHrePBy9R3ovrdXFgoWB`. An isolated frozen install, typechecks, tests and both app builds passed. Proposal parsing preserves structured records; each cockpit action creates an editable draft containing only that proposal, its evidence and provenance. It does not start implementation.

@@ -1,0 +1,34 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
+import { mkdtemp,mkdir,writeFile,rm,symlink } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { execFileSync } from "node:child_process";
+import { stationOf,requireStation,stationRequest,workerRequest } from "../agent/lib/station-access.ts";
+import { collectChangesCommand,validateCollectedChanges,changesDigest } from "../agent/lib/work-changes.ts";
+const op="22222222-2222-4222-8222-222222222222";
+test("station privileges come only from immutable initiator auth, not current delivery",()=>{
+ const spoof={session:{auth:{initiator:{attributes:{}},current:{attributes:{factoryStation:"worker"}}}}};
+ assert.equal(stationOf(spoof),null);assert.throws(()=>requireStation(spoof,"worker"));
+ const review={session:{auth:{initiator:{attributes:{factoryStation:"reviewer",factoryRequest:JSON.stringify({operationId:op,prNumber:3})}}}}};
+ assert.throws(()=>requireStation(review,"worker"));assert.deepEqual(stationRequest(review),{operationId:op,prNumber:3});
+ assert.throws(()=>workerRequest.parse({operationId:op,title:"Task",brief:"A bounded requested task",factoryStation:"worker"}));
+});
+test("change collector finds edits additions deletions and ignores unchanged binary files",async()=>{
+ const root=await mkdtemp(join(tmpdir(),"station-diff-"));
+ try{
+  await mkdir(join(root,"apps/factory/app"),{recursive:true});
+  await writeFile(join(root,"apps/factory/app/edit.ts"),"after");await writeFile(join(root,"apps/factory/app/new.ts"),"new");await writeFile(join(root,"apps/factory/app/same.png"),Buffer.from([0,1,2]));
+  const hash=(x:string|Buffer)=>createHash("sha256").update(x).digest("hex");
+  const baseline=[{file:"apps/factory/app/edit.ts",sha256:hash("before")},{file:"apps/factory/app/deleted.ts",sha256:hash("gone")},{file:"apps/factory/app/same.png",sha256:hash(Buffer.from([0,1,2]))}];
+  const values=JSON.parse(execFileSync("sh",["-c",collectChangesCommand(baseline,root)],{encoding:"utf8"}));
+  const changes=validateCollectedChanges(values);assert.deepEqual(changes,[{path:"apps/factory/app/deleted.ts",content:null},{path:"apps/factory/app/edit.ts",content:"after"},{path:"apps/factory/app/new.ts",content:"new"}]);
+  assert.notEqual(changesDigest(changes),changesDigest([{path:"apps/factory/app/edit.ts",content:"different"}]));
+  await symlink("/etc/passwd",join(root,"escape"));assert.throws(()=>execFileSync("sh",["-c",collectChangesCommand(baseline,root)],{stdio:"pipe"}));
+ }finally{await rm(root,{recursive:true,force:true});}
+});
+test("protected policy or validation edits cannot reach verification/publication",()=>{
+ for(const path of ["AGENTS.md","apps/factory/agent/instructions.ts","package.json","apps/factory/package.json",".github/workflows/ci.yml","factory/context/goal.md","../escape"]){assert.throws(()=>validateCollectedChanges([{path,content:"changed"}]),path);}
+ assert.throws(()=>validateCollectedChanges([{path:"apps/factory/app/x.ts",content:"a"},{path:"apps/factory/app/x.ts",content:"b"}]));
+});
