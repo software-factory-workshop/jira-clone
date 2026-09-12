@@ -1,21 +1,34 @@
 # Work already underway
 
-Updated 12 September 2026 during the development session. This supplements GitHub; an empty issue list does not imply no active work.
+Updated 12 September 2026 after the native Eve baseline and transfer runs. This supplements GitHub; an empty issue list does not imply no active work. This status correction has not itself been validated by another mining run.
 
-## Task-mining context calibration
+## Native task-mining investigation and context experiments
 
-Owner: Codex development session, requested by Remi. Status: initial calibration completed and reviewed by Codex; Remi's review of proposals is pending. The original and alternate prompts have both completed with current GitHub evidence. This status was updated after those runs.
+Owner: Codex development session, requested by Remi. The native Eve implementation is in the repository, and the final local baseline and differently worded transfer probe completed cleanly. Each passed four operational gates: successful turn, context preparation, GitHub reads and findings recording. The reports remain explicitly Incomplete for missing authenticated Vercel evidence. These operational checks do not establish proposal usefulness or owner acceptance.
 
-The current work is to make the small task-mining prompt return useful proposals. It already includes the runner, team-scoped model access, current issues/PR reads, explicit source inventory, held-out review criteria, baseline runs, context revisions, same-prompt replays and differently worded probes. Its deliverable is a reviewed comparison with remaining limitations, not a deployed station.
+The final baseline is `wrun_01M2AQ0E5CN1HVCD71RC6TPGD5` (runtime `b81899e`, inspected source `42d335c`); the transfer is `wrun_01M2AQ5JE63FYDDPFVJA17AA7Q` (runtime and source `b81899e`). Both used native Eve and Muse Spark. The context experiment narrowed initial exploration and distinguished required missing evidence from intentional exclusions. Both final reports kept intentional exclusions in reflection, with Vercel access as the blocking gap. Broad proposal quality remains unresolved: one baseline claim misclassified an old fx run as native; the transfer proposed an experiment substantially overlapping this work.
 
-The initial same-prompt and transfer comparisons are complete. A subsequent mining session should inspect this current status instead of assuming they have never run. Do not propose creating the runner, publishing the inventory or starting the same replay/transfer comparison as a new task. Inspect the available implementation; name a specific gap or new case if further work is justified. A future regression or changed context can justify another experiment, but absence of held-out results does not prove the current experiment has not run.
+Do not propose starting this same baseline/transfer experiment, creating its runner, publishing its inventory or adding these native capabilities as new work. They exist. A specific regression, unanswered question or changed context can justify a new experiment, but first identify what would differ and what observation would settle it. Held-out artifacts being unavailable does not imply the experiment never ran.
 
-Artifacts exist in `factory/mining/`, intentionally outside your snapshot. Completion, usefulness and owner acceptance are different states. A completed model call does not establish owner acceptance. Current run scores and candidate answers are withheld to keep your judgment independent.
+Artifacts exist in `factory/mining/native/2026-09-12/`, intentionally excluded from mining snapshots. `docs/verification.md` records accessible dated verification and limitations. No further paid probes are currently planned in this delivery.
 
-## Cockpit task-mining station
+## Proposals awaiting Remi's review
 
-Owner: Codex development session, requested by Remi. The native Eve migration is active. An earlier delivery wrapped fx in Eve; Remi clarified that fx was only the experiment used to learn whether documentation, repository access, GitHub evidence and reproduction were sufficient. Do not propose rebuilding the fx wrapper or infer that its successful hosted run verified the native Eve station.
+The following are existing candidate proposals, not accepted work or novel discoveries:
 
-The active delivery packages the fx experiment separately and gives Eve its own repository sandbox, GitHub and Vercel reads, local reproduction tools and typed findings record. Cockpit work preserves existing sessions and editable drafts, and displays evidence gaps and actual command results. Inspect `apps/factory/agent`, the mining components and the current package layout before proposing these capabilities again. Deployment and verification evidence belongs in `docs/verification.md`.
+- Capture browser-local usefulness feedback on mining proposals.
+- Define the bounded ADEO Jira demo scope for the workshop.
 
-The immediate learning loop is to run cheap Muse investigations, inspect what they misunderstood, make a targeted context change, and check whether the improvement transfers to another question. Remi's acceptance of proposals remains pending. No Jira feature implementation, automatic issue publication or factory-rule activation is underway. Check current GitHub issues and PRs for work started elsewhere; this dated record does not supersede newer evidence.
+Remi has not accepted either proposal. Do not implement them or reintroduce them as newly discovered tasks merely because GitHub has no corresponding issue. If they are still the best next step, explain that owner review is pending. The proposed two-prompt transfer experiment overlaps the completed development-session work above; further experimentation needs a distinct question.
+
+## Cockpit delivery and remaining verification
+
+The fx experiment is packaged separately. The deployed agent architecture is native Eve with its own repository sandbox, GitHub and Vercel read tools, disposable reproduction commands and typed findings recording. An earlier implementation wrapped fx in Eve; its successful hosted run does not verify the native replacement. Inspect `apps/factory/agent`, the mining components and current package layout before proposing these capabilities again.
+
+Authenticated Vercel access and end-to-end hosted native verification remain in progress. Local anonymous evaluation has no authenticated Vercel user for the user-scoped connection; this is an access limitation, not evidence that deployments are empty or the connector needs rebuilding. Hosted status and any later authorization result belong in `docs/verification.md`; consult newer evidence before carrying this limitation forward.
+
+No Jira feature implementation, automatic issue publication or factory-rule activation is underway. Proposed tasks and candidate factory rules require owner review before activation. Check current GitHub issues and PRs for work started elsewhere; this dated record does not supersede newer evidence.
+
+## Historical fx calibration
+
+The earlier fx calibration, same-prompt comparisons and alternate-prompt probes are complete and retained in the experimental package and `factory/mining/`. They established useful context and access patterns, not native Eve execution or owner acceptance. The native runs above are the current delivery evidence.

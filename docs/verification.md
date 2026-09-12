@@ -20,7 +20,19 @@ Focused baseline `wrun_01M2AQ0E5CN1HVCD71RC6TPGD5` completed cleanly with all fo
 
 The exclusion-gap hypothesis is supported in this baseline: only unavailable Vercel evidence remains in blocking context gaps; intentional history/CI limitations are recorded in reflection and explicitly not needed for these candidates. The report remains correctly Incomplete for unavailable Vercel access. Source and instructions both changed between runs, so the reduced token usage and absence of stale-document proposals are observations, not an isolated causal estimate. One factual error remains: its first proposal calls the old fx-backed hosted session `wrun_41M2AMEC0K0GKSGJ90PB36X1RY` native. The inspected source had not yet labeled that verification section historical. The original report is preserved; this document now makes the distinction explicit.
 
+Focused transfer `wrun_01M2AQ5JE63FYDDPFVJA17AA7Q` completed cleanly with all four gates passing in 116 seconds on runtime/source `b81899e5d9ecd49b04840c649af0d63e0bbc8188`. [Transfer evidence](../factory/mining/native/2026-09-12/focused-transfer.json) records 203,434 input / 7,536 output tokens, $0.007364436 and 13 file reads. The narrow classification improvement transferred: intentional exclusions stayed in reflection; blocking gaps only named Vercel access.
+
+Proposal quality remains mixed. The single context-quality experiment substantially repeats the baseline/transfer exercise underway in this delivery, which was not yet recorded in its snapshot. Its proposed two differently worded prompts would not isolate a context change's effect. It also guessed a missing Vitest command, then recovered with the repository's actual test script and observed 17 passing tests. The original failed command stdout remains in evidence even though its shell pipeline returned zero. These are candidates for further context work, not reasons to claim the factory has solved task mining.
+
+The two final native probes cost $0.014316592 in reported model usage combined; Sandbox compute is separate. No owner acceptance, authenticated Vercel evidence, or broad proposal-quality improvement is inferred from the operational gates.
+
 Paid validation uses `env -u AI_GATEWAY_API_KEY pnpm exec eve eval task-mining --verbose` from `apps/factory`, with the linked project's OIDC environment. Evaluation prompts and stored findings are excluded from future mining snapshots. Tool-completion gates are operational checks; Remi must still judge proposal usefulness.
+
+### Hosted native boundary
+
+Revision `b81899e` passed GitHub Actions run `34691922199` and deployed Ready as `dpl_A3iiXVyKQRh9Td8CcYynvbrGNcVj`. The authenticated cockpit started native session `wrun_41M2AQ5JY10GN0TN3HNBGDRNR6`. It passed source preparation and reached the Vercel evidence step, but no report or authorization card was observed. A stop was requested through the cockpit; terminal cancellation still needs confirmation. An earlier native session restored its active state after reload but ended without findings. This does not establish a successful hosted native investigation or report-to-draft handoff.
+
+The `vercel/jira-clone` MCP connection is attached to the cockpit, but it supports user authorization rather than an app installation. The choice between per-user authorization and a shared team credential remains pending. The agent exposes only reads for the two fixed projects; parser and scope checks use fixtures. Actual Connect token acquisition, provider response shapes, build logs and runtime logs remain unverified. Independent connector probes did not provide successful provider responses. Do not infer that authorization alone will resolve the observed hosted stall.
 
 ## Historical fx-backed task-mining station — 12 September 2026
 
