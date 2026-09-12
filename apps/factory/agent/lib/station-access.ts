@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { z } from "zod";
 export const workerRequest = z.object({operationId:z.string().uuid(),title:z.string().trim().min(1).max(160),brief:z.string().trim().min(20).max(18000),parentPrNumber:z.number().int().positive().optional()}).strict();
 export const reviewerRequest = z.object({operationId:z.string().uuid(),prNumber:z.number().int().positive()}).strict();
@@ -21,3 +22,5 @@ export function currentRevision(ctx:SessionContext & {session:{auth:{current?:{a
  const raw=ctx.session.auth.current?.attributes.factoryRevision;
  return typeof raw==="string"?revisionRequest.parse(JSON.parse(raw)):null;
 }
+
+export function stationAddress(principalId:string,station:string,operationId:string,addressPrefix?:string){return createHash("sha256").update(JSON.stringify([addressPrefix||principalId,station,operationId])).digest("hex");}

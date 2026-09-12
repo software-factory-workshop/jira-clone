@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import { z } from "zod";
+import { validateJiraManifest } from "./jira-policy.ts";
 import { includeSource, repository } from "./github.mjs";
 
 const sha = z.string().regex(/^[a-f0-9]{40}$/);
@@ -20,10 +21,12 @@ class GitHubError extends Error { readonly status: number; constructor(status: n
 function safePath(path: string) { return path.length > 0 && path.length <= 300 && !path.startsWith("/") && !/[\\\x00-\x1f\x7f]/.test(path) && path.split("/").every(part => part !== "" && part !== "." && part !== ".."); }
 export function allowedWorkPath(path: string): boolean {
   if (!safePath(path) || !includeSource(path)) return false;
-  if (!["apps/factory/app/", "apps/factory/tests/", "apps/jira/app/", "apps/jira/tests/", "docs/"].some(prefix => path.startsWith(prefix))) return false;
+  if (path === "apps/jira/package.json") return true;
+  const jiraServer = ["apps/jira/server/api/", "apps/jira/server/utils/"].some(prefix => path.startsWith(prefix));
+  if (!jiraServer && !["apps/factory/app/", "apps/factory/tests/", "apps/jira/app/", "apps/jira/tests/", "docs/"].some(prefix => path.startsWith(prefix))) return false;
   const name = path.split("/").at(-1)!;
   if (["package.json", "pnpm-lock.yaml", "pnpm-workspace.yaml", "turbo.json"].includes(name) || /^tsconfig(?:[.-].*)?\.json$/.test(name) || /\.config\.[cm]?[jt]s$/.test(name)) return false;
-  if (path.split("/").some(part => ["server", "middleware", "modules"].includes(part))) return false;
+  if (path.split("/").some(part => ["middleware", "modules"].includes(part)) || (!jiraServer && path.split("/").includes("server"))) return false;
   if (path.split("/").some(part => ["AGENTS.md", "CLAUDE.md", "SKILL.md", ".npmrc", ".output", ".nuxt", "dist", "coverage"].includes(part))) return false;
   return ![".agents/", ".github/", "factory/", "apps/factory/agent/", "apps/factory/scripts/", "vendor/"].some(prefix => path.startsWith(prefix));
 }
@@ -144,6 +147,12 @@ export async function publishWork(token: string, input: PublishWorkInput, signal
   const branch = workBranch(input.sessionId);
   const source = await commitTree(token, input.baseSha, signal);
   const byPath = new Map(source.tree.map(item => [item.path, item]));
+  const manifestChange = input.changes.find(c=>c.path==="apps/jira/package.json");
+  if(manifestChange){
+    const prior=byPath.get(manifestChange.path);if(!prior)throw new Error("Jira manifest baseline missing.");
+    const blob=z.object({content:z.string(),encoding:z.literal("base64")}).parse((await request(token,`git/blobs/${prior.sha}`,signal)).data);
+    validateJiraManifest(Buffer.from(blob.content,"base64").toString(),manifestChange.content);
+  }
   const tree = input.changes.map(change => {
     const previous = byPath.get(change.path);
     if (previous && (previous.type !== "blob" || !["100644", "100755"].includes(previous.mode))) throw new Error("Cannot publish over symlinks, submodules or directories.");

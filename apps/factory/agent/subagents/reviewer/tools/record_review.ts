@@ -13,7 +13,7 @@ export default defineTool({description:"Record an independent structured review 
   const hostLimitations=hostReviewLimitations(state.pull.files);
   const blockers=approvalBlockers({prepared:state.prepared,repositoryChecksPassed:state.reviewVerified,hasBlockingFinding:input.findings.some(f=>f.severity==="blocking"),contextGaps:state.contextGaps,modelLimitations:input.limitations,files:state.pull.files});
   if(input.verdict==="approve"&&blockers.length)throw new Error(`Approval refused by host policy: ${blockers.join(" ")}`);
-  if(input.verdict==="approve"&&(await collectChanges(await ctx.getSandbox(),state.baseline,true)).length)throw new Error("Candidate changed after verification; approval refused.");
+  if(input.verdict==="approve"&&(await collectChanges(await ctx.getSandbox(),state.baseline,true,state.jiraManifest)).length)throw new Error("Candidate changed after verification; approval refused.");
   const token=await getToken("github/jira-clone",{subject:{type:"app"}});
   await verifyPullRequestHead(token,state.pull.number,state.pull.headSha,ctx.abortSignal,state.pull.baseSha,state.pull.targetBranch);
   workState.update(s=>({...s,recorded:true}));
