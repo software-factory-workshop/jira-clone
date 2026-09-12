@@ -16,9 +16,10 @@ test("worker success requires a real scoped PR link and exact head/base identity
   assert.equal(parseStationResult({ ...result, publication: { ...result.publication, headSha: "unknown" } }), undefined);
 });
 test("review findings retain exact reviewed head, limitations and command failures", () => {
-  const result = parseStationResult({ station: "reviewer", sessionId: "wrun_test", prNumber: 2, url: "https://github.com/software-factory-workshop/jira-clone/pull/2", baseSha: sha, headSha: sha, verdict: "changes_requested", summary: "A regression", findings: [{ severity: "blocking", path: "app.ts", line: 12, message: "Lost draft", evidence: "Reproduced save/restore race" }], commands: [{ command: "pnpm test", exitCode: 1, stdout: "Failed", stderr: "" }], limitations: ["No hosted browser run"], capturedAt: "2026-09-12T14:00:00Z" });
+  const result = parseStationResult({ station: "reviewer", sessionId: "wrun_test", prNumber: 2, url: "https://github.com/software-factory-workshop/jira-clone/pull/2", baseSha: sha, headSha: sha, targetBranch: "factory/parent", verdict: "changes_requested", summary: "A regression", findings: [{ severity: "blocking", path: "app.ts", line: 12, message: "Lost draft", evidence: "Reproduced save/restore race" }], commands: [{ command: "pnpm test", exitCode: 1, stdout: "Failed", stderr: "" }], limitations: ["No hosted browser run"], capturedAt: "2026-09-12T14:00:00Z" });
   assert(result?.station === "reviewer");
   assert.equal(result.headSha, sha);
+  assert.equal(result.targetBranch, "factory/parent");
   assert.equal(result.findings[0]?.line, 12);
   assert.equal(result.commands[0]?.exitCode, 1);
   assert.deepEqual(result.limitations, ["No hosted browser run"]);

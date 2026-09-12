@@ -17,4 +17,12 @@ Observed through the real authenticated preview, with no mocked station response
 - A revision submitted for open legacy PR #6 showed: “The existing branch owner is unavailable. No replacement took control. You can explicitly choose a separate child PR instead.” The route rejected the old protocol before sending to the owner; no replacement worker or generic steer was requested.
 - The existing paid worker root `wrun_41M2B9P85E0GRBGJCR8Z257Z3A` connected and displayed its child’s Running / read file progress. Browser observation did not launch a second worker.
 
-Same-owner publication, identical-operation replay and child contribution browser results are pending the live runs. Their API and UI coverage must not be inferred from local tests.
+The fresh paid worker later showed Draft PR created, Open draft PR #10, PR target main, and branch owner `wrun_41M2B9PGFM0GJRX2N3X88NX6G5`. The Stop worker action was absent after publication.
+
+The first revision returned the same owner session, with delivery `05aa3955-9f4c-47a4-8acf-496235c90b51` and operation `85da878f-97a0-4225-bfb7-f22a30768d80`. Opening its scoped run link showed “Queued for branch owner” and “Earlier results belong to earlier work.” Neither the previous PR #10 result nor a Stop action appeared while queued.
+
+Same-owner revised publication, identical-operation replay and child contribution browser results are pending the live runs. Their API and UI coverage must not be inferred from local tests.
+
+## Visual correction
+
+The first result screenshot exposed a scoped anchor style overriding Nuxt UI’s button text color: the accessible “Open draft PR” link looked blank because its text and background were both teal. The UI branch now limits that styling to ordinary links. Its deployed visual recheck is pending. The result route had no captured browser warnings or errors.
