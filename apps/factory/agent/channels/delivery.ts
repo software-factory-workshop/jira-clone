@@ -6,9 +6,9 @@ import { updateCockpit } from '../lib/cockpit-store';
 import { changeRecord } from '../../shared/cockpit';
 import { factoryAuth } from '../lib/route-auth';
 import { stationOperation } from './stations';
-import { deliveryRequest,newDelivery,operationFor,transition,terminal,applyReview,referenceState,claimAdvance,commitAdvance,type Delivery } from '../lib/delivery-state';
+import { deliveryRequest,newDelivery,operationFor,transition,terminal,applyReview,referenceState,claimAdvance,commitAdvance,requestResume,type Delivery } from '../lib/delivery-state';
 import { readDelivery,updateDelivery } from '../lib/delivery-store';
-import { snapshotEvents,childIn,hostResult,stoppedWithoutResult,eventsForDelivery } from '../lib/delivery-events';
+import { snapshotEvents,childIn,hostResult,stoppedWithoutResult,eventsForDelivery,resumeMessage,resumeReceipt } from '../lib/delivery-events';
 import { readPull,readBranch,WorkError,workBranch } from '../lib/work-github';
 const publication=z.object({number:z.number().int().positive(),url:z.string().url(),headSha:z.string().regex(/^[a-f0-9]{40}$/),targetHeadSha:z.string().regex(/^[a-f0-9]{40}$/),targetBranch:z.string(),ownerSessionId:z.string(),branch:z.string()});
 const review=z.object({verdict:z.enum(['approve','changes_requested','incomplete']),summary:z.string(),headSha:z.string(),baseSha:z.string(),targetBranch:z.string(),findings:z.array(z.object({severity:z.string(),path:z.string(),message:z.string(),evidence:z.string()})),limitations:z.array(z.string())});
@@ -23,9 +23,25 @@ async function checkCurrent(p:NonNullable<Delivery['publication']>){
 async function advance(request:Request,ctx:RouteHandlerArgs){
  const id=ctx.params.id;let state=await existing(id);if(terminal(state.phase))return Response.json(state);
  const claim=await updateDelivery(id,current=>{if(!current)throw new Error('Delivery not found');const result=claimAdvance(current);return{state:current,result};});
- if(!claim)return Response.json(await existing(id));state=claim;const claimedVersion=claim.version;const startedPhase=claim.phase;
+ if(!claim)return Response.json(await existing(id));state=claim;let claimedVersion=claim.version;const startedPhase=claim.phase;
  try{
-  if(state.phase.endsWith('_starting')){
+  if(state.phase==='owner_resuming'){
+   if(!state.childSessionId||state.publication||!state.resumeOperationId)throw new Error('Recovery requires the original unpublished worker.');
+   let deliveryId:string|undefined;
+   if(state.resumeAttemptedAt){
+    deliveryId=resumeReceipt(await snapshotEvents(ctx.attachSession(state.childSessionId)),state.resumeOperationId);
+    if(!deliveryId&&Date.now()-state.resumeAttemptedAt>60000)throw new Error('Resume acceptance is unconfirmed. No message was resent. Inspect the original owner before manual recovery.');
+   }else{
+    const marked=await updateDelivery(id,current=>{if(!current)throw new Error('Delivery missing');if(current.version!==claimedVersion)return{state:current,result:null};current.resumeAttemptedAt=Date.now();current.version++;return{state:current,result:structuredClone(current)};});
+    if(!marked)return Response.json(await existing(id));
+    state.resumeAttemptedAt=marked.resumeAttemptedAt;claimedVersion=marked.version;
+    const auth=await routeAuth(request,factoryAuth);if(auth instanceof Response)throw new Error('Recovery identity unavailable');
+    const accepted=await ctx.attachSession(state.childSessionId).send(resumeMessage(state.resumeOperationId),{turnPolicy:'queue',auth:{...auth,attributes:{...auth.attributes,factoryResumeOperationId:state.resumeOperationId}}});
+    if(accepted.status!=='accepted'||!accepted.deliveryId)throw new Error('Original worker acceptance is unconfirmed; this owner will not be replaced.');
+    deliveryId=accepted.deliveryId;
+   }
+   if(deliveryId){state.sessionId=state.childSessionId;state.deliveryId=deliveryId;transition(state,'working');}
+  }else if(state.phase.endsWith('_starting')){
    const station=state.phase==='worker_starting'?'worker':state.phase==='review_starting'?'reviewer':'revisions';
    if(station==='reviewer')await checkCurrent(state.publication!);
    const body=station==='worker'?{operationId:state.operationId,title:state.request.title,brief:state.request.brief,...(state.request.parentPrNumber?{parentPrNumber:state.request.parentPrNumber}:{})}:station==='reviewer'?{operationId:state.operationId,prNumber:state.publication!.number}:{operationId:state.operationId,prNumber:state.publication!.number,brief:state.revisionBrief};
@@ -47,7 +63,7 @@ async function advance(request:Request,ctx:RouteHandlerArgs){
     const p=publication.parse(result.publication);if(result.revisionProtocol!==1||p.branch!==workBranch(owner)||p.ownerSessionId!==owner)throw new Error('Publication owner does not match the executing worker');
     state.publication=p;await checkCurrent(p);state.operationId=operationFor(state.id,'review',state.cycle);transition(state,'review_starting');
    }else if(state.childSessionId&&stoppedWithoutResult(events)){
-    state.error='Agent stopped without a trusted result. Inspect its run; source and ownership are preserved.';transition(state,'human_review');
+    state.failedPhase=state.phase;state.error='Agent stopped without a trusted result. Inspect its run; source and ownership are preserved.';transition(state,'human_review');
    }
   }
  }catch(error){state.failedPhase=startedPhase;state.error=error instanceof Error?error.message:'Delivery advance failed';transition(state,error instanceof WorkError&&error.code==='needs_revision'?'needs_revision':'blocked');}
@@ -67,7 +83,10 @@ export default defineChannel({routes:[
   const state=await updateDelivery(ctx.params.id,current=>{if(!current)throw new Error('Delivery not found');transition(current,'cancelled');return{state:current,result:current};});
   for(const id of new Set([state.sessionId,state.childSessionId].filter((id):id is string=>!!id)))await ctx.attachSession(id).cancel({tasks:true});return Response.json(state);
  })),
- POST('/factory/delivery/:id/resume',protectedRoute(async(_,ctx)=>{const state=await updateDelivery(ctx.params.id,current=>{if(!current||current.phase!=='blocked'||!current.failedPhase)throw new Error('Only a blocked delivery can resume');transition(current,current.failedPhase);delete current.error;return{state:current,result:current};});return Response.json(state,{status:202});})),
+ POST('/factory/delivery/:id/resume',protectedRoute(async(request,ctx)=>{
+  const input=z.object({operationId:z.string().uuid().optional()}).strict().parse(await request.json().catch(()=>({})));
+  const state=await updateDelivery(ctx.params.id,current=>{if(!current)throw new Error('Delivery missing');requestResume(current,input.operationId);return{state:current,result:current};});return Response.json(state,{status:202});
+ })),
  POST('/factory/delivery/:id/revise',protectedRoute(async(request,ctx)=>{
   const input=z.object({operationId:z.string().uuid(),brief:z.string().trim().min(20).max(18000)}).strict().parse(await request.json());
   const state=await updateDelivery(ctx.params.id,current=>{if(!current)throw new Error('Delivery not found');

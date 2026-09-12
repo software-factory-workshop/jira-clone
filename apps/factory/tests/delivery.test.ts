@@ -1,8 +1,8 @@
 import { stationAddress } from "../agent/lib/station-access.ts";
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { applyReview,newDelivery,operationFor,deliveryRequest,referenceState,claimAdvance,commitAdvance,transition } from '../agent/lib/delivery-state.ts';
-import { hostResult,eventsForDelivery,snapshotEvents } from '../agent/lib/delivery-events.ts';
+import { applyReview,newDelivery,operationFor,deliveryRequest,referenceState,claimAdvance,commitAdvance,transition,requestResume } from '../agent/lib/delivery-state.ts';
+import { hostResult,eventsForDelivery,snapshotEvents,resumeMessage,resumeReceipt } from '../agent/lib/delivery-events.ts';
 import { validateJiraManifest,verificationCommands } from '../agent/lib/jira-policy.ts';
 import { allowedWorkPath } from '../agent/lib/work-github.ts';
 const task=deliveryRequest.parse({operationId:'11111111-1111-4111-8111-111111111111',title:'Jira state',brief:'Create a useful stateful issue list'});
@@ -25,3 +25,8 @@ test('lost revision receipt recovers trusted cached prepare_work publication',()
 test('concurrent advance claims are fenced, including expired claims',()=>{const current=state();const first=claimAdvance(current,100)!;assert.equal(claimAdvance(current,101),null);const replacement=claimAdvance(current,60101)!;assert.notEqual(first.version,replacement.version);first.phase='ready';assert.equal(commitAdvance(current,first,first.version).phase,'worker_starting');});
 test('cancelled intent wins over a late launch receipt',()=>{const current=state();const claim=claimAdvance(current,100)!;const version=claim.version;transition(current,'cancelled');claim.sessionId='wrun_late';transition(claim,'working');assert.equal(commitAdvance(current,claim,version).phase,'cancelled');});
 test('machine-to-Passport resume keeps the same loop continuation',()=>{assert.equal(stationAddress('machine','worker','op','loop-id'),stationAddress('passport','worker','op','loop-id'));assert.notEqual(stationAddress('machine','worker','op'),stationAddress('passport','worker','op'));});
+
+test('prepublication recovery queues only the existing owner and retains publication operation',()=>{const s=state();delete s.publication;s.childSessionId='wrun_existing';transition(s,'human_review');const original=s.operationId;requestResume(s,'resume-id');assert.equal(s.phase,'owner_resuming');assert.equal(s.operationId,original);assert.equal(s.childSessionId,'wrun_existing');const version=s.version;requestResume(s,'resume-id');assert.equal(s.version,version);});
+test('stopped review and published worker cannot be mistaken for unpublished recovery',()=>{const s=state();s.childSessionId='wrun_reviewer';transition(s,'human_review');assert.throws(()=>requestResume(s,'resume-id'),/requires review/);});
+
+test('lost continuation receipt is recovered from original owner event without another send',()=>{const event={type:'message.received',data:{message:resumeMessage('resume-one')},meta:{deliveryIds:['accepted-receipt']}};assert.equal(resumeReceipt([event],'resume-one'),'accepted-receipt');assert.equal(resumeReceipt([event],'different'),undefined);assert.equal(resumeReceipt([{...event,type:'message.completed'}],'resume-one'),undefined);});
