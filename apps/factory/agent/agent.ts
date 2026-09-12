@@ -7,7 +7,7 @@ export default defineAgent({
   defaultTools: false,
   limits: {
     maxInputTokensPerSession: 500_000,
-    maxOutputTokensPerSession: 8_000,
+    maxOutputTokensPerSession: 16_000,
     maxTokenCostUsdPerSession: 0.2,
   },
 });
