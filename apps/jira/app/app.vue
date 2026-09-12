@@ -19,6 +19,20 @@ const loading = ref(true);
 const loadError = ref<string | null>(null);
 const moveError = ref<string | null>(null);
 const saveNotice = ref<string | null>(null);
+type DemoComment = {
+  id: string;
+  key: string;
+  author: string;
+  body: string;
+  createdAt: string;
+};
+const comments = ref<DemoComment[]>([]);
+const commentsLoading = ref(false);
+const commentsError = ref<string | null>(null);
+const commentDraft = ref("");
+const commentError = ref<string | null>(null);
+const commentNotice = ref<string | null>(null);
+const savingComment = ref(false);
 const pendingKeys = ref<string[]>([]);
 const draggedKey = ref<string | null>(null);
 const dropColumn = ref<string | null>(null);
@@ -128,6 +142,68 @@ async function resetBoard() {
       error instanceof Error ? error.message : "Demo reset failed.";
   }
 }
+
+async function loadComments(key: string) {
+  commentsLoading.value = true;
+  commentsError.value = null;
+  try {
+    const data = await $fetch<{ comments: DemoComment[] }>(
+      `/api/issues/${key}/comments`,
+    );
+    comments.value = data.comments;
+  } catch (error) {
+    commentsError.value =
+      error instanceof Error
+        ? error.message
+        : "Could not load demo comments.";
+  } finally {
+    commentsLoading.value = false;
+  }
+}
+
+async function submitComment(fail = false) {
+  if (!selected.value || savingComment.value) return;
+  const key = selected.value.key;
+  const draft = commentDraft.value;
+  if (!draft.trim()) {
+    commentError.value = "Write a comment before saving.";
+    return;
+  }
+  savingComment.value = true;
+  commentError.value = null;
+  commentNotice.value = null;
+  try {
+    const saved = await $fetch<{ comment: DemoComment }>(
+      `/api/issues/${key}/comments`,
+      {
+        method: "POST",
+        body: { body: draft, ...(fail ? { fail: true } : {}) },
+      },
+    );
+    comments.value = [...comments.value, saved.comment];
+    commentDraft.value = "";
+    commentNotice.value =
+      "Demo-only save: comment added. Reload to confirm it persists on this server.";
+  } catch (error) {
+    commentError.value =
+      error instanceof Error ? error.message : "Demo comment save failed.";
+  } finally {
+    savingComment.value = false;
+  }
+}
+
+watch(
+  () => selected.value?.key,
+  (key) => {
+    comments.value = [];
+    commentDraft.value = "";
+    commentError.value = null;
+    commentNotice.value = null;
+    commentsError.value = null;
+    if (key) void loadComments(key);
+  },
+  { immediate: true },
+);
 
 function cardMoveLabel(issue: BoardIssue) {
   return `Move ${issue.key} to another column`;
@@ -413,6 +489,67 @@ await refresh();
             >
               Move to {{ selectedTarget || "…" }}
             </UButton>
+            <section class="comments" aria-label="Demo-only issue comments">
+              <h3>
+                <UIcon name="i-lucide-message-square" />Comments
+                <UBadge color="neutral" variant="subtle" size="sm"
+                  >Demo-only</UBadge
+                >
+              </h3>
+              <p class="demo-save-hint">
+                Demo-only conversation: comments persist across reload on this
+                server, reset on redeploy, and use the labelled fixture
+                identity. No Jira API parity is claimed.
+              </p>
+              <p v-if="commentsLoading" class="empty" role="status">
+                Loading demo comments…
+              </p>
+              <p v-if="commentsError" class="save-error" role="alert">
+                <UIcon name="i-lucide-triangle-alert" /> {{ commentsError }}
+              </p>
+              <ul v-if="comments.length" class="comment-list">
+                <li v-for="comment in comments" :key="comment.id">
+                  <p class="comment-meta">
+                    <UIcon name="i-lucide-user" />{{ comment.author }} ·
+                    <time :datetime="comment.createdAt">{{
+                      comment.createdAt
+                    }}</time>
+                  </p>
+                  <p>{{ comment.body }}</p>
+                </li>
+              </ul>
+              <p v-else-if="!commentsLoading" class="empty">
+                No demo comments yet. Start the conversation.
+              </p>
+              <label class="comment-form">
+                <span class="move-label">
+                  <UIcon name="i-lucide-pen-line" />Add a demo comment
+                </span>
+                <UTextarea
+                  v-model="commentDraft"
+                  placeholder="Write a demo-only comment…"
+                  aria-label="Add a demo comment"
+                  :rows="3"
+                  :disabled="savingComment"
+                />
+              </label>
+              <p v-if="commentError" class="save-error" role="alert">
+                <UIcon name="i-lucide-triangle-alert" /> Demo comment save
+                failed: {{ commentError }} Your draft is kept above — nothing
+                was saved as a false success.
+              </p>
+              <p v-if="commentNotice" class="save-note" role="status">
+                <UIcon name="i-lucide-check" /> {{ commentNotice }}
+              </p>
+              <UButton
+                icon="i-lucide-send"
+                :loading="savingComment"
+                :disabled="!commentDraft.trim()"
+                @click="void submitComment()"
+              >
+                Add comment
+              </UButton>
+            </section>
             <UButton :to="config.public.factoryUrl" variant="outline"
               >Shape the next capability in the cockpit</UButton
             >

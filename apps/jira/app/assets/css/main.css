@@ -378,3 +378,44 @@ tr:hover td {
   border-radius: 4px;
   padding: 16px;
 }
+.comments {
+  display: grid;
+  gap: 12px;
+  border-top: 1px solid #e3eaee;
+  padding-top: 16px;
+}
+.comments h3 {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  font-size: 14px;
+  font-weight: 600;
+}
+.comment-list {
+  display: grid;
+  gap: 10px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.comment-list li {
+  border: 1px solid #e3eaee;
+  border-radius: 4px;
+  padding: 10px 12px;
+  display: grid;
+  gap: 6px;
+}
+.comment-list p {
+  margin: 0;
+}
+.comment-meta {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  font-size: 12px;
+  color: #72838d;
+}
+.comment-form {
+  display: grid;
+  gap: 8px;
+}
