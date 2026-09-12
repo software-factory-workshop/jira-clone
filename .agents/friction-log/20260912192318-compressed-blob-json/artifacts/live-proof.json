@@ -1,0 +1,7 @@
+{
+  "bytes": 9011,
+  "defaultWasWeak": true,
+  "weakWriteRejected": true,
+  "strongWriteSucceeded": true,
+  "staleStrongWriteRejected": true
+}
