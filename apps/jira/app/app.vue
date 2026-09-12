@@ -41,6 +41,16 @@ const selectedTargets = computed(() =>
 );
 const selectedTarget = ref("");
 const selectedPriority = ref("");
+const createOpen = ref(false);
+const createSaving = ref(false);
+const createError = ref<string | null>(null);
+const draftTitle = ref("");
+const draftType = ref("Task");
+const draftStatus = ref("To Do");
+const draftPriority = ref("Medium");
+const draftAssignee = ref("Unassigned");
+const draftDescription = ref("");
+const createTypes = ["Story", "Task", "Bug"];
 
 watch(selected, (issue) => {
   selectedTarget.value = issue ? moveTargets(statuses, issue.status)[0] ?? "" : "";
@@ -150,6 +160,55 @@ function onDropColumn(toStatus: string) {
   if (key) void moveCard(key, toStatus);
 }
 
+function openCreate() {
+  createError.value = null;
+  createOpen.value = true;
+}
+
+function closeCreate() {
+  if (!createSaving.value) {
+    createOpen.value = false;
+  }
+}
+
+async function createCard() {
+  if (createSaving.value) return;
+  createError.value = null;
+  saveNotice.value = null;
+  if (draftTitle.value.trim() === "") {
+    createError.value = "A nonblank demo title is required.";
+    return;
+  }
+  createSaving.value = true;
+  try {
+    const saved = await $fetch<{ issue: BoardIssue }>("/api/issues", {
+      method: "POST",
+      body: {
+        title: draftTitle.value.trim(),
+        type: draftType.value,
+        status: draftStatus.value,
+        priority: draftPriority.value,
+        assignee: draftAssignee.value.trim() === "" ? "Unassigned" : draftAssignee.value.trim(),
+        description: draftDescription.value,
+      },
+    });
+    issues.value = [...issues.value, saved.issue];
+    createOpen.value = false;
+    draftTitle.value = "";
+    draftType.value = "Task";
+    draftStatus.value = "To Do";
+    draftPriority.value = "Medium";
+    draftAssignee.value = "Unassigned";
+    draftDescription.value = "";
+    saveNotice.value = `Demo-only create: ${saved.issue.key} added. Reload to confirm it persists on this server.`;
+  } catch (error) {
+    createError.value =
+      error instanceof Error ? error.message : "Demo create failed.";
+  } finally {
+    createSaving.value = false;
+  }
+}
+
 async function resetBoard() {
   moveError.value = null;
   priorityError.value = null;
@@ -233,6 +292,13 @@ await refresh();
             </p>
           </div>
           <div class="demo-save-bar">
+            <UButton
+              icon="i-lucide-plus"
+              size="sm"
+              @click="openCreate()"
+            >
+              Create issue
+            </UButton>
             <UButton
               icon="i-lucide-rotate-ccw"
               variant="outline"
@@ -433,6 +499,101 @@ await refresh();
           </p>
         </main>
       </div>
+      <UModal
+        v-model:open="createOpen"
+        title="Create demo issue"
+        description="Demo-only create on this server. The draft is kept when saving fails."
+      >
+        <template #body>
+          <form class="create-form" @submit.prevent="void createCard()">
+            <label class="create-field">
+              <span>Summary (required)</span>
+              <UInput
+                v-model="draftTitle"
+                placeholder="What needs doing?"
+                aria-label="Issue summary"
+                autofocus
+                :disabled="createSaving"
+              />
+            </label>
+            <div class="create-row">
+              <label class="create-field">
+                <span>Type</span>
+                <USelect
+                  v-model="draftType"
+                  :items="createTypes"
+                  aria-label="Issue type"
+                  :disabled="createSaving"
+                />
+              </label>
+              <label class="create-field">
+                <span>Status</span>
+                <USelect
+                  v-model="draftStatus"
+                  :items="statuses"
+                  aria-label="Issue status"
+                  :disabled="createSaving"
+                />
+              </label>
+            </div>
+            <div class="create-row">
+              <label class="create-field">
+                <span>Priority</span>
+                <USelect
+                  v-model="draftPriority"
+                  :items="priorities"
+                  aria-label="Issue priority"
+                  :disabled="createSaving"
+                />
+              </label>
+              <label class="create-field">
+                <span>Assignee</span>
+                <UInput
+                  v-model="draftAssignee"
+                  placeholder="Unassigned"
+                  aria-label="Issue assignee"
+                  :disabled="createSaving"
+                />
+              </label>
+            </div>
+            <label class="create-field">
+              <span>Description</span>
+              <UTextarea
+                v-model="draftDescription"
+                placeholder="Demo-only description"
+                aria-label="Issue description"
+                :disabled="createSaving"
+              />
+            </label>
+            <p v-if="createError" class="save-error" role="alert">
+              <UIcon name="i-lucide-triangle-alert" /> Demo create failed:
+              {{ createError }} Your draft is kept for retry.
+            </p>
+            <div class="create-actions">
+              <UButton
+                type="submit"
+                icon="i-lucide-plus"
+                :loading="createSaving"
+                :disabled="!draftTitle.trim()"
+              >
+                Create demo issue
+              </UButton>
+              <UButton
+                variant="outline"
+                color="neutral"
+                :disabled="createSaving"
+                @click="closeCreate()"
+              >
+                Cancel
+              </UButton>
+            </div>
+            <p class="demo-save-hint">
+              Demo-only save: the next ADEO-n key is allocated on this
+              server and the issue resets on redeploy.
+            </p>
+          </form>
+        </template>
+      </UModal>
       <USlideover
         :open="!!selected"
         :title="selected?.key"

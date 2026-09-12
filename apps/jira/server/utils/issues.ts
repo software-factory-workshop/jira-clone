@@ -2,10 +2,11 @@
  * Demo-only issue store for the Jira teaching board.
  *
  * Persistence boundary: in-memory server overrides on top of the labelled
- * synthetic fixtures from `@jira-clone/context`. Status moves and priority
- * edits survive page reload against the same running server but reset on
- * redeploy or cold start. No Jira transition enforcement is claimed: any
- * move among the observed statuses is allowed.
+ * synthetic fixtures from `@jira-clone/context`. Status moves, priority
+ * edits and issues created via POST /api/issues survive page reload against
+ * the same running server but reset on redeploy or cold start. No Jira
+ * transition enforcement is claimed: any move among the observed statuses
+ * is allowed.
  *
  * Priority is a bounded synthetic allowlist (Highest, High, Medium, Low,
  * Lowest) chosen to cover the fixture values. It teaches the save path; it
@@ -61,12 +62,18 @@ const seeds: DemoIssue[] = demoIssues.map((issue) => ({ ...issue }));
 const statusOverrides = new Map<string, ObservedStatus>();
 const priorityOverrides = new Map<string, DemoPriority>();
 
+/** Demo-only issues created via POST /api/issues on this running server. */
+const createdIssues: DemoIssue[] = [];
+
 export function getIssues(): DemoIssue[] {
-  return seeds.map((issue) => ({
-    ...issue,
-    status: statusOverrides.get(issue.key) ?? issue.status,
-    priority: priorityOverrides.get(issue.key) ?? issue.priority,
-  }));
+  return [
+    ...seeds.map((issue) => ({
+      ...issue,
+      status: statusOverrides.get(issue.key) ?? issue.status,
+      priority: priorityOverrides.get(issue.key) ?? issue.priority,
+    })),
+    ...createdIssues.map((issue) => ({ ...issue })),
+  ];
 }
 
 /**
@@ -76,14 +83,15 @@ export function getIssues(): DemoIssue[] {
  */
 export function getIssue(key: string): DemoIssue | undefined {
   const seed = seeds.find((issue) => issue.key === key);
-  if (!seed) {
-    return undefined;
+  if (seed) {
+    return {
+      ...seed,
+      status: statusOverrides.get(key) ?? seed.status,
+      priority: priorityOverrides.get(key) ?? seed.priority,
+    };
   }
-  return {
-    ...seed,
-    status: statusOverrides.get(key) ?? seed.status,
-    priority: priorityOverrides.get(key) ?? seed.priority,
-  };
+  const created = createdIssues.find((issue) => issue.key === key);
+  return created ? { ...created } : undefined;
 }
 
 export type UpdateResult =
@@ -162,8 +170,92 @@ export function updateIssueStatus(
   return updateIssue(key, { status }, options);
 }
 
+export type IssueCreateInput = {
+  title?: unknown;
+  type?: unknown;
+  status?: unknown;
+  priority?: unknown;
+  assignee?: unknown;
+  description?: unknown;
+};
+
+function optionalText(value: unknown, fallback: string): string {
+  return typeof value === "string" && value.trim() !== ""
+    ? value.trim()
+    : fallback;
+}
+
+/** Next deterministic demo key: one past the highest ADEO-n in use. */
+function nextIssueKey(): string {
+  let max = 0;
+  for (const issue of [...seeds, ...createdIssues]) {
+    const match = /^ADEO-(\d+)$/.exec(issue.key);
+    if (match) {
+      max = Math.max(max, Number(match[1]));
+    }
+  }
+  return `ADEO-${max + 1}`;
+}
+
+/**
+ * Demo-only creation on the single in-memory save boundary. The title is
+ * required and must be nonblank; status and priority fall back to fixture
+ * defaults ("To Do", "Medium") and are rejected with a client error when
+ * unknown. Blank titles, unknown values and the deterministic `fail` path
+ * never write.
+ */
+export function createIssue(
+  input: IssueCreateInput,
+  options?: { fail?: boolean },
+): UpdateResult {
+  if (options?.fail) {
+    return {
+      ok: false,
+      error:
+        "Demo-only save failure (deterministic test path). No changes were saved.",
+      statusCode: 500,
+    };
+  }
+  if (typeof input.title !== "string" || input.title.trim() === "") {
+    return {
+      ok: false,
+      error: "A nonblank demo title is required.",
+      statusCode: 400,
+    };
+  }
+  if (input.status !== undefined && !isObservedStatus(input.status)) {
+    return {
+      ok: false,
+      error: `Unknown status. Allowed demo statuses: ${OBSERVED_STATUSES.join(", ")}.`,
+      statusCode: 400,
+    };
+  }
+  if (input.priority !== undefined && !isPriority(input.priority)) {
+    return {
+      ok: false,
+      error: `Unknown priority. Allowed demo priorities: ${PRIORITIES.join(", ")}.`,
+      statusCode: 400,
+    };
+  }
+  const issue: DemoIssue = {
+    key: nextIssueKey(),
+    title: input.title.trim(),
+    type: optionalText(input.type, "Task"),
+    status:
+      input.status === undefined ? "To Do" : (input.status as ObservedStatus),
+    priority:
+      input.priority === undefined ? "Medium" : (input.priority as DemoPriority),
+    assignee: optionalText(input.assignee, "Unassigned"),
+    description:
+      typeof input.description === "string" ? input.description : "",
+  };
+  createdIssues.push(issue);
+  return { ok: true, issue: { ...issue } };
+}
+
 export function resetIssues(): DemoIssue[] {
   statusOverrides.clear();
   priorityOverrides.clear();
+  createdIssues.length = 0;
   return getIssues();
 }
