@@ -2,8 +2,9 @@ import { get, put, BlobPreconditionFailedError } from '@vercel/blob';
 import { documentSchema,emptyDocument,CockpitConflict,type CockpitDocument } from '../../shared/cockpit.ts';
 const pathname='factory/cockpit-v1.json';
 export async function readCockpit() {
- const response=await get(pathname,{access:'private',useCache:false});
+ const response=await get(pathname,{access:'private',useCache:false,headers:{'accept-encoding':'identity'}});
  if(!response)return {document:emptyDocument(),etag:undefined};
+ if(response.blob.etag.startsWith('W/'))throw new Error('Storage returned a weak ETag; refusing an unsafe conditional update.');
  if(response.statusCode!==200||!response.stream)throw new Error('Cockpit storage could not be read.');
  return {document:documentSchema.parse(await new Response(response.stream).json()),etag:response.blob.etag};
 }
