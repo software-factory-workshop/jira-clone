@@ -42,7 +42,7 @@ The revisions route resolves the owner from PR metadata, then verifies a success
 
 API: `POST /factory/stations/worker` accepts `{operationId,title,brief,parentPrNumber?}`; `POST /factory/stations/revisions` accepts `{operationId,prNumber,brief}`. A revision returns the existing owner session and accepted `deliveryId`. An unavailable, expired or pre-revision owner returns `owner_unavailable`; the alternative is a child PR, never silent ownership transfer. Eve resumes existing sessions on their original deployment, so legacy PR2 cannot gain these tools by resuming it on a newer preview. Reviewer snapshots use the actual target branch head and record an integration gap when the candidate does not contain it.
 
-This branch has deterministic identity, publication and real three-way conflict tests. Hosted create/revise/contribute verification is still pending; no claim of deployed success follows from those tests.
+Live verification created PR10, queued two revisions on its original owner, replayed an operation without another commit, and created child PR11 after resolving a real target conflict. See [the exact heads, runs and costs](branch-ownership-proof.md). The independent reviewer completed its checks but removed a browser limitation after an approval rejection; existing PR5 remains a prerequisite for trusting approval gates. No PR was merged.
 
 ## Source decisions
 
