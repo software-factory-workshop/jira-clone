@@ -5,6 +5,7 @@ on:
   pull_request:
 permissions:
   contents: read
+  statuses: read
 jobs:
   check:
     runs-on: ubuntu-latest
@@ -19,7 +20,7 @@ jobs:
       - run: pnpm typecheck
       - run: pnpm test
       - run: pnpm build
-      - name: Verify native Eve deployment output
+      - name: Verify Nuxt station route layout
         working-directory: apps/factory
         env:
           VERCEL: "1"
@@ -27,5 +28,8 @@ jobs:
         run: |
           pnpm exec nuxt build
           node scripts/verify-station-routes.mjs
-          EVE_INTERNAL_BUILD_OUTPUT_DIRECTORY=.eve/packaging-verification/.vercel/output EVE_INTERNAL_HOST_BUILD_OUTPUT_DIRECTORY=.vercel/output pnpm build:agent
-          node -e 'const fs=require("node:fs"); const files=fs.readdirSync(".eve/packaging-verification/.vercel/output",{recursive:true}); const forbidden=files.filter(path=>/harness[-_](fx|acp)/i.test(path)); if(forbidden.length) throw new Error("Experimental fx runtime leaked into deployment: "+forbidden.join(", ")); console.log("Native Eve output contains no fx or ACP runtime bundles.");'
+      - name: Verify authenticated Vercel deployments for this commit
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          VERIFY_COMMIT_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: node apps/factory/scripts/verify-vercel-status.mjs
