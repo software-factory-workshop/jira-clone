@@ -1,10 +1,13 @@
 <script setup lang="ts">
 import { demoIssues } from "@jira-clone/context";
 import {
+  ALL_ASSIGNEES,
   OBSERVED_STATUSES,
   PRIORITIES,
+  assigneeOptions,
   changePriority,
   columnIssues,
+  filterIssues,
   moveIssue,
   moveTargets,
   type BoardIssue,
@@ -14,6 +17,7 @@ const config = useRuntimeConfig();
 const view = ref("list");
 const search = ref("");
 const status = ref("All statuses");
+const assignee = ref(ALL_ASSIGNEES);
 const statuses: string[] = [...OBSERVED_STATUSES];
 const priorities: string[] = [...PRIORITIES];
 const selectedKey = ref<string | null>(null);
@@ -26,6 +30,8 @@ const saveNotice = ref<string | null>(null);
 const pendingKeys = ref<string[]>([]);
 const draggedKey = ref<string | null>(null);
 const dropColumn = ref<string | null>(null);
+
+const assignees = computed(() => assigneeOptions(issues.value));
 
 const selected = computed(
   () => issues.value.find((issue) => issue.key === selectedKey.value) ?? null,
@@ -42,13 +48,11 @@ watch(selected, (issue) => {
 });
 
 const filtered = computed(() =>
-  issues.value.filter(
-    (issue) =>
-      `${issue.key} ${issue.title}`
-        .toLowerCase()
-        .includes(search.value.toLowerCase()) &&
-      (status.value === "All statuses" || issue.status === status.value),
-  ),
+  filterIssues(issues.value, {
+    search: search.value,
+    status: status.value,
+    assignee: assignee.value,
+  }),
 );
 
 async function saveStatus(
@@ -270,6 +274,10 @@ await refresh();
               v-model="status"
               :items="['All statuses', ...statuses]"
               aria-label="Filter by status"
+            /><USelect
+              v-model="assignee"
+              :items="assignees"
+              aria-label="Filter by assignee"
             /><span>{{ filtered.length }} issues</span>
           </div>
           <div v-if="view === 'list'" class="table-wrap">

@@ -37,6 +37,57 @@ export function columnIssues(
   return issues.filter((issue) => issue.status === status);
 }
 
+export const ALL_ASSIGNEES = "All assignees";
+export const UNASSIGNED = "Unassigned";
+
+export type IssueFilters = {
+  search: string;
+  status: string;
+  assignee: string;
+};
+
+/**
+ * Fixture assignee options for the demo-only client-side filter.
+ * "All assignees" and "Unassigned" come first, followed by each distinct
+ * named fixture identity in alphabetical order.
+ */
+export function assigneeOptions(issues: BoardIssue[]): string[] {
+  const names = [
+    ...new Set(
+      issues
+        .map((issue) => issue.assignee)
+        .filter((assignee) => assignee && assignee !== UNASSIGNED),
+    ),
+  ].sort();
+  return [ALL_ASSIGNEES, UNASSIGNED, ...names];
+}
+
+/** Client-side match for one issue against search x status x assignee. */
+export function matchesFilters(issue: BoardIssue, filters: IssueFilters): boolean {
+  const query = filters.search.toLowerCase();
+  const matchesSearch = `${issue.key} ${issue.title}`
+    .toLowerCase()
+    .includes(query);
+  const matchesStatus =
+    filters.status === "All statuses" || issue.status === filters.status;
+  const matchesAssignee =
+    filters.assignee === ALL_ASSIGNEES ||
+    issue.assignee === filters.assignee;
+  return matchesSearch && matchesStatus && matchesAssignee;
+}
+
+/**
+ * Shared list/board filter: fixture assignee combined with the existing
+ * search and status filters. Pure and client-side; the demo-only fixture
+ * boundary is unchanged.
+ */
+export function filterIssues(
+  issues: BoardIssue[],
+  filters: IssueFilters,
+): BoardIssue[] {
+  return issues.filter((issue) => matchesFilters(issue, filters));
+}
+
 /**
  * Optimistic status move with deterministic failure recovery.
  *
