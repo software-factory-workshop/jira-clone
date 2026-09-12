@@ -42,6 +42,8 @@ test("late parent budget requests remain actionable after the dispatcher complet
   const requests = pendingStationRequests(waiting);
   assert.equal(requests[0]?.requestId, requestId);
   assert.deepEqual(requests[0]?.options?.map(option => option.id), ["continue", "stop"]);
+  assert.equal(pendingStationRequests(waiting, true).length, 0, "a recorded child result supersedes a stale parent budget request");
+  assert.equal(pendingStationRequests(waiting, false).length, 1, "a turn boundary without a recorded result preserves a genuine pause");
   const responded = reducer.reduce(waiting, { type: "client.input.responded", data: { createdAt: 0, responses: [{ requestId, optionId: "continue" }] } });
   assert.equal(pendingStationRequests(responded).length, 0);
 });

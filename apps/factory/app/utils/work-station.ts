@@ -33,7 +33,10 @@ export function dispatchedTask(value: unknown): string | undefined {
   return parsed.success ? parsed.data.taskId : undefined;
 }
 
-export function pendingStationRequests(data: EveMessageData) {
+export function pendingStationRequests(data: EveMessageData, hasRecordedResult = false) {
+  // A child can resume outside its parent, leaving proxied requests unresolved
+  // in the parent projection. Only a recorded result supersedes those requests.
+  if (hasRecordedResult) return [];
   return data.messages.flatMap(message => message.parts).flatMap(part => part.type === "dynamic-tool" && part.state === "approval-requested" && part.toolMetadata?.eve?.inputRequest ? [part.toolMetadata.eve.inputRequest] : []);
 }
 

@@ -12,6 +12,28 @@ This was an assisted run: excessive preliminary reads exhausted the original inp
 
 The run also exposed a cockpit projection bug: the dispatcher completed before the background `subagent.called` event, so the chat composable stopped before discovering its child. The UI now follows the durable station stream beyond that boundary, exposes explicit budget choices, and judges cancellation from the latest turn rather than an earlier interrupted turn. Live replay verification follows deployment.
 
+### PR #2 browser verification
+
+The authenticated Chrome check used the actual PR preview at `https://adeo-factory-cockpit-j3aku1zxp-demo-software-factory.vercel.app`, head `a6d6e591`. A fresh preview investigation, `wrun_41M2AW710Q0GTFT56P7E0TXN1Z`, returned two structured proposals. Production session links did not restore in the preview environment, so no production findings were fabricated or imported.
+
+On the two actual proposal cards, Useful and Not useful stayed independent. A reason saved and restored with both selections after reload; editing the reason worked; clearing the first proposal left the second unchanged. Space activated the focused radio control. “Use this proposal” still opened the correct editable draft with its evidence and provenance, and the existing worker/reviewer controls remained available; no additional work was started or draft saved. Both temporary feedback entries were cleared afterward; these test judgments do not represent Remi's opinion. Malformed/unavailable storage and legacy IDs are covered by the worker's tests, not by this hosted browser exercise.
+
+The preview miner's result was Incomplete for missing issue inventory and Jira deployment evidence. Its first proposal overlapped the independent review already underway; this is an observed context-quality limitation. The run is useful browser verification, not evidence of new-task originality. [Its compact evidence](../factory/mining/native/2026-09-12/preview-feedback-mining.json) records a clean completed turn, 202,283 input / 9,040 output tokens and $0.008552186 model cost, excluding Sandbox compute.
+
+### Independent review of PR #2
+
+On runtime `a4dda9b`, cockpit root `wrun_41M2AWE0HZ0GWQQZ5PXHSK3VD9` dispatched reviewer `wrun_41M2AWE9GG0GY9AH1YT9M7XY8C` with only PR number 2. It independently prepared source, inspected all four changed files and ran typecheck, tests and build successfully. The recorded verdict was **approve**, with one nonblocking finding at `apps/factory/app/components/ProposalFeedback.vue:29`: the storage warning may linger after storage recovers. No steering or budget continuation was needed.
+
+The reviewed head was `a6d6e591207918a81bc4f8f2c9e4bc7d345d3b70`; the GitHub PR API reported base `65ff1fb74af68344d8042a1b655e0c0c00e99d39`, even though `main` had advanced to `a4dda9b`. Both PR-reported revisions were rechecked when recording. This is a review of those snapshots, not verification of a hypothetical merge into newer main. PR #2 remains a draft and unmerged.
+
+The first approval attempt included missing browser/assistive checks as limitations and was rejected by the host. The reviewer then classified those checks as optional under the task's allowance to list checks not run, disclosed them in its summary, and retried with an empty limitations array. It obtained no new browser evidence. That classification is the model's judgment, not an independently proven host guarantee. The separate browser verification above was not supplied to this reviewer.
+
+[Original review evidence](../factory/mining/native/2026-09-12/reviewer-proposal-feedback.json) retains both attempts, command evidence and the exact result. Root plus child model cost was $0.009976374; the child used 268,228 input / 9,161 output tokens. The reviewer sandbox was confirmed stopped afterward. The cockpit displayed its running verification step and then the recorded verdict, exact head, finding and command evidence.
+
+Combined model cost for the failed dispatch, successful assisted worker, preview miner and independent reviewer was **$0.042898064**, excluding Sandbox compute and development-session costs. All used Muse Spark under `demo-software-factory`. This demonstrates the two stations on real work; it does not establish general autonomous delivery or review accuracy.
+
+The final cockpit follow-up makes a recorded child result supersede stale parent budget prompts and Stop controls. Its typecheck, 43 factory tests and production build passed locally; deployed replay is the final delivery check.
+
 ## Worker and reviewer bootstrap — 12 September 2026
 
 The implementation follows [the station design and source decisions](../factory/work-stations.md). Root typecheck, tests and both app builds passed, including 38 factory tests. A Vercel-mode Nuxt build confirmed both `/eve/v1/*` and `/factory/stations/*` route to the existing Eve service with their original paths. The native Eve Vercel build also passed. A local HTTP probe of the custom worker route returned 400 for invalid input without starting a model run.

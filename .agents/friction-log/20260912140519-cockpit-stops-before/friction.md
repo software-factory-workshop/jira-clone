@@ -15,3 +15,5 @@ Dispatch the worker, observe its working receipt, then the dispatcher boundary f
 Eve 0.52.5 task-mode delegation, hosted worker validation on 12 September 2026. Fix remains uncommitted while the worker publishes against its pinned source.
 
 The same early stream boundary also hid a later parent-proxied input-token budget request while the child was parked. The parent tail must continue after child discovery, render the exact pending request ID/options, and send a decision through the parent session. A parked child is awaiting a decision, not a completed or failed task.
+
+Replay also showed historical parent budget requests after the child had published PR #2. A direct child continuation can leave those proxied requests unresolved in the parent reducer. A recorded child result must supersede those requests and stop controls; a generic turn.completed event cannot, because budget pauses also end turns.

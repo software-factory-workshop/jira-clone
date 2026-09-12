@@ -4,10 +4,11 @@ import type { MessageStreamEvent } from "eve/client";
 import { dispatchedTask, parseStationResult, pendingStationRequests, latestStationTurn, readStationStream, type StationKind } from "../utils/work-station";
 import { authorizationLink } from "../utils/mining-output";
 const props = defineProps<{ sessionId: string; station: StationKind; child?: boolean; awaitingDecision?: boolean }>();
-const emit = defineEmits<{ settled: [value: boolean] }>();
+const emit = defineEmits<{ settled: [value: boolean]; recorded: [value: boolean] }>();
 const { data, events, status, error, resume, respond } = useEveAgent({ initialSession: { sessionId: props.sessionId, streamIndex: 0 }, resume: true });
 const actionError = ref("");
 const childSettled = ref(false);
+const childRecorded = ref(false);
 const cancellationRequested = ref(false);
 const discoveredChild = ref<string>();
 const discoveryError = ref(false);
@@ -17,8 +18,8 @@ const tailEvents = shallowRef<MessageStreamEvent[]>([]);
 const runEvents = computed(() => tailData.value ? tailEvents.value : events.value);
 const answering = ref<string>();
 const parts = computed(() => (tailData.value || data.value).messages.flatMap(message => message.parts));
-const pendingRequests = computed(() => pendingStationRequests(tailData.value || data.value));
-const needsDecision = computed(() => !!props.awaitingDecision || pendingRequests.value.length > 0);
+const pendingRequests = computed(() => pendingStationRequests(tailData.value || data.value, !!result.value || childRecorded.value));
+const needsDecision = computed(() => !result.value && !childRecorded.value && (!!props.awaitingDecision || pendingRequests.value.length > 0));
 const childId = computed(() => {
   if (props.child) return undefined;
   const event = events.value.find(event => event.type === "subagent.called");
@@ -65,8 +66,9 @@ const turn = computed(() => latestStationTurn(runEvents.value));
 const active = computed(() => turn.value === "running" || (!tailData.value && ["submitted", "streaming", "resuming"].includes(status.value)));
 const stopped = computed(() => turn.value === "cancelled");
 const ended = computed(() => ["completed", "failed"].includes(turn.value));
-watch(() => !needsDecision.value && (!!result.value || stopped.value || (ended.value && !active.value)), value => emit("settled", value), { immediate: true });
-const canStop = computed(() => !props.child && (needsDecision.value || (childId.value ? !childSettled.value : !stopped.value && (!!taskId.value || (active.value && !ended.value)))));
+watch(() => !!result.value, value => emit("recorded", value), { immediate: true });
+watch(() => !!result.value || (!needsDecision.value && (stopped.value || (ended.value && !active.value))), value => emit("settled", value), { immediate: true });
+const canStop = computed(() => !props.child && !result.value && !childRecorded.value && (needsDecision.value || (childId.value ? !childSettled.value : !stopped.value && (!!taskId.value || (active.value && !ended.value)))));
 const authorizations = computed(() => parts.value.filter(part => part.type === "authorization" && part.state === "required"));
 const step = computed(() => {
   const part = parts.value.filter(part => part.type === "dynamic-tool").at(-1);
@@ -111,8 +113,8 @@ async function stop() {
       <UButton v-if="!result && (error || discoveryError || (!active && !ended && !stopped))" variant="outline" @click="reconnect">Reconnect</UButton>
     </template>
     <fieldset v-for="request in pendingRequests" :key="request.requestId" class="decision"><legend>Awaiting decision</legend><p>{{ request.prompt }}</p><UButton v-for="option in request.options || []" :key="option.id" :color="option.style === 'danger' ? 'error' : 'primary'" :disabled="!!answering" @click="answer(request.requestId, option.id)">{{ option.label }}</UButton><p class="small muted">This decision applies to the existing station run. No option is selected automatically.</p></fieldset>
-    <WorkRun v-if="childId" :session-id="childId" :station="station" :awaiting-decision="needsDecision" child @settled="childSettled = $event" />
-    <div v-if="!child" class="run-actions"><UButton v-if="childId && discoveryError" variant="outline" @click="reconnect">Reconnect decisions</UButton><UButton v-if="canStop" color="neutral" variant="outline" @click="stop">Stop {{ station === 'worker' ? 'worker' : 'review' }}</UButton><a :href="`?station=${station}&run=${sessionId}`">Open run {{ sessionId }}</a></div>
+    <WorkRun v-if="childId" :session-id="childId" :station="station" :awaiting-decision="needsDecision" child @settled="childSettled = $event" @recorded="childRecorded = $event" />
+    <div v-if="!child" class="run-actions"><UButton v-if="childId && discoveryError && !childRecorded" variant="outline" @click="reconnect">Reconnect decisions</UButton><UButton v-if="canStop" color="neutral" variant="outline" @click="stop">Stop {{ station === 'worker' ? 'worker' : 'review' }}</UButton><a :href="`?station=${station}&run=${sessionId}`">Open run {{ sessionId }}</a></div>
     <p v-if="cancellationRequested && canStop" role="status">Cancellation requested. Waiting for the station to stop.</p>
     <UAlert v-if="actionError" color="warning" title="Action not completed" :description="actionError" />
   </div>
