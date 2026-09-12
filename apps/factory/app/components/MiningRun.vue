@@ -97,6 +97,7 @@ function draft() {
             </details>
             <h4>Acceptance criteria</h4><ul><li v-for="item in proposal.acceptanceCriteria" :key="item">{{ item }}</li></ul>
             <template v-if="proposal.uncertainties.length"><h4>Uncertainties</h4><ul><li v-for="item in proposal.uncertainties" :key="item">{{ item }}</li></ul></template>
+            <ProposalFeedback :proposal-id="proposal.id" :proposal-title="proposal.title" />
             <template #footer><div class="proposal-action"><UButton icon="i-lucide-file-pen-line" :aria-label="`Use this proposal: ${proposal.title}`" @click="useProposal(proposal, index)">Use this proposal</UButton><span class="small muted">Opens an editable draft</span></div></template>
           </UCard>
         </div>
