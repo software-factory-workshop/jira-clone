@@ -106,7 +106,7 @@ export function stationLaunchError(value: unknown) {
   return messages[parsed.data.data.error.code] || "The station could not start. Your draft is unchanged; check access and try again.";
 }
 
-export function matchesStationDelivery(event: Pick<MessageStreamEvent, "meta">, deliveryId: string, started: boolean) {
+export function matchesStationDelivery(event: { meta?: { deliveryIds?: readonly string[] } }, deliveryId: string, started: boolean) {
   return event.meta?.deliveryIds?.includes(deliveryId) === true || (started && event.meta?.deliveryIds === undefined);
 }
 

@@ -11,16 +11,16 @@ export default defineNuxtModule({
       const config = nuxt.options.nitro.vercel?.config as EveServiceConfig | undefined;
       const service = config?.services?.eve;
       if (!config || !service) throw new Error("The factory station routes require Eve's generated service.");
-      const src = "^/factory/stations/(.*)$";
+      const src = "^/factory/(.*)$";
       config.routes = [{ src, destination: { type: "service", service: "eve" } }, ...(config.routes || [])];
-      service.routes = [{ src, transforms: [{ type: "request.path", op: "set", args: "/factory/stations/$1" }] }, ...(service.routes || [])];
+      service.routes = [{ src, transforms: [{ type: "request.path", op: "set", args: "/factory/$1" }] }, ...(service.routes || [])];
     } else {
       nuxt.hook("modules:done", () => {
         const rules = nuxt.options.routeRules ||= {};
         const proxy = rules["/eve/v1/**"]?.proxy;
         const target = typeof proxy === "string" ? proxy : proxy?.to;
         if (!target?.endsWith("/eve/v1/**")) throw new Error("Could not resolve the existing Eve transport proxy.");
-        rules["/factory/stations/**"] = { proxy: target.replace(/\/eve\/v1\/\*\*$/, "/factory/stations/**") };
+        rules["/factory/**"] = { proxy: target.replace(/\/eve\/v1\/\*\*$/, "/factory/**") };
       });
     }
   },
