@@ -2,7 +2,7 @@
 
 Grow a software factory with Eve, using an ADEO-branded Jira demo as its test subject. The factory is the workshop outcome. Jira gives us concrete work and product feedback with which to improve it.
 
-**Current stage: 00 — a place to begin.** No agent runs, code generation or automated approvals are implemented.
+**Deployed stage: 00 — a place to begin.** The cockpit has no agent execution. A separate developer-run task-mining experiment is being evaluated; see [the factory goal](factory/context/goal.md).
 
 ## Review the starting point
 
@@ -38,7 +38,8 @@ pnpm build
 | `apps/factory` | Nuxt cockpit; home for requests and project context |
 | `apps/jira` | Nuxt Jira demo shell |
 | `packages/project-context` | Shared stage definitions, references and labelled fixtures |
-| `factory` | The factory's growth contract; runtime arrives in stage one |
+| `factory` | Goal, project context, reflections and mining experiments |
+| `packages/task-miner` | Isolated AI SDK Harness/fx experiment runner |
 | `.agents/skills/adeo-nuxt-ui` | Versioned design-system instructions |
 | `docs` | Workshop experiment, cockpit rationale and verification |
 | `vendor` | Private ADEO v0.1.1 package artifact |
@@ -64,4 +65,4 @@ Stage zero consumes the existing v0.1.1 package tarball, checked into this **pri
 
 ## Next review
 
-Read [the cockpit scope](docs/cockpit.md) and [the growth experiment](docs/factory-growth-experiment.md). Decide whether this is a useful starting place before implementing stage one.
+Read [the cockpit scope](docs/cockpit.md) and [the growth experiment](docs/factory-growth-experiment.md). Review the mining evidence before implementing a cockpit workflow.

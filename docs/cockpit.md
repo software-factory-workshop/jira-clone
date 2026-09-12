@@ -22,7 +22,7 @@ A background workflow should discover candidate work from the project's availabl
 
 Proposed flow: **mine signals → form task proposals → review, refine or dismiss → accept into the work queue**. Each proposal should explain the suggested outcome, why it matters, and the source evidence behind it. Accepting a proposal should create a work request; execution remains a separate step.
 
-The current static examples are the stage-zero placeholder for this capability. This note records the direction only; task mining is not implemented or assigned to a specific stage yet. Source selection, triggers or cadence, and proposal deduplication remain design decisions.
+The current static examples are the stage-zero placeholder for this capability. This is now the first factory experiment; see [the current goal](../factory/context/goal.md). A developer-run mining experiment is separate from the deployed cockpit, which still shows static examples. Source selection, triggers or cadence, and proposal deduplication remain design decisions.
 
 ## Research basis
 
@@ -36,7 +36,7 @@ The UI comparison suggests keeping one work object across attempts, showing spec
 
 ## What waits for a backend
 
-Stage one introduces one Eve agent that reads a request and project context, then produces a supported work order or focused question. At that point we can add a run workspace, actual execution state and durable records. Later stages introduce bounded edits, verification and evaluations.
+The first planned Eve station mines tasks from the goal, repository and current issues, then leaves proposals for review. We are testing its context and output with a developer-run experiment first. Add a run workspace and durable proposal records when that behavior has been established. Later capabilities may introduce work-order admission, bounded edits and verification.
 
 For GitHub tools, use [Vercel Labs github-tools](https://github.com/vercel-labs/github-tools), including `@github-tools/eve-extension`, with the Connect connector. Check the installed extension and Eve versions before integrating; the historical Evi example in the research is not a current API contract. Start with the operations the stage actually needs. There is no inbound GitHub webhook or agent execution in stage zero.
 

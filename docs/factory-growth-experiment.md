@@ -18,13 +18,13 @@ give the current factory a bounded Jira request
 
 Some failures are product bugs or environment problems. Classify them before changing the factory. Do not add a specialist or a new abstraction for every failed run. A change can remove unnecessary factory logic. When the run already succeeds, test a harder request before inventing a limitation.
 
-1. The factory can decide what work is ready.
+1. The factory understands enough to propose useful work.
 
-Create one Eve agent with read-only access to the target scaffold and curated Jira reference material. It returns a supported work order, a focused clarification or an explicit unsupported/denied result. The work order names the outcome, scope, evidence, missing facts and proposed verification. It may not write product code yet.
+The current milestone is task mining, as agreed in [the goal](../factory/context/goal.md). Start with one bounded read-only investigation of the goal, source and current GitHub issues and PRs. It returns supported proposals or an explicit reason that more context is needed. It may not write product code or publish tasks.
 
-First request: "Create the ADEO issue list using our design system." Observe whether the agent locates the actual ADEO skill, separates fixture data from persistence, and identifies the interactions that need definition. Keep missing information visible rather than inventing it.
+Use the same small prompt before and after a context change, then try a differently worded request in a fresh session. Judge evidence, relevance, duplicate checks, bounded outcomes and the quality of reflection. Retain raw outputs and record manual interventions. The initial AI SDK Harness/fx runner is an experiment for growing context; an asynchronous Eve station comes after its output is useful.
 
-Evaluate four inputs: a clear request, an ambiguous one, an unsupported compatibility claim, and a request outside repository access. Expected behavior includes no protected access or implementation after denial. Use local reference fixtures for repeatable cases and record live sandbox observations separately. The first milestone is this working admission loop and its evidence, not an issue-list page.
+Request-to-work-order admission remains a possible later capability. The previous plan to start by admitting an ADEO issue-list request has been superseded by task mining. Do not count the existence of a runner as proof that mining is useful.
 
 2. The factory learns the project's expectations.
 
@@ -74,6 +74,6 @@ One successful rerun is a useful observation, not statistical proof. Keep cases 
 
 The human/Codex development session initially builds and repairs the factory. The Eve factory performs the product task so there is real execution evidence. If we manually patch the product to unblock a session, record that intervention. Later the factory can propose a change to its own definition through a reviewed PR; it cannot activate new permissions or verification criteria during the run judging that proposal.
 
-The three-hour onsite core should grow admission, project knowledge, bounded implementation and verification. Use the additional 30–60 minutes for a feedback-to-eval loop and recovery. Each checkpoint packages a factory capability, its test cases and just enough Jira code to exercise it. Checkpoint names should follow the factory capability rather than Jira feature names.
+The three-hour onsite core should begin with task mining and project knowledge, then grow bounded implementation and verification as time permits. Use the additional 30–60 minutes for a feedback-to-eval loop and recovery. Each checkpoint packages a factory capability, its test cases and just enough Jira code to exercise it. Checkpoint names should follow the factory capability rather than Jira feature names.
 
 Research basis: the [AI SDK Factory history](/Users/remiconnesson/knowledge-work/software-factories/research/histories/ai-sdk-factory/outline.md) records small classification/reproduction tasks preceding the larger orchestration system. The [factory engineering discussion](/Users/remiconnesson/knowledge-work/software-factories/research/slack/brain-lars/software-factory-thinking.md) emphasizes observing blocked/flawed work and improving its cause. These inform this proposed experiment; they do not establish that this ADEO factory has been implemented or evaluated.
