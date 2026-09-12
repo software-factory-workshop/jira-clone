@@ -7,6 +7,7 @@ import {
   readFeedbackMap,
   setFeedbackEntry,
   storeFeedback,
+  storageProblemFor,
   proposalFeedbackStorageKey,
 } from "../app/utils/proposal-feedback.ts";
 
@@ -72,4 +73,48 @@ test("reasons are trimmed, bounded and editable without touching the verdict", (
   assert.equal(long["wrun_a:proposal:1"]?.reason.length, 500);
   assert.equal(long["wrun_a:proposal:1"]?.verdict, "useful");
   assert.ok(long["wrun_a:proposal:1"]?.updatedAt);
+});
+
+test("storage warnings map cleanly from load results so recovery clears them", () => {
+  assert.equal(storageProblemFor({ malformed: true, unavailable: false }), "malformed");
+  assert.equal(storageProblemFor({ malformed: false, unavailable: true }), "unavailable");
+  // Error-to-success: a clean load after either failure clears the warning.
+  assert.equal(storageProblemFor({ malformed: false, unavailable: false }), "");
+});
+
+test("malformed storage recovers through a successful save that overwrites the bad entry", () => {
+  let raw: string | null = "{not-json";
+  const storage = {
+    getItem: (_key: string) => raw,
+    setItem: (_key: string, value: string) => { raw = value; },
+  };
+  const before = loadFeedback(storage);
+  assert.equal(before.malformed, true);
+  assert.equal(storageProblemFor(before), "malformed");
+  const entries = setFeedbackEntry(before.entries, "wrun_a:proposal:1", verdict);
+  assert.equal(storeFeedback(storage, entries).unavailable, false);
+  const after = loadFeedback(storage);
+  assert.equal(after.malformed, false);
+  assert.equal(after.unavailable, false);
+  assert.equal(storageProblemFor(after), "");
+  assert.equal(after.entries["wrun_a:proposal:1"]?.verdict, "useful");
+});
+
+test("unavailable storage warning clears after a later load succeeds", () => {
+  let broken = true;
+  const store = new Map<string, string>();
+  const storage = {
+    getItem: (key: string) => {
+      if (broken) throw new Error("denied");
+      return store.get(key) ?? null;
+    },
+    setItem: (key: string, value: string) => { store.set(key, value); },
+  };
+  const before = loadFeedback(storage);
+  assert.equal(before.unavailable, true);
+  assert.equal(storageProblemFor(before), "unavailable");
+  broken = false;
+  const after = loadFeedback(storage);
+  assert.equal(after.unavailable, false);
+  assert.equal(storageProblemFor(after), "");
 });

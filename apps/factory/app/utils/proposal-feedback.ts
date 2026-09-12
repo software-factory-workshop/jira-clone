@@ -93,4 +93,15 @@ export function clearFeedbackEntry(entries: ProposalFeedbackMap, id: string): Pr
   return next;
 }
 
+export type FeedbackStorageProblem = "malformed" | "unavailable" | "";
+
+// Single source of truth for the cockpit storage warning. A clean load
+// returns "" so a previous malformed/unavailable warning clears as soon as
+// storage demonstrably recovers.
+export function storageProblemFor(result: { malformed: boolean; unavailable: boolean }): FeedbackStorageProblem {
+  if (result.unavailable) return "unavailable";
+  if (result.malformed) return "malformed";
+  return "";
+}
+
 export const feedbackChangedEvent = "adeo-proposal-feedback-changed";

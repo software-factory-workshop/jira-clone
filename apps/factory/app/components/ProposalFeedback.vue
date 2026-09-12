@@ -6,6 +6,8 @@ import {
   loadFeedback,
   setFeedbackEntry,
   storeFeedback,
+  storageProblemFor,
+  type FeedbackStorageProblem,
   type FeedbackVerdict,
   type ProposalFeedbackMap,
 } from "../utils/proposal-feedback";
@@ -14,7 +16,7 @@ const props = defineProps<{ proposalId?: string; proposalTitle: string }>();
 
 const entries = ref<ProposalFeedbackMap>({});
 const reasonDraft = ref("");
-const storageProblem = ref<"malformed" | "unavailable" | "">("");
+const storageProblem = ref<FeedbackStorageProblem>("");
 const saveProblem = ref(false);
 
 const feedbackId = computed(() => feedbackKeyFor(props.proposalId));
@@ -26,8 +28,9 @@ function refresh() {
   try {
     const loaded = loadFeedback(localStorage);
     entries.value = loaded.entries;
-    if (loaded.unavailable) storageProblem.value = "unavailable";
-    else if (loaded.malformed) storageProblem.value = "malformed";
+    // A clean load proves storage recovered, so a previous warning clears
+    // instead of lingering after the failure is gone.
+    storageProblem.value = storageProblemFor(loaded);
   } catch {
     storageProblem.value = "unavailable";
   }
@@ -39,6 +42,9 @@ function persist(next: ProposalFeedbackMap) {
     saveProblem.value = result.unavailable;
     if (!result.unavailable) {
       entries.value = next;
+      // A successful save proves storage works, so it also clears a stale
+      // malformed/unavailable warning (the save overwrote the bad entry).
+      storageProblem.value = "";
       window.dispatchEvent(new CustomEvent(feedbackChangedEvent));
     }
   } catch {
@@ -52,6 +58,7 @@ function update(transform: (fresh: ProposalFeedbackMap) => ProposalFeedbackMap) 
   if (!feedbackId.value) return;
   try {
     const loaded = loadFeedback(localStorage);
+    storageProblem.value = storageProblemFor(loaded);
     persist(transform(loaded.entries));
   } catch {
     saveProblem.value = true;
