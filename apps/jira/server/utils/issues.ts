@@ -3,14 +3,16 @@
  *
  * Persistence boundary: in-memory server overrides on top of the labelled
  * synthetic fixtures from `@jira-clone/context`. Status moves, priority
- * edits and issues created via POST /api/issues survive page reload against
- * the same running server but reset on redeploy or cold start. No Jira
- * transition enforcement is claimed: any move among the observed statuses
- * is allowed.
+ * edits, issues created via POST /api/issues and per-issue demo-only
+ * comments survive page reload against the same running server but reset on
+ * redeploy, cold start or POST /api/issues/reset. No Jira transition
+ * enforcement is claimed: any move among the observed statuses is allowed.
  *
  * Priority is a bounded synthetic allowlist (Highest, High, Medium, Low,
  * Lowest) chosen to cover the fixture values. It teaches the save path; it
- * does not claim Jira parity or durable persistence.
+ * does not claim Jira parity or durable persistence. Comments are flat,
+ * demo-only annotations without threading, edit/delete, permissions or
+ * accounts.
  */
 import { demoIssues } from "@jira-clone/context";
 
@@ -270,9 +272,91 @@ export function createIssue(
   return { ok: true, issue: { ...issue } };
 }
 
+export const DEMO_COMMENT_AUTHOR = "Demo member (demo-only fixture)";
+
+export type DemoComment = {
+  id: string;
+  body: string;
+  author: string;
+  createdAt: string;
+  demoOnly: true;
+};
+
+export type CommentCreateInput = {
+  body?: unknown;
+};
+
+export type CommentResult =
+  | { ok: true; comment: DemoComment }
+  | { ok: false; error: string; statusCode: number };
+
+/** Demo-only per-issue comment store. Empty per key; isolated by issue key. */
+const commentStore = new Map<string, DemoComment[]>();
+let commentSeq = 0;
+
+function isKnownIssueKey(key: string): boolean {
+  return getIssue(key) !== undefined;
+}
+
+/**
+ * Demo-only comment list for one issue. Returns a copy of that issue's
+ * comments, or `undefined` for an unknown key without writing.
+ */
+export function listComments(key: string): DemoComment[] | undefined {
+  if (!isKnownIssueKey(key)) {
+    return undefined;
+  }
+  return (commentStore.get(key) ?? []).map((comment) => ({ ...comment }));
+}
+
+/**
+ * Demo-only comment creation on the single in-memory save boundary.
+ * Unknown keys return 404 before writing; blank bodies are rejected with a
+ * client error; the deterministic `fail` path returns a 500 and writes
+ * nothing.
+ */
+export function addComment(
+  key: string,
+  input: CommentCreateInput,
+  options?: { fail?: boolean },
+): CommentResult {
+  if (options?.fail) {
+    return {
+      ok: false,
+      error:
+        "Demo-only comment save failure (deterministic test path). No comment was saved.",
+      statusCode: 500,
+    };
+  }
+  if (!isKnownIssueKey(key)) {
+    return { ok: false, error: `Unknown issue key: ${key}.`, statusCode: 404 };
+  }
+  if (typeof input.body !== "string" || input.body.trim() === "") {
+    return {
+      ok: false,
+      error: "A nonblank demo comment is required.",
+      statusCode: 400,
+    };
+  }
+  commentSeq += 1;
+  const comment: DemoComment = {
+    id: `${key}-comment-${commentSeq}`,
+    body: input.body.trim(),
+    author: DEMO_COMMENT_AUTHOR,
+    createdAt: new Date().toISOString(),
+    demoOnly: true,
+  };
+  const existing = commentStore.get(key) ?? [];
+  existing.push(comment);
+  commentStore.set(key, existing);
+  return { ok: true, comment: { ...comment } };
+}
+
 export function resetIssues(): DemoIssue[] {
   statusOverrides.clear();
   priorityOverrides.clear();
   createdIssues.length = 0;
+  commentStore.clear();
+  commentSeq = 0;
   return getIssues();
 }

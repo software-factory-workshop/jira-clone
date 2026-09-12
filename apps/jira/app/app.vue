@@ -1,6 +1,11 @@
 <script setup lang="ts">
 import { demoIssues } from "@jira-clone/context";
 import {
+  fetchIssueComments,
+  submitIssueComment,
+  type DemoComment,
+} from "~/utils/issueComments";
+import {
   failedDetail,
   fetchIssueDetail,
   loadedDetail,
@@ -30,6 +35,13 @@ const detailIssue = ref<BoardIssue | null>(null);
 const detailLoading = ref(false);
 const detailError = ref<string | null>(null);
 const detailDemoOnly = ref(false);
+const comments = ref<DemoComment[]>([]);
+const commentsLoading = ref(false);
+const commentsError = ref<string | null>(null);
+const commentsDemoOnly = ref(false);
+const commentDraft = ref("");
+const commentSaving = ref(false);
+const commentError = ref<string | null>(null);
 const issues = ref<BoardIssue[]>(demoIssues.map((issue) => ({ ...issue })));
 const loading = ref(true);
 const loadError = ref<string | null>(null);
@@ -86,12 +98,71 @@ async function loadDetail(key: string) {
   }
 }
 
+async function loadComments(key: string) {
+  commentsLoading.value = true;
+  try {
+    const result = await fetchIssueComments(key, (url) =>
+      $fetch<{ comments: DemoComment[]; demoOnly?: boolean }>(url),
+    );
+    if (selectedKey.value !== key) return;
+    comments.value = result.comments;
+    commentsDemoOnly.value = result.demoOnly;
+    commentsError.value = null;
+  } catch (error) {
+    if (selectedKey.value !== key) return;
+    comments.value = [];
+    commentsDemoOnly.value = false;
+    commentsError.value =
+      error instanceof Error
+        ? error.message
+        : "Could not load demo comments.";
+  } finally {
+    if (selectedKey.value === key) commentsLoading.value = false;
+  }
+}
+
+async function postComment() {
+  if (!selectedKey.value || commentSaving.value) return;
+  const key = selectedKey.value;
+  commentError.value = null;
+  commentSaving.value = true;
+  try {
+    const result = await submitIssueComment(
+      comments.value,
+      commentDraft.value,
+      async (body) => {
+        const saved = await $fetch<{ comment: DemoComment }>(
+          `/api/issues/${key}/comments`,
+          { method: "POST", body: { body } },
+        );
+        return saved.comment;
+      },
+    );
+    if (selectedKey.value !== key) return;
+    comments.value = result.comments;
+    commentDraft.value = result.draft;
+    commentError.value = result.ok ? null : result.error;
+  } finally {
+    if (selectedKey.value === key) commentSaving.value = false;
+  }
+}
+
 watch(selectedKey, (key) => {
   detailIssue.value = null;
   detailDemoOnly.value = false;
   detailError.value = null;
   detailLoading.value = false;
-  if (key) void loadDetail(key);
+  comments.value = [];
+  commentsDemoOnly.value = false;
+  commentsError.value = null;
+  commentsLoading.value = false;
+  commentDraft.value = "";
+  commentError.value = null;
+  commentSaving.value = false;
+  if (key) {
+    void loadDetail(key);
+    void loadComments(key);
+  }
 });
 
 const filtered = computed(() =>
@@ -721,6 +792,69 @@ await refresh();
             >
               Save priority{{ selectedPriority && selectedPriority !== selected.priority ? ` (${selectedPriority})` : "" }}
             </UButton>
+            <section aria-label="Demo-only comments">
+              <h3>Comments · demo-only</h3>
+              <p class="demo-save-hint">
+                Demo-only discussion on this server. Comments are synthetic,
+                reset with the board, and never leave this demo store.
+              </p>
+              <p v-if="commentsLoading" class="empty" role="status">
+                Loading demo comments…
+              </p>
+              <p v-else-if="commentsError" class="save-error" role="alert">
+                <UIcon name="i-lucide-triangle-alert" /> Could not load
+                demo comments: {{ commentsError }}
+              </p>
+              <div v-else>
+                <UBadge
+                  v-if="commentsDemoOnly"
+                  color="neutral"
+                  variant="subtle"
+                  >Demo-only comments</UBadge
+                >
+                <p v-if="!comments.length" class="empty">
+                  No demo comments yet. Start the discussion below.
+                </p>
+                <ul v-else class="comment-list">
+                  <li
+                    v-for="comment in comments"
+                    :key="comment.id"
+                    class="comment-item"
+                  >
+                    <p class="comment-meta">
+                      <strong>{{ comment.author }}</strong>
+                      <UBadge color="neutral" variant="subtle"
+                        >Demo-only</UBadge
+                      >
+                    </p>
+                    <p class="comment-body">{{ comment.body }}</p>
+                  </li>
+                </ul>
+              </div>
+              <form class="comment-form" @submit.prevent="void postComment()">
+                <label class="create-field">
+                  <span>Add a demo comment</span>
+                  <UTextarea
+                    v-model="commentDraft"
+                    placeholder="Write a demo-only comment"
+                    aria-label="Add a demo comment"
+                    :disabled="commentSaving"
+                  />
+                </label>
+                <p v-if="commentError" class="save-error" role="alert">
+                  <UIcon name="i-lucide-triangle-alert" /> Demo comment
+                  failed: {{ commentError }} Your draft is kept for retry.
+                </p>
+                <UButton
+                  type="submit"
+                  icon="i-lucide-message-square-plus"
+                  :loading="commentSaving"
+                  :disabled="!commentDraft.trim()"
+                >
+                  Add demo comment
+                </UButton>
+              </form>
+            </section>
             <UButton :to="config.public.factoryUrl" variant="outline"
               >Shape the next capability in the cockpit</UButton
             >
