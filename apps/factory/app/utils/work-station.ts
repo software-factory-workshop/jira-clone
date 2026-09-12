@@ -109,3 +109,10 @@ export function stationLaunchError(value: unknown) {
 export function matchesStationDelivery(event: Pick<MessageStreamEvent, "meta">, deliveryId: string, started: boolean) {
   return event.meta?.deliveryIds?.includes(deliveryId) === true || (started && event.meta?.deliveryIds === undefined);
 }
+
+export function parseStationToolResult(toolName: string, output: unknown, operationId?: string) {
+  if (["publish_work", "record_review"].includes(toolName)) return parseStationResult(output, operationId);
+  if (toolName !== "prepare_work") return undefined;
+  const cached = z.object({ phase: z.literal("Already published"), result: z.unknown() }).safeParse(output);
+  return cached.success ? parseStationResult(cached.data.result, operationId) : undefined;
+}

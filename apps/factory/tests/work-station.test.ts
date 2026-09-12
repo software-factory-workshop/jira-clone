@@ -1,7 +1,7 @@
 import test from "node:test";
 import { defaultMessageReducer } from "eve/client";
 import assert from "node:assert/strict";
-import { dispatchedTask, parsePullRequest, parseStationResult, pendingStationRequests, stationLinkSchema, latestStationTurn, readStationStream, workerRequest, stationLaunchError, matchesStationDelivery } from "../app/utils/work-station.ts";
+import { dispatchedTask, parsePullRequest, parseStationResult, pendingStationRequests, stationLinkSchema, latestStationTurn, readStationStream, workerRequest, stationLaunchError, matchesStationDelivery, parseStationToolResult } from "../app/utils/work-station.ts";
 const sha = "a".repeat(40);
 test("review input only accepts PRs in the configured repository", () => {
   assert.equal(parsePullRequest("2"), 2);
@@ -114,4 +114,14 @@ test("the previous publication is not a completed revision of the same owner ses
   assert.equal(parseStationResult(output, operationId), undefined);
   assert.equal(parseStationResult({ ...output, operationId: "77e646cd-a877-43c3-a87f-b69e302e4a94" }, operationId), undefined);
   assert.equal(parseStationResult({ ...output, operationId }, operationId)?.sessionId, "wrun_owner");
+});
+
+test("an identical revision replay displays only the owner's matching cached publication", () => {
+  const operationId = "d4c2d7da-37da-45ad-a782-c903e59a3c5d";
+  const result = { station: "worker", sessionId: "wrun_owner", operationId, revision: sha, summary: "Already done", commands: [], publication: { branch: "factory/owner", number: 2, url: "https://github.com/software-factory-workshop/jira-clone/pull/2", headSha: sha, baseSha: sha } };
+  const output = { phase: "Already published", result };
+  assert.equal(parseStationToolResult("prepare_work", output, operationId)?.sessionId, "wrun_owner");
+  assert.equal(parseStationToolResult("prepare_work", output, "77e646cd-a877-43c3-a87f-b69e302e4a94"), undefined);
+  assert.equal(parseStationToolResult("prepare_work", { ...output, phase: "Prepared" }, operationId), undefined);
+  assert.equal(parseStationToolResult("read_file", output, operationId), undefined);
 });

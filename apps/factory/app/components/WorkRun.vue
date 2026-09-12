@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { useEveAgent, defaultMessageReducer, type EveMessageData } from "eve/vue";
 import type { MessageStreamEvent } from "eve/client";
-import { dispatchedTask, parseStationResult, pendingStationRequests, matchesStationDelivery, latestStationTurn, readStationStream, type StationKind } from "../utils/work-station";
+import { dispatchedTask, parseStationToolResult, pendingStationRequests, matchesStationDelivery, latestStationTurn, readStationStream, type StationKind } from "../utils/work-station";
 import { authorizationLink } from "../utils/mining-output";
 const props = defineProps<{ sessionId: string; station: StationKind; child?: boolean; awaitingDecision?: boolean; execution?: "owner" | "dispatcher"; deliveryId?: string; operationId?: string }>();
 const emit = defineEmits<{ settled: [value: boolean]; recorded: [value: boolean] }>();
@@ -64,8 +64,8 @@ onMounted(() => { void followChild(); });
 onBeforeUnmount(() => discovery?.abort());
 const result = computed(() => {
   for (const part of [...parts.value].reverse()) {
-    if (part.type !== "dynamic-tool" || !["publish_work", "record_review"].includes(part.toolName)) continue;
-    const parsed = parseStationResult(part.output, props.operationId);
+    if (part.type !== "dynamic-tool" || part.state !== "output-available") continue;
+    const parsed = parseStationToolResult(part.toolName, part.output, props.operationId);
     if (parsed && parsed.station === props.station) return parsed;
   }
   return undefined;
