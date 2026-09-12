@@ -56,3 +56,29 @@ export function applySavedIssue(
     error: null,
   };
 }
+
+export type DemoCommentView = {
+  id: string;
+  author: string;
+  body: string;
+  createdAt: string;
+};
+
+/**
+ * Appends a successfully saved comment to displayed thread state. Failed
+ * saves return the unchanged thread plus the error so the UI keeps the
+ * draft and never shows a comment that was not stored.
+ */
+export function applySavedComment(
+  comments: DemoCommentView[],
+  saved: { comment?: DemoCommentView; saveError?: string },
+): { comments: DemoCommentView[]; error: string | null } {
+  if (saved.saveError) {
+    return {
+      comments: comments.map((comment) => ({ ...comment })),
+      error: saved.saveError,
+    };
+  }
+  if (!saved.comment) return { comments: comments.map((c) => ({ ...c })), error: null };
+  return { comments: [...comments.map((c) => ({ ...c })), { ...saved.comment }], error: null };
+}

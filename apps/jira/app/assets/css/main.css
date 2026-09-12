@@ -352,3 +352,63 @@ tr:hover td {
   margin-left: auto;
   margin-right: 8px;
 }
+
+.comments {
+  display: grid;
+  gap: 12px;
+  border-top: 1px solid #e0e6e9;
+  padding-top: 20px;
+}
+.comments-heading {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.comments-heading h3 {
+  font-size: 15px;
+  font-weight: 600;
+}
+.comments-note {
+  font-size: 12px !important;
+  color: #7c8d94 !important;
+  line-height: 1.6 !important;
+}
+.comments-status {
+  font-size: 13px !important;
+  color: #7c8d94 !important;
+}
+.comment-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 10px;
+}
+.comment-list li {
+  border: 1px solid #e0e6e9;
+  border-radius: 4px;
+  background: #f8fafb;
+  padding: 12px 14px;
+  display: grid;
+  gap: 6px;
+}
+.comment-meta {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+  font-size: 12px !important;
+  color: #5f767d !important;
+}
+.comment-meta strong {
+  color: #273943;
+}
+.comment-meta span {
+  color: #8b979e;
+  font-size: 11px;
+}
+.comment-body {
+  font-size: 13px !important;
+  color: #273943 !important;
+  line-height: 1.6 !important;
+  white-space: pre-wrap;
+}

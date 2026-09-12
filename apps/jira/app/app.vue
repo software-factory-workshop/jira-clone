@@ -1,7 +1,14 @@
 <script setup lang="ts">
 import { demoIssues } from "@jira-clone/context";
-import { applySavedIssue, filterIssues } from "~/utils/issue-client";
-import type { TeachingIssueView } from "~/utils/issue-client";
+import {
+  applySavedComment,
+  applySavedIssue,
+  filterIssues,
+} from "~/utils/issue-client";
+import type {
+  DemoCommentView,
+  TeachingIssueView,
+} from "~/utils/issue-client";
 
 const config = useRuntimeConfig();
 const view = ref("list");
@@ -19,6 +26,12 @@ const selectedKey = ref<string | null>(null);
 const draftPriority = ref("");
 const detailError = ref<string | null>(null);
 const detailSaving = ref(false);
+const comments = ref<DemoCommentView[]>([]);
+const commentsLoading = ref(false);
+const commentsError = ref<string | null>(null);
+const commentDraft = ref("");
+const commentError = ref<string | null>(null);
+const commentSaving = ref(false);
 const rowSaving = ref<Record<string, boolean>>({});
 const rowError = ref<Record<string, string | null>>({});
 const simulateFailure = ref(false);
@@ -41,11 +54,75 @@ function openIssue(issue: LoadedIssue) {
   selectedKey.value = issue.key;
   draftPriority.value = issue.priority;
   detailError.value = null;
+  commentDraft.value = "";
+  commentError.value = null;
+  commentsError.value = null;
+  void loadComments(issue.key);
 }
 
 function closeIssue() {
   selectedKey.value = null;
   detailError.value = null;
+  comments.value = [];
+  commentDraft.value = "";
+  commentError.value = null;
+  commentsError.value = null;
+}
+
+async function loadComments(key: string) {
+  commentsLoading.value = true;
+  commentsError.value = null;
+  try {
+    const data = await $fetch<{ comments: DemoCommentView[] }>(
+      `/api/issues/${encodeURIComponent(key)}/comments`,
+    );
+    if (selectedKey.value === key) comments.value = data.comments;
+  } catch (error) {
+    if (selectedKey.value === key) {
+      commentsError.value =
+        error instanceof Error ? error.message : "Could not load comments.";
+    }
+  } finally {
+    if (selectedKey.value === key) commentsLoading.value = false;
+  }
+}
+
+async function saveComment() {
+  if (!selected.value || commentSaving.value) return;
+  const key = selected.value.key;
+  const attempted = commentDraft.value;
+  if (!attempted.trim()) {
+    commentError.value = "Write a comment before posting.";
+    return;
+  }
+  commentSaving.value = true;
+  commentError.value = null;
+  try {
+    const data = await $fetch<{ comment: DemoCommentView }>(
+      `/api/issues/${encodeURIComponent(key)}/comments`,
+      {
+        method: "POST",
+        body: { body: attempted, failSave: simulateFailure.value },
+      },
+    );
+    const applied = applySavedComment(comments.value, {
+      comment: data.comment,
+    });
+    comments.value = applied.comments;
+    // Clear the draft only after the server confirms the save.
+    commentDraft.value = "";
+    notice.value = { kind: "success", text: `${key} comment added.` };
+  } catch (error) {
+    // Keep the typed draft visible; no comment is appended.
+    const message =
+      error instanceof Error ? error.message : "Comment save failed; draft kept.";
+    const kept = applySavedComment(comments.value, { saveError: message });
+    comments.value = kept.comments;
+    commentError.value = `${message} Your draft is kept.`;
+    notice.value = { kind: "error", text: message };
+  } finally {
+    commentSaving.value = false;
+  }
 }
 
 async function loadIssues() {
@@ -137,7 +214,14 @@ async function resetDemo() {
     serverIssues.value = data.issues;
     assignee.value = "All assignees";
     simulateFailure.value = false;
-    if (selected.value) draftPriority.value = selected.value.priority;
+    commentDraft.value = "";
+    commentError.value = null;
+    if (selected.value) {
+      draftPriority.value = selected.value.priority;
+      await loadComments(selected.value.key);
+    } else {
+      comments.value = [];
+    }
     notice.value = { kind: "success", text: "Demo data reset to fixtures." };
   } catch (error) {
     notice.value = {
@@ -388,6 +472,56 @@ onMounted(() => {
                 aria-label="Edit issue priority"
               />
             </UFormField>
+            <section class="comments" aria-label="Issue comments">
+              <div class="comments-heading">
+                <h3>Comments</h3>
+                <UBadge color="neutral" variant="subtle"
+                  >Synthetic demo thread</UBadge
+                >
+              </div>
+              <p class="comments-note">
+                Demo-only in-memory thread: added comments survive reload,
+                resetting with demo data. Authors are explicitly synthetic.
+              </p>
+              <p v-if="commentsLoading" class="comments-status">
+                Loading comments…
+              </p>
+              <p v-else-if="commentsError" class="row-error" role="alert">
+                {{ commentsError }}
+              </p>
+              <ul v-else-if="comments.length" class="comment-list">
+                <li v-for="comment in comments" :key="comment.id">
+                  <p class="comment-meta">
+                    <strong>{{ comment.author }}</strong>
+                    <span>{{ comment.createdAt }}</span>
+                  </p>
+                  <p class="comment-body">{{ comment.body }}</p>
+                </li>
+              </ul>
+              <p v-else class="comments-status">No comments yet.</p>
+              <UFormField label="Add a comment" name="comment">
+                <UTextarea
+                  v-model="commentDraft"
+                  aria-label="Add a comment"
+                  placeholder="Write a synthetic demo comment…"
+                  :rows="3"
+                />
+              </UFormField>
+              <p v-if="commentError" class="row-error" role="alert">
+                {{ commentError }}
+              </p>
+              <div class="detail-actions">
+                <UButton
+                  icon="i-lucide-message-square-plus"
+                  :loading="commentSaving"
+                  :disabled="!commentDraft.trim()"
+                  @click="saveComment"
+                  @keydown.enter.exact.ctrl="saveComment"
+                >
+                  Add comment
+                </UButton>
+              </div>
+            </section>
             <p v-if="detailError" class="row-error" role="alert">
               {{ detailError }} Your draft (“{{ draftPriority }}”) is kept.
             </p>

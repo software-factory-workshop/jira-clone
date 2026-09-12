@@ -1,8 +1,10 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
+  applySavedComment,
   applySavedIssue,
   filterIssues,
+  type DemoCommentView,
   type TeachingIssueView,
 } from "../app/utils/issue-client.ts";
 
@@ -39,4 +41,28 @@ test("failed save keeps displayed state and surfaces the error", () => {
   });
   assert.equal(error, "Demo save failed on purpose");
   assert.equal(issues.find((row) => row.key === "ADEO-1")?.priority, "Medium");
+});
+
+const thread: DemoCommentView[] = [
+  { id: "seed-1", author: "Demo member (synthetic)", body: "First", createdAt: "2026-09-01T09:00:00.000Z" },
+];
+
+test("successful comment save appends without touching existing comments", () => {
+  const added: DemoCommentView = {
+    id: "demo-1",
+    author: "Demo member (synthetic)",
+    body: "Second",
+    createdAt: "2026-09-12T09:00:00.000Z",
+  };
+  const { comments, error } = applySavedComment(thread, { comment: added });
+  assert.equal(error, null);
+  assert.deepEqual(comments.map((comment) => comment.body), ["First", "Second"]);
+});
+
+test("failed comment save keeps the thread and surfaces the error", () => {
+  const { comments, error } = applySavedComment(thread, {
+    saveError: "Demo save failed on purpose",
+  });
+  assert.equal(error, "Demo save failed on purpose");
+  assert.deepEqual(comments.map((comment) => comment.body), ["First"]);
 });
