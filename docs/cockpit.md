@@ -14,6 +14,16 @@ The first cockpit should let us express useful work, inspect the context availab
 
 Do not show run counts, traces, spend, approvals, evaluation scores or verified badges until those capabilities exist. A browser-local draft is not a shared work order. An issue's existence is not evidence that an agent ran.
 
+## Planned evolution: asynchronous task mining and proposals
+
+Product direction recorded on 12 September 2026: the **“Start with a concrete problem”** starter-card area should become a task-mining and proposal surface.
+
+A background workflow should discover candidate work from the project's available sources and propose useful tasks asynchronously. The cockpit should let the user review those proposals when ready, without waiting for mining to finish in an interactive request.
+
+Proposed flow: **mine signals → form task proposals → review, refine or dismiss → accept into the work queue**. Each proposal should explain the suggested outcome, why it matters, and the source evidence behind it. Accepting a proposal should create a work request; execution remains a separate step.
+
+The current static examples are the stage-zero placeholder for this capability. This note records the direction only; task mining is not implemented or assigned to a specific stage yet. Source selection, triggers or cadence, and proposal deduplication remain design decisions.
+
 ## Research basis
 
 Sources inspected in `/Users/remiconnesson/knowledge-work/software-factories`:
