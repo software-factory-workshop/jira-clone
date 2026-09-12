@@ -1,0 +1,613 @@
+{
+  "sessionId": "wrun_01M2APMGZHZ1623JT8GZCST4R1",
+  "evaluation": "baseline",
+  "runtime": "native Eve 0.52.5",
+  "model": "meta/muse-spark-1.3-contributor",
+  "team": "demo-software-factory",
+  "sourceRevision": "a7f5e271321a5f2e6a60495ecbc6ab78b64c923c",
+  "usage": {
+    "inputTokens": 307415,
+    "outputTokens": 10658,
+    "costUsd": 0.011476662
+  },
+  "terminalState": "Findings recorded; next model invitation parked on output-token limit",
+  "limit": {
+    "kind": "output",
+    "limit": 8000,
+    "usedTokens": 10658
+  },
+  "findings": {
+    "phase": "Incomplete",
+    "report": "## 1. Record browser-local usefulness judgment on mining reports\n\nA minimal browser-local usefulness signal on a mining report so Remi's review can be recorded and compared across runs\n\n**Why now:** The factory's current learning question cannot be answered without owner judgment, and today that judgment has nowhere to go: reports render evidence and drafts but capture no useful/not-useful signal, while the backlog is empty (0 issues/0 PRs) so mining quality is the only near-term factory metric.\n\n**Evidence**\n- factory/context/goal.md:17 near-term question is whether a fresh agent suggests work Remi would seriously consider\n- docs/verification.md:24 hosted-report proposals for usefulness feedback remain for Remi review; stale-doc item already fixed\n- factory/context/project-map.md:17 no task-mining quality evaluation in the deployed app\n- apps/factory/app/components/MiningRun.vue:72-77 findings render + draft handoff with no usefulness control; MiningStation.vue:46-54 browser-local history only\n- default.bash pnpm test exit 0 (16 factory tests pass) so the station baseline is green; the gap is judgment capture, not build breakage\n- GitHub issues: 0 items complete + pulls: 0 items complete captured 2026-09-12T11:40:34Z, so there is no existing backlog signal to substitute for owner judgment\n\n**Existing work:** Builds on the delivered native Eve station (apps/factory/agent + MiningRun/MiningStation) and the completed calibration/replay work described in factory/context/work-in-progress.md:5-13. Does not rebuild the fx wrapper (explicitly forbidden by work-in-progress.md:17) and does not claim the withheld factory/mining/ scores. Prior hosted run correctly distinguished completion from usefulness/acceptance; this task adds the missing acceptance-capture affordance.\n\n**Scope**\n- Add one small UI affordance in MiningRun.vue (or its utils) to record useful/not-useful + reason for the displayed report\n- Carry that annotation into the existing browser-local draft via the draft() emitter, or document why it is kept separate\n- Update docs/cockpit.md review-together checklist in one paragraph; no backend, no scheduled mining, no shared indexing\n\n**Acceptance criteria**\n- A reviewer can mark a completed mining report as useful / not-useful (or equivalent scale) plus an optional short reason entirely in the browser, without implying shared storage, publication, or automatic rule change.\n- The judgment travels with 'Use findings in a draft' provenance (session id, revision, capturedAt) or is explicitly excluded by design with a stated reason.\n- Incomplete findings remain visibly incomplete; a usefulness mark never clears a context-gap warning.\n- No new server persistence, auth model, or evaluation-score display is introduced unless explicitly scoped and reviewed.\n\n**Uncertainties**\n- Whether Remi wants even browser-local persistence or prefers an external review note; keep it removable\n- Whether a binary mark plus reason is enough or a held-out rubric comparison is still required — do not import factory/mining/ answers to decide this\n- Vercel deployment evidence for this change could not be checked here due to the auth gap above\n\n## 2. Define the bounded Jira demo slice before any Jira build\n\nA bounded ADEO Jira demo-scope note that lets future mining reject out-of-scope Jira sprawl with a citation\n\n**Why now:** Without a cited scope, every mining run can invent plausible Jira features that the goal explicitly says do not demonstrate factory progress; the empty backlog plus fixture-only Jira shell makes this the cheapest time to draw the boundary.\n\n**Evidence**\n- factory/context/goal.md:21 exact compatibility subset and identity behavior need concrete demo scenarios before implementation; feature parity is not evidence of an agreed spec\n- packages/project-context/src/jira-reference.json:21-33 issueTypes + statusesForEachListedIssueType with limitations: not a transition graph, no permission/MCP/browser inspection\n- apps/jira/app/app.vue:1-17 search/filter over demoIssues fixtures; :63-68 fixture notice states changes/accounts/APIs arrive later\n- packages/project-context/src/index.ts:120-161 demoIssues ADEO-1..4 synthetic fixtures\n- default.bash grep for feedback/rating shows no existing scope or usefulness gate in app or context code\n\n**Existing work:** Follows the hosted-report proposal noted in docs/verification.md:24 (bounded demo scope, still pending Remi review) and the goal's factory-first constraint that shipping more Jira features alone is not factory progress. Complements but does not duplicate the completed calibration experiment or the active native Eve delivery.\n\n**Scope**\n- One doc (or project-context reference update) + a fixture-to-scope table only\n- Review by Remi for product taste; no UI/API implementation, no auth work, no MCP work\n\n**Acceptance criteria**\n- A short reviewed doc names the demo slice: which issue/list/board/detail behaviors are in-scope fixtures vs explicitly out-of-scope (API mutation, accounts, SAML/directory, MCP, Connect writes)\n- Each in-scope behavior maps to the observed source: packages/project-context/src/jira-reference.json statuses/types and apps/jira/app/app.vue current fixture\n- Doc explicitly states the transition graph, permissions, and appearance items that were NOT observed and must not be inferred\n- No Jira feature code is written under this task; it gates future Jira proposals\n\n**Uncertainties**\n- Remi's taste on which slice (issue list vs board vs details) demonstrates the factory best in 3-4 hours\n- Whether the scope should live as a project-context reference vs a docs/ note — choose one and state why\n\n## 3. Correct stale fx-runtime claim in factory README\n\nTwo-paragraph doc correction removing the stale fx-runtime claim\n\n**Why now:** A fresh miner reading factory/README.md first will misdescribe the deployed station and propose rebuilding or re-verifying the fx wrapper, exactly the duplicated work the work-in-progress record forbids.\n\n**Evidence**\n- factory/README.md:5 'It uses the same AI SDK Harness/fx runtime as the calibration CLI' vs factory/context/goal.md:11 'There is no nested fx model loop' and factory/context/work-in-progress.md:17 'Do not propose rebuilding the fx wrapper'\n- docs/cockpit.md:40 hosted station runs Eve directly, fx separate; factory/task-mining-station.md:9 native Eve 0.52.5 direct\n- factory/reflections/2026-09-12-context-review.md:21-23 reconciling status with evidence prevents recycled fixes — same rationale applies here\n\n**Existing work:** Continues the stale-doc reconciliation already done once in docs/verification.md:24 and the reflection hypothesis that explicit inventory + active-work record reduces false missing-work proposals. Tiny follow-up, not a new investigation surface.\n\n**Scope**\n- Edit factory/README.md:5 and optionally docs/factory-growth-experiment.md:25 only\n- No code, no runner, no replay/transfer work\n\n**Acceptance criteria**\n- factory/README.md no longer claims the cockpit station uses the fx/AI SDK Harness runtime; it matches goal.md:11, work-in-progress.md:17, and task-mining-station.md:9-11 (native Eve direct, fx packaged separately)\n- docs/factory-growth-experiment.md:25 shared-runtime sentence clarified or cited to the same native-vs-fx boundary\n- pnpm test + typecheck still pass; no behavior change claimed beyond the doc fix\n\n**Uncertainties**\n- Whether the growth-experiment line means shared lessons vs shared code — phrase conditionally if ambiguous rather than asserting either\n\n## Reflection\n\n**helpfulContext**\n- goal.md + work-in-progress.md + project-map.md together prevented three classic false proposals: rebuilding the runner, publishing the inventory, and starting replay/transfer work.\n- .mining-snapshot.json explicit exclusions plus verification.md dated evidence made it possible to treat factory/mining/ and git history as unavailable-by-design rather than missing work.\n- Live GitHub reads returning complete zero-item inventories plus passing pnpm test (exit 0) grounded the empty-backlog + green-baseline facts without overclaiming deployment state.\n\n**missingContext**\n- Vercel project/deployment/build-log evidence for both apps (blocked by user-scoped auth in sandbox).\n- Git history / CI logs (excluded from snapshot; project-map names this as missing evidence when needed).\n- Held-out mining prompts, rubrics, runs and scores (intentionally withheld to preserve independent judgment).\n- External research sources cited in docs (local paths outside repo).\n\n**contradictions**\n- factory/README.md:5 says the cockpit uses the same AI SDK Harness/fx runtime, contradicting goal.md:11, work-in-progress.md:17, cockpit.md:40, and task-mining-station.md:9 which establish native Eve direct with fx packaged separately.\n- docs/factory-growth-experiment.md:25 'asynchronous Eve station now uses that shared runtime' is ambiguous against the same native-vs-fx boundary and needs the same clarification.\n\n**suggestedImprovements**\n- Consider a one-line pointer in factory/README.md to work-in-progress.md for active-work checks, since empty GitHub lists still mislead without it.\n- Consider documenting the expected Vercel-auth fallback behavior for sandbox mining so future runs file one standard gap string instead of re-diagnosing ConnectionAuthorizationFailedError.\n- Keep the usefulness-feedback proposal browser-local until Remi explicitly requests shared indexing, to avoid prematurely deciding the scheduled/dedup design choices goal.md:23 leaves open.\n\n## Context gaps\n\n- Vercel evidence unavailable in this sandbox: both cockpit and jira vercel_read calls returned ConnectionAuthorizationFailedError (user-scoped connection fell back to local-dev access, no authenticated Vercel user/OIDC). Cannot distinguish deployed revision from working snapshot a7f5e27.\n- Local Git history unavailable: `git log/status` returns `fatal: not a git repository`; commit/CI facts beyond docs/verification.md cannot be inspected. Per project-map.md this is an expected snapshot exclusion, not proof of no history.\n- factory/mining/ prompt, rubric, raw runs and scores intentionally excluded from .mining-snapshot.json; judged as unavailable-by-design, not missing work.\n- GitHub issue_comments inventory not collected: reader requires a positive integer issue number and the issues inventory is zero items, so there were no comment threads to fetch.\n- Research sources cited in docs/cockpit.md and docs/factory-growth-experiment.md live outside the repo (/Users/remiconnesson/knowledge-work/...) and were not inspected; proposals depending on them would need a scoped excerpt.\n- Missing Vercel project or deployment evidence for cockpit.\n- Missing Vercel project or deployment evidence for Jira.",
+    "revision": "a7f5e271321a5f2e6a60495ecbc6ab78b64c923c",
+    "repository": "software-factory-workshop/jira-clone",
+    "model": "meta/muse-spark-1.3-contributor",
+    "team": "demo-software-factory",
+    "capturedAt": "2026-09-12T11:42:17.208Z",
+    "elapsedMs": 171060,
+    "files": [
+      {
+        "file": ".agents/friction-log/20260912094635-adeo-private-package/friction.md",
+        "bytes": 810,
+        "sha256": "8546b934de4c5bf450398d5318ee5fbce6172729789fcf4ef3fa3ba91a2da9cf"
+      },
+      {
+        "file": ".agents/friction-log/20260912104654-task-mining-fx/friction.md",
+        "bytes": 2387,
+        "sha256": "e7b627959e2bcb4c554219ac3eaede835d31b0088a39c905ecff133e47db30f0"
+      },
+      {
+        "file": ".agents/friction-log/20260912114748-hosted-eve-bundle/friction.md",
+        "bytes": 1551,
+        "sha256": "b668cf0a50170ee695911ea1b61ef3de6e37559a5fea2730451769e23c9d27c3"
+      },
+      {
+        "file": ".agents/friction-log/20260912120345-cockpit-labels-a/friction.md",
+        "bytes": 752,
+        "sha256": "376a6b01593aba4a3490845784d79907ddfee224cd93551a1b5c0b93efcfdf68"
+      },
+      {
+        "file": ".agents/friction-log/README.md",
+        "bytes": 1388,
+        "sha256": "a851652cb3a26f0daba1dc07c990d46a4c98f79b4be3d14da96d2049b4793bad"
+      },
+      {
+        "file": ".agents/friction-log/config.json",
+        "bytes": 54,
+        "sha256": "622c722ddf6b328b38b9fc703327dac95ca490115068840dce74dfbcd2a59447"
+      },
+      {
+        "file": ".agents/skills/adeo-nuxt-ui/SKILL.md",
+        "bytes": 5070,
+        "sha256": "4dde7c54f022560405e6e1e0de3a0f4b49882b419aa2e723be5ee12ef0f7a428"
+      },
+      {
+        "file": ".agents/skills/adeo-nuxt-ui/agents/openai.yaml",
+        "bytes": 109,
+        "sha256": "6f8c4822add18fad340335f596702864b6c9b8f6f894456def50856ffca8bd47"
+      },
+      {
+        "file": ".agents/skills/adeo-nuxt-ui/references/components.md",
+        "bytes": 3444,
+        "sha256": "2f4974b83a7fe6d93afd38e94e3e087aa282e3f23c791fc88301ab3e1c720f03"
+      },
+      {
+        "file": ".agents/skills/adeo-nuxt-ui/references/private-package.md",
+        "bytes": 2963,
+        "sha256": "044ce2e09e9c92e67b6cdd26f26379ff12ccdb8e9e9e7de8f079a65a70515960"
+      },
+      {
+        "file": ".github/ISSUE_TEMPLATE/friction.yml",
+        "bytes": 1036,
+        "sha256": "6ca7ae13790f3b6d279bf812881ccb36934c5357bb76be22eb2d7c0b904fc55d"
+      },
+      {
+        "file": ".github/workflows/check.yml",
+        "bytes": 1176,
+        "sha256": "a33a31581d9c87099d89466da8fe3282233c9942db4a838a9b7d7c2a4873484c"
+      },
+      {
+        "file": ".gitignore",
+        "bytes": 91,
+        "sha256": "d72307891adc07e68ab82a2940ce6ba3099a238d7f5e915e337a1d3056b43bcc"
+      },
+      {
+        "file": ".npmrc",
+        "bytes": 63,
+        "sha256": "aa2af2b2b1b553ec10228b6cc1042d464e1874b16dadafbbd70b2beeef72f0fd"
+      },
+      {
+        "file": "AGENTS.md",
+        "bytes": 1531,
+        "sha256": "046c51781553f68c666cf9af454743fc263917c21fcbc08e27e559264bfd18e4"
+      },
+      {
+        "file": "README.md",
+        "bytes": 3802,
+        "sha256": "a3f5043acc735b4359dd82dd4b856a6e77b774dbaf9ca6b7132228ece9e45015"
+      },
+      {
+        "file": "apps/factory/.gitignore",
+        "bytes": 14,
+        "sha256": "6fe16e5e5dad9408c6a9082604c816d8067641ae1b5e59aceb90eb51c1088c63"
+      },
+      {
+        "file": "apps/factory/agent/agent.ts",
+        "bytes": 462,
+        "sha256": "da9b3a802d5a37842dbda2094daa6adb9d8cb3901c1d48521584188cf25928b3"
+      },
+      {
+        "file": "apps/factory/agent/channels/eve.ts",
+        "bytes": 1350,
+        "sha256": "3436e010e1ccb23678bb01613cae7cd938ba78be88e346ef493abda6bc885c82"
+      },
+      {
+        "file": "apps/factory/agent/hooks/stop-after-turn.ts",
+        "bytes": 350,
+        "sha256": "f3e8681cc8c49943d043c23e0d9d09c503c615f5b43d3b68f236e80cd1085621"
+      },
+      {
+        "file": "apps/factory/agent/instructions.md",
+        "bytes": 2815,
+        "sha256": "d8c961cb12bbf0bfe76aacee2da1fdf7b9eec11a137c4881328ab3fbc9a509bb"
+      },
+      {
+        "file": "apps/factory/agent/lib/command-evidence.ts",
+        "bytes": 441,
+        "sha256": "e63a0fe512e08cf829fde8adb71215c5f426352869f6d37fa7454763afbe4a1e"
+      },
+      {
+        "file": "apps/factory/agent/lib/github-input.mjs",
+        "bytes": 609,
+        "sha256": "fda8d9a21e30b91f452168892cef5af5f30dbfd155d8bde0cedb129acabd006a"
+      },
+      {
+        "file": "apps/factory/agent/lib/github.d.mts",
+        "bytes": 701,
+        "sha256": "69dde1073eda98a116684a03c64e08ba5348abd393294a282b0d07595c28f3b2"
+      },
+      {
+        "file": "apps/factory/agent/lib/github.mjs",
+        "bytes": 4221,
+        "sha256": "b6f3c2274149bfd14c7b48a171dc31dce7afec0808dd5b3e80d6760d61a3b3fb"
+      },
+      {
+        "file": "apps/factory/agent/lib/mining-state.ts",
+        "bytes": 944,
+        "sha256": "6acfdb8bd00785c3fb6df3c0700cc5cee20e594a41af2a071b2a0864bfad043a"
+      },
+      {
+        "file": "apps/factory/agent/lib/prepare-context.ts",
+        "bytes": 1792,
+        "sha256": "e9679528623029b988b658138b55cc1022bababe5560640f01d7b2e67eb66188"
+      },
+      {
+        "file": "apps/factory/agent/lib/vercel-context.ts",
+        "bytes": 5867,
+        "sha256": "c464a52c83f6fc908c057bc8775b37826e8f2ba749f2fcd1480c43e5e98ddb0e"
+      },
+      {
+        "file": "apps/factory/agent/sandbox.ts",
+        "bytes": 264,
+        "sha256": "d72154fca4a80b2f321d4010a096cab7225799dd05712ab90c3aa71897ada7e5"
+      },
+      {
+        "file": "apps/factory/agent/tools/bash.ts",
+        "bytes": 1067,
+        "sha256": "828f34461434796a0788fac6e29f05ae315328c296f000290a9cd018586fd241"
+      },
+      {
+        "file": "apps/factory/agent/tools/github_read.ts",
+        "bytes": 792,
+        "sha256": "7da86802a714f5466098d7de22e3fba0158b1d8d1f82980634cb2f8a83be93b4"
+      },
+      {
+        "file": "apps/factory/agent/tools/glob.ts",
+        "bytes": 42,
+        "sha256": "b4e6b821a41515b50cdda45c6d5a05a18b93a628c5ecca96436fbd76a30353a6"
+      },
+      {
+        "file": "apps/factory/agent/tools/grep.ts",
+        "bytes": 42,
+        "sha256": "9f2bc9e240f68b3135d4a2dd34c17ace36f885058a8e6c10eb747b5c9eccdffb"
+      },
+      {
+        "file": "apps/factory/agent/tools/prepare_context.ts",
+        "bytes": 1550,
+        "sha256": "d904a0ddfc7972065241243c29281e989ba035c9aec7a9a2df13201b49ddcd98"
+      },
+      {
+        "file": "apps/factory/agent/tools/read_file.ts",
+        "bytes": 47,
+        "sha256": "c8873b55468593f4ca7fe679f61476165fcef9ad6ddf07e6019991c7791c2cec"
+      },
+      {
+        "file": "apps/factory/agent/tools/record_findings.ts",
+        "bytes": 3798,
+        "sha256": "68905122614561f46fe02ee1edaba63a1c44beb9ad6cafd38d0c15b52c128345"
+      },
+      {
+        "file": "apps/factory/agent/tools/vercel_read.ts",
+        "bytes": 1539,
+        "sha256": "84e1e9278632a8cadb9e7a21ad241c9ffd05e11a51bd901bc7e1e9edd82a75b2"
+      },
+      {
+        "file": "apps/factory/app/app.vue",
+        "bytes": 15768,
+        "sha256": "4f5129b48803e7d62af9342431470d1933cb585216c49a068c35bf1589bffa72"
+      },
+      {
+        "file": "apps/factory/app/assets/css/main.css",
+        "bytes": 8125,
+        "sha256": "668f029ece4d9b001171f567359c33513abaf3b6fb1f09f0bcbdb5798e041d63"
+      },
+      {
+        "file": "apps/factory/app/components/MiningRun.vue",
+        "bytes": 12941,
+        "sha256": "1763d775b7464da5d588c8c39e84429b594bab3d1c8008a05e32fe26cea7091a"
+      },
+      {
+        "file": "apps/factory/app/components/MiningStation.vue",
+        "bytes": 3812,
+        "sha256": "4798281ac75d589bc5f72f85e9f3398be81c9469f2966950bc36a06ea77e6035"
+      },
+      {
+        "file": "apps/factory/app/utils/mining-output.ts",
+        "bytes": 2507,
+        "sha256": "d4d50f4a205f34473ed0b46ea263791ae267f499b7626f0a646af3ff8ed72617"
+      },
+      {
+        "file": "apps/factory/app/utils/report.ts",
+        "bytes": 287,
+        "sha256": "7ec08798a7c2381f8fbeadeda5cbc369ace61dcda82e70ecc31361fc1fbc6818"
+      },
+      {
+        "file": "apps/factory/nuxt.config.ts",
+        "bytes": 627,
+        "sha256": "c7353b698afccf2426e0c675c77d53905d29b2e1fa6c1158e1095f75755cbf11"
+      },
+      {
+        "file": "apps/factory/package.json",
+        "bytes": 929,
+        "sha256": "1849388b681cfbee2c24f5528b60ba83581f5ea5a7edc8d3aaa4b9e583eb3331"
+      },
+      {
+        "file": "apps/factory/scripts/build-eve.mjs",
+        "bytes": 182,
+        "sha256": "9578d081788dc80f3885edeee97b0afd0bfddb84207aaaa31ce0bf1b0f9ef973"
+      },
+      {
+        "file": "apps/factory/server/api/github.get.ts",
+        "bytes": 2152,
+        "sha256": "8cd7deb451376bfa8b1c4304162b64b120fc6cbdadf65e4f19331e30cda2577c"
+      },
+      {
+        "file": "apps/factory/tests/mining-output.test.ts",
+        "bytes": 3028,
+        "sha256": "0e90cafd566c2ac57e08ca78088e476f452e77ff4a9f96164496b4ca70eeb629"
+      },
+      {
+        "file": "apps/factory/tests/native-context.test.ts",
+        "bytes": 1373,
+        "sha256": "2d9e559b26b0d42f3c479167898509e435977be9cd20a46f6136570fb0bbfe3f"
+      },
+      {
+        "file": "apps/factory/tests/report.test.ts",
+        "bytes": 639,
+        "sha256": "6a391df4f9dd0aed6bfcb339e034257ac90c6e1524897d076ff1224b34b82426"
+      },
+      {
+        "file": "apps/factory/tests/vercel-context.test.ts",
+        "bytes": 3035,
+        "sha256": "d08f4be45dab84e2308dcff5ca87527ac53c1a98b29fe7b99fda59487d714608"
+      },
+      {
+        "file": "apps/factory/tsconfig.agent.json",
+        "bytes": 294,
+        "sha256": "c62042c1cad5ee092da6b05fbe40a84aa9e75a96c7088dce832576a9417e59cf"
+      },
+      {
+        "file": "apps/factory/tsconfig.json",
+        "bytes": 39,
+        "sha256": "a684b644d6d28a7636a0b6bdfb45b0264d8daeea226f8c01e953da02afc938a8"
+      },
+      {
+        "file": "apps/jira/.gitignore",
+        "bytes": 14,
+        "sha256": "6fe16e5e5dad9408c6a9082604c816d8067641ae1b5e59aceb90eb51c1088c63"
+      },
+      {
+        "file": "apps/jira/app/app.vue",
+        "bytes": 7129,
+        "sha256": "2cd746f66554e6465d48c3a4e7c9c30e8909d49ef34264d925ce3b9f117e13bf"
+      },
+      {
+        "file": "apps/jira/app/assets/css/main.css",
+        "bytes": 5068,
+        "sha256": "09429dbdaa499179b5b40f6e75e8aa41d601df9e8eb0ef439ac40b4bd476666b"
+      },
+      {
+        "file": "apps/jira/nuxt.config.ts",
+        "bytes": 510,
+        "sha256": "2d98528e9166f2dda92d5860adf15c6339dd912c4e3726e31e776ebc2e225723"
+      },
+      {
+        "file": "apps/jira/package.json",
+        "bytes": 541,
+        "sha256": "1fc19e7bcc2cacac548ce524f907fc8c26f2f149b892a855cd8eb83a2d183c8d"
+      },
+      {
+        "file": "apps/jira/tsconfig.json",
+        "bytes": 39,
+        "sha256": "a684b644d6d28a7636a0b6bdfb45b0264d8daeea226f8c01e953da02afc938a8"
+      },
+      {
+        "file": "docs/cockpit.md",
+        "bytes": 5332,
+        "sha256": "66368aad74116bd8adffcc88d90b65ba0587dd567f7e361d70e6f13f370dbb33"
+      },
+      {
+        "file": "docs/factory-growth-experiment.md",
+        "bytes": 8329,
+        "sha256": "e9177743396a41b6c30bbd546c1d876c6ee14595d9decc29096950a95790f880"
+      },
+      {
+        "file": "docs/verification.md",
+        "bytes": 6130,
+        "sha256": "90f350b0f9ee673eb8b18389a9e66fed5ad2513d8e1bd1d327cf93030fabd7be"
+      },
+      {
+        "file": "factory/README.md",
+        "bytes": 1549,
+        "sha256": "70178b0ea11f2209a500a4d33c294b2050f8c56697c742ab18fd42388a29bd24"
+      },
+      {
+        "file": "factory/context/goal.md",
+        "bytes": 4296,
+        "sha256": "eb20cb5ddd06f0095dc8b2c5fff267f7ae063fb263017baed2f82b552c84ac43"
+      },
+      {
+        "file": "factory/context/project-map.md",
+        "bytes": 4364,
+        "sha256": "acca3ee454b2fc7a759b79e4691d77e7826c0ff9f2c8b326ddb3d4f1ebe2aab7"
+      },
+      {
+        "file": "factory/context/work-in-progress.md",
+        "bytes": 3092,
+        "sha256": "12d363b73c1ba619f8d788ca070376307a030bce2f6286791dde7a7e1d7ebf86"
+      },
+      {
+        "file": "factory/reflections/2026-09-12-context-review.md",
+        "bytes": 2865,
+        "sha256": "0f7db2df8dd030f35aa63f3a281fd0c7a96216d60fbfeaf58ea48e7751499057"
+      },
+      {
+        "file": "factory/reflections/2026-09-12-hosted-runtime-verification.md",
+        "bytes": 2098,
+        "sha256": "7ded3bac482931ab4c112ce168a2f9210b018d522d78a36e025945d4e4f5504f"
+      },
+      {
+        "file": "factory/reflections/2026-09-12-snapshot-boundaries.md",
+        "bytes": 2402,
+        "sha256": "3402a4a1ab0e11ae9c5014352216811675cebecc24f0ccc0b8dcbb5dfc50f83f"
+      },
+      {
+        "file": "factory/task-mining-station.md",
+        "bytes": 7233,
+        "sha256": "126090a407c51a023845914b525ff5ba38c56ac0791e73680877ddac568ef7c7"
+      },
+      {
+        "file": "package.json",
+        "bytes": 476,
+        "sha256": "ee805367b2a11375ffa4a036a5251ea57775770fd4f689578ab83c1907b8468c"
+      },
+      {
+        "file": "packages/project-context/package.json",
+        "bytes": 183,
+        "sha256": "3e4f831c24e67297f1ad7030a7f548653dbb7a4f27d3bf410f7078fe546efc94"
+      },
+      {
+        "file": "packages/project-context/src/index.ts",
+        "bytes": 6194,
+        "sha256": "82289f04ce5ba500dc380817cad1fad1555bb1de75c3a9986ff52c7d11e2d1ab"
+      },
+      {
+        "file": "packages/project-context/src/jira-reference.json",
+        "bytes": 1175,
+        "sha256": "a3d038a403a375b0fde1f85567b82799f141dd5b27c88d724456333f840ac3b0"
+      },
+      {
+        "file": "packages/project-context/tests/drafts.test.ts",
+        "bytes": 544,
+        "sha256": "7de9cadf35ff9babc4679c877b70da995688fb5df14a2edd2f8b7350405bc110"
+      },
+      {
+        "file": "pnpm-lock.yaml",
+        "bytes": 381495,
+        "sha256": "42ecb9c38391b972ff6702972ec374193a08a48dcd690d6b007dd3bfa18522be"
+      },
+      {
+        "file": "pnpm-workspace.yaml",
+        "bytes": 116,
+        "sha256": "725f4f254706e83f63b79ac8d47ffb270a30bd4585e70c5be5184d26e7265b80"
+      },
+      {
+        "file": "turbo.json",
+        "bytes": 531,
+        "sha256": "ee4a5f84d73f2bd314947d679491a7fd15e7e02bbacf2776575d494dcf806bc8"
+      },
+      {
+        "file": "vendor/README.md",
+        "bytes": 547,
+        "sha256": "a1ea66d55173ad2333d2e70995aaf17010e1dca36665e068af0984ab97c03d86"
+      },
+      {
+        "file": "vendor/software-factory-workshop-nuxt-adeo-ds-0.1.1.tgz",
+        "bytes": 16204,
+        "sha256": "f0146d2666651c65e190f33781ee7f2020eb3318b9147d69766dba6ac7113ea7"
+      }
+    ],
+    "githubReads": [
+      {
+        "repository": "software-factory-workshop/jira-clone",
+        "resource": "pulls",
+        "capturedAt": "2026-09-12T11:40:34.391Z",
+        "complete": true,
+        "count": 0
+      },
+      {
+        "repository": "software-factory-workshop/jira-clone",
+        "resource": "issues",
+        "capturedAt": "2026-09-12T11:40:34.401Z",
+        "complete": true,
+        "count": 0
+      }
+    ],
+    "vercelReads": [],
+    "commands": [
+      {
+        "command": "set -eu; mkdir -p \"$HOME/.local/bin\"; npm install --prefix \"$HOME/.local\" --no-audit --no-fund node@24.21.0 pnpm@10.33.4; ln -sf \"$HOME/.local/node_modules/node/bin/node\" \"$HOME/.local/bin/node\"; ln -sf \"$HOME/.local/node_modules/pnpm/bin/pnpm.cjs\" \"$HOME/.local/bin/pnpm\"; export PATH=\"$HOME/.local/bin:$PATH\"; cd /workspace/repo; node --version; pnpm --version; pnpm install --frozen-lockfile",
+        "exitCode": 0,
+        "stdout": "\nadded 3 packages in 4s\nv24.21.0\n10.33.4\nScope: all 4 workspace projects\nLockfile is up to date, resolution step is skipped\nProgress: resolved 1, reused 0, downloaded 0, added 0\nPackages: +832\n++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++\n\n   ╭─────────────────────────────────────────╮\n   │                                         │\n   │   Update available! 10.33.4 → 12.4.1.   │\n   │   Changelog: https://pnpm.io/v/12.4.1   │\n   │    To update, run: pnpm self-update     │\n   │                                         │\n   ╰─────────────────────────────────────────╯\n\nProgress: resolved 832, reused 0, downloaded 128, added 42\nProgress: resolved 832, reused 0, downloaded 313, added 126\nProgress: resolved 832, reused 0, downloaded 447, added 173\nProgress: resolved 832, reused 0, downloaded 736, added 296\nProgress: resolved 832, reused 0, downloaded 819, added 411\nProgress: resolved 832, reused 0, downloaded 819, added 814\nProgress: resolved 832, reused 0, downloaded 819, added 832, done\n.../esbuild@0.28.2/node_modules/esbuild postinstall$ node install.js\n.../esbuild@0.27.7/node_modules/esbuild postinstall$ node install.js\n.../esbuild@0.27.7/node_modules/esbuild postinstall: Done\n.../esbuild@0.28.2/node_modules/esbuild postinstall: Done\n\ndevDependencies:\n+ turbo 2.10.12\n+ typescript 5.9.3\n\napps/jira prepare$ nuxt prepare\napps/factory prepare$ nuxt prepare\napps/jira prepare: ℹ Nuxt Icon server bundle mode is set to local\napps/jira prepare: [nuxt:icon] ✔ Nuxt Icon discovered local-installed 1 collections: lucide\napps/jira prepare: ℹ Nuxt Icon client bundle consist of 43 icons with 10.40KB(uncompressed) in size\napps/jira prepare: │\napps/jira prepare: ◆  Types generated in .nuxt.\napps/jira prepare: Done\napps/factory prepare: ℹ Nuxt Icon server bundle mode is set to local\napps/factory prepare: [nuxt:icon] ✔ Nuxt Icon discovered local-installed 1 collections: lucide\napps/factory prepare: ℹ Nuxt Icon client bundle consist of 43 icons with 10.40KB(uncompressed) in size\napps/factory prepare: │\napps/factory prepare: ◆  Types generated in .nuxt.\napps/factory prepare: Done\n╭ Warning ─────────────────────────────────────────────────────────────────────╮\n│                                                                              │\n│   Ignored build scripts: vue-demi@0.14.10.                                   │\n│   Run \"pnpm approve-builds\" to pick which dependencies should be allowed     │\n│   to run scripts.                                                            │\n│                                                                              │\n╰──────────────────────────────────────────────────────────────────────────────╯\nDone in 10.5s using pnpm v10.33.4\n",
+        "stderr": "npm warn install-scripts 1 package has install scripts not yet covered by allowScripts:\nnpm warn install-scripts   node@24.21.0 (preinstall: node installArchSpecificPackage)\nnpm warn install-scripts\nnpm warn install-scripts Run `npm install-scripts ls` to review, or `npm install-scripts approve <pkg>` to allow.\nnpm notice\nnpm notice New major version of npm available! 11.19.0 -> 12.0.2\nnpm notice Changelog: https://github.com/npm/cli/releases/tag/v12.0.2\nnpm notice To update run: npm install -g npm@12.0.2\nnpm notice\n",
+        "capturedAt": "2026-09-12T11:39:53.955Z",
+        "truncated": false
+      },
+      {
+        "command": "export PATH=\"$HOME/.local/bin:$PATH\"; cd /workspace/repo; cd /workspace/repo && node --version; pnpm --version",
+        "exitCode": 0,
+        "stdout": "v24.21.0\n10.33.4\n",
+        "stderr": "",
+        "capturedAt": "2026-09-12T11:40:35.027Z",
+        "truncated": false
+      },
+      {
+        "command": "export PATH=\"$HOME/.local/bin:$PATH\"; cd /workspace/repo; cd /workspace/repo && git log --oneline -8 2>&1 | head -20; echo \"---STATUS---\"; git status --short 2>&1 | head -20; echo \"---EXIT:$?\"",
+        "exitCode": 0,
+        "stdout": "fatal: not a git repository (or any of the parent directories): .git\n---STATUS---\nfatal: not a git repository (or any of the parent directories): .git\n---EXIT:0\n",
+        "stderr": "",
+        "capturedAt": "2026-09-12T11:40:56.924Z",
+        "truncated": false
+      },
+      {
+        "command": "export PATH=\"$HOME/.local/bin:$PATH\"; cd /workspace/repo; cd /workspace/repo && grep -rn \"feedback\\|usefulness\\|thumbs\\|rating\" apps/factory/app/ packages/project-context/src/ factory/context/ 2>&1 | head -30; echo \"---EXIT:$?\"",
+        "exitCode": 0,
+        "stdout": "packages/project-context/src/index.ts:25:      \"Apply ADEO guidance and carry product feedback into a different task.\",\nfactory/context/work-in-progress.md:13:Artifacts exist in `factory/mining/`, intentionally outside your snapshot. Completion, usefulness and owner acceptance are different states. A completed model call does not establish owner acceptance. Current run scores and candidate answers are withheld to keep your judgment independent.\n---EXIT:0\n",
+        "stderr": "",
+        "capturedAt": "2026-09-12T11:41:11.180Z",
+        "truncated": false
+      },
+      {
+        "command": "export PATH=\"$HOME/.local/bin:$PATH\"; cd /workspace/repo; cd /workspace/repo && grep -rn \"request-to-work-order\\|admission\\|Work order\\|work order\\|shared proposal\\|deduplicat\\|scheduled\" factory/context/goal.md docs/cockpit.md docs/factory-growth-experiment.md factory/README.md apps/factory/app/app.vue 2>&1 | head -30; echo \"---\"; ls apps/factory/tests/ packages/project-context/tests/ 2>&1; echo \"---EXIT:$?\"",
+        "exitCode": 0,
+        "stdout": "factory/context/goal.md:23:The first station uses on-demand investigations, a pinned main-branch working tree, live GitHub and Vercel reads, sandbox reproduction and a durable Eve result. Recent session links and editable request drafts are browser-local. Scheduled mining, shared proposal indexing, automated deduplication and promotion of reviewed reflections remain design choices.\nfactory/context/goal.md:31:Use this current goal when an older roadmap or UI string still describes request-to-work-order admission as the immediate next step. Those later capabilities remain possible; the current learning experiment is task mining.\ndocs/cockpit.md:16:Do not show run counts, traces, spend, approvals, evaluation scores or verified badges until those capabilities exist. A browser-local draft is not a shared work order. An issue's existence is not evidence that an agent ran.\ndocs/cockpit.md:26:The cockpit starts an on-demand native Eve investigation; see [the current goal](../factory/context/goal.md) and [station contract](../factory/task-mining-station.md). It runs independently of the browser and stores the original report and evidence in its Eve session. Static starters remain available in Work alongside the mining station. Recent session links and editable drafts are browser-local. Scheduled triggers, shared proposal indexing and deduplication remain design decisions.\ndocs/cockpit.md:40:The first Eve station mines tasks from the goal, repository and current issues/PRs, then leaves proposals for review. The fx calibration runner remains a separate experiment. The hosted station runs Eve directly and reuses the context lessons, rather than nesting the experimental runtime. Historical fx-backed session reports remain readable. A successful investigation does not prove its suggestions are useful: review the findings with Remi before choosing additional proposal-management controls. Later capabilities may introduce shared work orders, bounded edits and verification.\ndocs/factory-growth-experiment.md:27:Request-to-work-order admission remains a possible later capability. The previous plan to start by admitting an ADEO issue-list request has been superseded by task mining. Do not count the existence of a runner as proof that mining is useful.\ndocs/factory-growth-experiment.md:37:Add isolated implementation and a fixed set of check commands. A single worker is enough initially. Feed it the supported work order, repository revision and relevant skills. It returns a diff or candidate commit, actual command outcomes and unresolved items. The implementation checkout does not receive publication authority or permission to activate changed factory rules.\ndocs/factory-growth-experiment.md:49:Send actionable findings into a bounded correction round. Persist the work order and evidence so the next run does not require reconstructing the conversation. Test the correction on the original request, then a related request that was not used to tune the fix.\nfactory/README.md:5:The cockpit now includes the first Eve station: understand the goal, current code and GitHub work, then propose useful tasks and reflect on missing context. It uses the same AI SDK Harness/fx runtime as the calibration CLI. The Jira demo remains a fixture shell. Request-to-work-order admission is a later candidate, not the immediate milestone.\n---\napps/factory/tests/:\nmining-output.test.ts\nnative-context.test.ts\nreport.test.ts\nvercel-context.test.ts\n\npackages/project-context/tests/:\ndrafts.test.ts\n---EXIT:0\n",
+        "stderr": "",
+        "capturedAt": "2026-09-12T11:41:13.914Z",
+        "truncated": false
+      },
+      {
+        "command": "export PATH=\"$HOME/.local/bin:$PATH\"; cd /workspace/repo; cd /workspace/repo && pnpm test 2>&1 | tail -30; echo \"---EXIT:$?\"",
+        "exitCode": 0,
+        "stdout": "@jira-clone/context:test: ℹ duration_ms 139.671932\n@jira-clone/factory:test: ✔ replays historical fx reports and normalizes GitHub inventory counts (4.462913ms)\n@jira-clone/factory:test: ✔ retains native incomplete findings and actual reproduction failures (2.415243ms)\n@jira-clone/factory:test: ✔ shows incomplete findings when preparation did not obtain a revision (0.423993ms)\n@jira-clone/factory:test: ✔ rejects malformed evidence rather than manufacturing valid source links (0.480456ms)\n@jira-clone/factory:test: ✔ native tool progress reflects the latest tool without exposing command input (0.739087ms)\n@jira-clone/factory:test: ✔ authorization links permit secure provider redirects but reject script URLs (0.191214ms)\n@jira-clone/factory:test: ✔ runnable snapshot includes locked and vendored inputs but excludes calibration answers and secrets (1.304302ms)\n@jira-clone/factory:test: ✔ binary source provenance hashes exact bytes (1.23216ms)\n@jira-clone/factory:test: ✔ command evidence preserves failure exit code and flags bounded output (0.856299ms)\n@jira-clone/factory:test: ✔ model reports cannot inject HTML, script links or remote images (6.841182ms)\n@jira-clone/factory:test: ✔ Vercel inputs cannot supply another team, project ID or URL (2.598078ms)\n@jira-clone/factory:test: ✔ Vercel queries inject fixed scope and retain incomplete pagination (2.365786ms)\n@jira-clone/factory:test: ✔ build logs require deployment ownership before calling log tool (0.780926ms)\n@jira-clone/factory:test: ✔ unsupported runtime logs stay a context gap without a remote call (0.224426ms)\n@jira-clone/factory:test: ✔ MCP failures are not successful empty inventories (0.25063ms)\n@jira-clone/factory:test: ✔ successful retry clears only that resource gap and preserves all evidence (0.252567ms)\n@jira-clone/factory:test: ℹ tests 16\n@jira-clone/factory:test: ℹ suites 0\n@jira-clone/factory:test: ℹ pass 16\n@jira-clone/factory:test: ℹ fail 0\n@jira-clone/factory:test: ℹ cancelled 0\n@jira-clone/factory:test: ℹ skipped 0\n@jira-clone/factory:test: ℹ todo 0\n@jira-clone/factory:test: ℹ duration_ms 369.480308\n\n Tasks:    2 successful, 2 total\nCached:    0 cached, 2 total\n  Time:    837ms \n\n---EXIT:0\n",
+        "stderr": "",
+        "capturedAt": "2026-09-12T11:41:38.369Z",
+        "truncated": false
+      }
+    ],
+    "contextGaps": [
+      "Vercel evidence unavailable in this sandbox: both cockpit and jira vercel_read calls returned ConnectionAuthorizationFailedError (user-scoped connection fell back to local-dev access, no authenticated Vercel user/OIDC). Cannot distinguish deployed revision from working snapshot a7f5e27.",
+      "Local Git history unavailable: `git log/status` returns `fatal: not a git repository`; commit/CI facts beyond docs/verification.md cannot be inspected. Per project-map.md this is an expected snapshot exclusion, not proof of no history.",
+      "factory/mining/ prompt, rubric, raw runs and scores intentionally excluded from .mining-snapshot.json; judged as unavailable-by-design, not missing work.",
+      "GitHub issue_comments inventory not collected: reader requires a positive integer issue number and the issues inventory is zero items, so there were no comment threads to fetch.",
+      "Research sources cited in docs/cockpit.md and docs/factory-growth-experiment.md live outside the repo (/Users/remiconnesson/knowledge-work/...) and were not inspected; proposals depending on them would need a scoped excerpt.",
+      "Missing Vercel project or deployment evidence for cockpit.",
+      "Missing Vercel project or deployment evidence for Jira."
+    ],
+    "proposals": [
+      {
+        "title": "Record browser-local usefulness judgment on mining reports",
+        "outcome": "A minimal browser-local usefulness signal on a mining report so Remi's review can be recorded and compared across runs",
+        "whyNow": "The factory's current learning question cannot be answered without owner judgment, and today that judgment has nowhere to go: reports render evidence and drafts but capture no useful/not-useful signal, while the backlog is empty (0 issues/0 PRs) so mining quality is the only near-term factory metric.",
+        "evidence": [
+          "factory/context/goal.md:17 near-term question is whether a fresh agent suggests work Remi would seriously consider",
+          "docs/verification.md:24 hosted-report proposals for usefulness feedback remain for Remi review; stale-doc item already fixed",
+          "factory/context/project-map.md:17 no task-mining quality evaluation in the deployed app",
+          "apps/factory/app/components/MiningRun.vue:72-77 findings render + draft handoff with no usefulness control; MiningStation.vue:46-54 browser-local history only",
+          "default.bash pnpm test exit 0 (16 factory tests pass) so the station baseline is green; the gap is judgment capture, not build breakage",
+          "GitHub issues: 0 items complete + pulls: 0 items complete captured 2026-09-12T11:40:34Z, so there is no existing backlog signal to substitute for owner judgment"
+        ],
+        "existingWork": "Builds on the delivered native Eve station (apps/factory/agent + MiningRun/MiningStation) and the completed calibration/replay work described in factory/context/work-in-progress.md:5-13. Does not rebuild the fx wrapper (explicitly forbidden by work-in-progress.md:17) and does not claim the withheld factory/mining/ scores. Prior hosted run correctly distinguished completion from usefulness/acceptance; this task adds the missing acceptance-capture affordance.",
+        "scope": [
+          "Add one small UI affordance in MiningRun.vue (or its utils) to record useful/not-useful + reason for the displayed report",
+          "Carry that annotation into the existing browser-local draft via the draft() emitter, or document why it is kept separate",
+          "Update docs/cockpit.md review-together checklist in one paragraph; no backend, no scheduled mining, no shared indexing"
+        ],
+        "acceptanceCriteria": [
+          "A reviewer can mark a completed mining report as useful / not-useful (or equivalent scale) plus an optional short reason entirely in the browser, without implying shared storage, publication, or automatic rule change.",
+          "The judgment travels with 'Use findings in a draft' provenance (session id, revision, capturedAt) or is explicitly excluded by design with a stated reason.",
+          "Incomplete findings remain visibly incomplete; a usefulness mark never clears a context-gap warning.",
+          "No new server persistence, auth model, or evaluation-score display is introduced unless explicitly scoped and reviewed."
+        ],
+        "uncertainties": [
+          "Whether Remi wants even browser-local persistence or prefers an external review note; keep it removable",
+          "Whether a binary mark plus reason is enough or a held-out rubric comparison is still required — do not import factory/mining/ answers to decide this",
+          "Vercel deployment evidence for this change could not be checked here due to the auth gap above"
+        ]
+      },
+      {
+        "title": "Define the bounded Jira demo slice before any Jira build",
+        "outcome": "A bounded ADEO Jira demo-scope note that lets future mining reject out-of-scope Jira sprawl with a citation",
+        "whyNow": "Without a cited scope, every mining run can invent plausible Jira features that the goal explicitly says do not demonstrate factory progress; the empty backlog plus fixture-only Jira shell makes this the cheapest time to draw the boundary.",
+        "evidence": [
+          "factory/context/goal.md:21 exact compatibility subset and identity behavior need concrete demo scenarios before implementation; feature parity is not evidence of an agreed spec",
+          "packages/project-context/src/jira-reference.json:21-33 issueTypes + statusesForEachListedIssueType with limitations: not a transition graph, no permission/MCP/browser inspection",
+          "apps/jira/app/app.vue:1-17 search/filter over demoIssues fixtures; :63-68 fixture notice states changes/accounts/APIs arrive later",
+          "packages/project-context/src/index.ts:120-161 demoIssues ADEO-1..4 synthetic fixtures",
+          "default.bash grep for feedback/rating shows no existing scope or usefulness gate in app or context code"
+        ],
+        "existingWork": "Follows the hosted-report proposal noted in docs/verification.md:24 (bounded demo scope, still pending Remi review) and the goal's factory-first constraint that shipping more Jira features alone is not factory progress. Complements but does not duplicate the completed calibration experiment or the active native Eve delivery.",
+        "scope": [
+          "One doc (or project-context reference update) + a fixture-to-scope table only",
+          "Review by Remi for product taste; no UI/API implementation, no auth work, no MCP work"
+        ],
+        "acceptanceCriteria": [
+          "A short reviewed doc names the demo slice: which issue/list/board/detail behaviors are in-scope fixtures vs explicitly out-of-scope (API mutation, accounts, SAML/directory, MCP, Connect writes)",
+          "Each in-scope behavior maps to the observed source: packages/project-context/src/jira-reference.json statuses/types and apps/jira/app/app.vue current fixture",
+          "Doc explicitly states the transition graph, permissions, and appearance items that were NOT observed and must not be inferred",
+          "No Jira feature code is written under this task; it gates future Jira proposals"
+        ],
+        "uncertainties": [
+          "Remi's taste on which slice (issue list vs board vs details) demonstrates the factory best in 3-4 hours",
+          "Whether the scope should live as a project-context reference vs a docs/ note — choose one and state why"
+        ]
+      },
+      {
+        "title": "Correct stale fx-runtime claim in factory README",
+        "outcome": "Two-paragraph doc correction removing the stale fx-runtime claim",
+        "whyNow": "A fresh miner reading factory/README.md first will misdescribe the deployed station and propose rebuilding or re-verifying the fx wrapper, exactly the duplicated work the work-in-progress record forbids.",
+        "evidence": [
+          "factory/README.md:5 'It uses the same AI SDK Harness/fx runtime as the calibration CLI' vs factory/context/goal.md:11 'There is no nested fx model loop' and factory/context/work-in-progress.md:17 'Do not propose rebuilding the fx wrapper'",
+          "docs/cockpit.md:40 hosted station runs Eve directly, fx separate; factory/task-mining-station.md:9 native Eve 0.52.5 direct",
+          "factory/reflections/2026-09-12-context-review.md:21-23 reconciling status with evidence prevents recycled fixes — same rationale applies here"
+        ],
+        "existingWork": "Continues the stale-doc reconciliation already done once in docs/verification.md:24 and the reflection hypothesis that explicit inventory + active-work record reduces false missing-work proposals. Tiny follow-up, not a new investigation surface.",
+        "scope": [
+          "Edit factory/README.md:5 and optionally docs/factory-growth-experiment.md:25 only",
+          "No code, no runner, no replay/transfer work"
+        ],
+        "acceptanceCriteria": [
+          "factory/README.md no longer claims the cockpit station uses the fx/AI SDK Harness runtime; it matches goal.md:11, work-in-progress.md:17, and task-mining-station.md:9-11 (native Eve direct, fx packaged separately)",
+          "docs/factory-growth-experiment.md:25 shared-runtime sentence clarified or cited to the same native-vs-fx boundary",
+          "pnpm test + typecheck still pass; no behavior change claimed beyond the doc fix"
+        ],
+        "uncertainties": [
+          "Whether the growth-experiment line means shared lessons vs shared code — phrase conditionally if ambiguous rather than asserting either"
+        ]
+      }
+    ],
+    "reflection": {
+      "helpfulContext": [
+        "goal.md + work-in-progress.md + project-map.md together prevented three classic false proposals: rebuilding the runner, publishing the inventory, and starting replay/transfer work.",
+        ".mining-snapshot.json explicit exclusions plus verification.md dated evidence made it possible to treat factory/mining/ and git history as unavailable-by-design rather than missing work.",
+        "Live GitHub reads returning complete zero-item inventories plus passing pnpm test (exit 0) grounded the empty-backlog + green-baseline facts without overclaiming deployment state."
+      ],
+      "missingContext": [
+        "Vercel project/deployment/build-log evidence for both apps (blocked by user-scoped auth in sandbox).",
+        "Git history / CI logs (excluded from snapshot; project-map names this as missing evidence when needed).",
+        "Held-out mining prompts, rubrics, runs and scores (intentionally withheld to preserve independent judgment).",
+        "External research sources cited in docs (local paths outside repo)."
+      ],
+      "contradictions": [
+        "factory/README.md:5 says the cockpit uses the same AI SDK Harness/fx runtime, contradicting goal.md:11, work-in-progress.md:17, cockpit.md:40, and task-mining-station.md:9 which establish native Eve direct with fx packaged separately.",
+        "docs/factory-growth-experiment.md:25 'asynchronous Eve station now uses that shared runtime' is ambiguous against the same native-vs-fx boundary and needs the same clarification."
+      ],
+      "suggestedImprovements": [
+        "Consider a one-line pointer in factory/README.md to work-in-progress.md for active-work checks, since empty GitHub lists still mislead without it.",
+        "Consider documenting the expected Vercel-auth fallback behavior for sandbox mining so future runs file one standard gap string instead of re-diagnosing ConnectionAuthorizationFailedError.",
+        "Keep the usefulness-feedback proposal browser-local until Remi explicitly requests shared indexing, to avoid prematurely deciding the scheduled/dedup design choices goal.md:23 leaves open."
+      ]
+    },
+    "executionSurface": "native-eve",
+    "source": "git-revision"
+  }
+}
