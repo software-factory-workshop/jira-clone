@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { allowedWorkPath, publishWork, workBranch, verifyPullRequestHead, loadPullRequest } from "../agent/lib/work-github.ts";
+import { allowedWorkPath, publishWork, workBranch, verifyPullRequestHead, loadPullRequest } from "../runtime/lib/work-github.ts";
 const base="a".repeat(40),baseTree="b".repeat(40),newTree="c".repeat(40),head="d".repeat(40);
 const repo="software-factory-workshop/jira-clone";
 const input={sessionId:"wrun_test",baseSha:base,title:"Make a useful change",body:"Evidence and acceptance",changes:[{path:"apps/jira/app/app.vue",content:"new code"}]};

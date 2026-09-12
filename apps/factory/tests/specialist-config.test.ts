@@ -1,14 +1,14 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import root from "../agent/agent.ts";
-import worker from "../agent/subagents/worker/agent.ts";
-import reviewer from "../agent/subagents/reviewer/agent.ts";
-test("root and specialist model usage are uncapped",()=>{
+import root from "../agents/task-miner/agent/agent.ts";
+import worker from "../agents/worker/agent/agent.ts";
+import reviewer from "../agents/reviewer/agent/agent.ts";
+test("All three root agents model usage are uncapped",()=>{
  for(const definition of [root,worker,reviewer]){
   assert.deepEqual(definition.limits,{maxInputTokensPerSession:false,maxOutputTokensPerSession:false,maxTokenCostUsdPerSession:false});
  }
 });
-test("specialists configure tool policy statically and deny wrong station before model selection",async()=>{
+test("Worker and reviewer configure tool policy statically and deny wrong station before model selection",async()=>{
  for(const [name,definition] of [["worker",worker],["reviewer",reviewer]] as const){
   assert.equal(definition.defaultTools,false);
   assert.equal(definition.model.kind,"eve:dynamic");

@@ -2,7 +2,7 @@
 
 These are two explicit native Eve jobs. A worker takes an assigned task and returns a draft pull request. A reviewer takes a pull request number and returns an independent review tied to its exact base and head commits. Starting one does not schedule the other or authorize merging.
 
-Task mining remains read-only. A station is selected by an authenticated server route, not by text in a mining prompt. Declared worker and reviewer subagents have their own instructions, tools, state and Sandboxes. Their descriptions are visible to the root, but each specialist rejects a mismatched immutable station identity before selecting its model. Sensitive tools enforce that assignment again at execution. Mining must never delegate; a station dispatcher calls only its assigned specialist.
+Task mining remains read-only. A station is selected by an authenticated server route, not by text in a mining prompt. Task-miner, worker and reviewer are independent Eve root agents with their own instructions, tools, state, browser sessions and sandboxes. Worker and reviewer reject a mismatched immutable station identity before selecting a model. Sensitive tools enforce that assignment again at execution. A deterministic Vercel Workflow calls these agents; no dispatcher agent delegates the work.
 
 ## Reuse the context, separate the authority
 
@@ -10,7 +10,7 @@ Both jobs reuse the current goal, source map, active work, ADEO guidance and pin
 
 Review instructions and applicable repository policy come from the base snapshot. Candidate changes to `AGENTS.md`, factory instructions, tests or other policy cannot replace the rules judging the candidate. The reviewer inspects actual changes and reruns focused checks. If an excluded or unsupported file prevents a complete comparison, the result must identify that gap.
 
-Eve 0.52.5's declared subagents support separate authored tool sets and Sandboxes; the built-in `agent` copies the root and shares its Sandbox. We use the declared-specialist boundary. The API-driven delivery loop reuses these jobs and their durable sessions; it adds no orchestration graph, webhook scheduler or model framework. See `docs/delivery-loop.md`.
+The authored roots live under `apps/factory/agents/`; shared implementation lives under `apps/factory/runtime/`. The Nuxt-hosted Workflow under `apps/factory/server/workflows/` drives delivery independently of cockpit or CLI polling. See `docs/delivery-loop.md`.
 
 ## Host publication
 
@@ -28,7 +28,7 @@ A reviewer receives no publication tool. Its final report rechecks the PR head a
 
 ## Branch ownership invariant — accepted direction, implementation pending
 
-Remi's decision on 12 September 2026: at most one agent owns write access to a branch at a time. Another agent needing to contribute must create its own branch and open a PR targeting the existing branch. It cannot queue for direct write access, adopt that branch because its owner is idle, or push a fix directly to the parent PR. PR merges remain manual.
+Remi's decision on 12 September 2026: at most one agent owns write access to a branch at a time. Another agent needing to contribute must create its own branch and open a PR targeting the existing branch. It cannot queue for direct write access, adopt that branch because its owner is idle, or push a fix directly to the parent PR. Child PR merges remain manual. The later low-risk merge policy permits the outer workflow to merge qualifying PRs into main after independent verification.
 
 Example: agent A owns `feature/core` and its PR targets `main`. Agent B owns `feature/core-fix`; its contribution PR targets `feature/core`. Agent C can independently own another contribution branch targeting `feature/core`. Each branch follows the same ownership rule.
 

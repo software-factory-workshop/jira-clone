@@ -3,14 +3,14 @@ import { useEveAgent, defaultMessageReducer, type EveMessageData } from "eve/vue
 import type { MessageStreamEvent } from "eve/client";
 import { dispatchedTask, parseStationToolResult, pendingStationRequests, matchesStationDelivery, latestStationTurn, readStationStream, type StationKind } from "../utils/work-station";
 import { authorizationLink } from "../utils/mining-output";
-const props = defineProps<{ sessionId: string; station: StationKind; child?: boolean; awaitingDecision?: boolean; execution?: "owner" | "dispatcher"; deliveryId?: string; operationId?: string }>();
+const props = defineProps<{ sessionId: string; station: StationKind; child?: boolean; awaitingDecision?: boolean; execution?: "owner" | "dispatcher" | "direct"; rootAgent?: "worker" | "reviewer"; deliveryId?: string; operationId?: string }>();
 const emit = defineEmits<{ settled: [value: boolean]; recorded: [value: boolean] }>();
-const { data, events, status, error, resume, respond } = useEveAgent({ initialSession: { sessionId: props.sessionId, streamIndex: 0 }, resume: true });
+const { data, events, status, error, resume, respond } = useEveAgent({ host: import.meta.client && props.rootAgent ? `${window.location.origin}/${props.rootAgent}` : undefined, initialSession: { sessionId: props.sessionId, streamIndex: 0 }, resume: true });
 const actionError = ref("");
 const childSettled = ref(false);
 const deliveryStarted = ref(false);
 const queuedForOwner = computed(() => !!props.deliveryId && !deliveryStarted.value);
-const runLink = computed(() => `?${new URLSearchParams({ station: props.station, run: props.sessionId, ...(props.execution ? { execution: props.execution } : {}), ...(props.deliveryId ? { deliveryId: props.deliveryId } : {}), ...(props.operationId ? { operationId: props.operationId } : {}) })}`);
+const runLink = computed(() => `?${new URLSearchParams({ station: props.station, ...(props.rootAgent?{rootAgent:props.rootAgent}:{}), run: props.sessionId, ...(props.execution ? { execution: props.execution } : {}), ...(props.deliveryId ? { deliveryId: props.deliveryId } : {}), ...(props.operationId ? { operationId: props.operationId } : {}) })}`);
 const childRecorded = ref(false);
 const cancellationRequested = ref(false);
 const discoveredChild = ref<string>();
@@ -24,7 +24,7 @@ const parts = computed(() => (tailData.value || data.value).messages.flatMap(mes
 const pendingRequests = computed(() => pendingStationRequests(tailData.value || data.value, !!result.value || childRecorded.value));
 const needsDecision = computed(() => !result.value && !childRecorded.value && (!!props.awaitingDecision || pendingRequests.value.length > 0));
 const childId = computed(() => {
-  if (props.child || props.execution === "owner") return undefined;
+  if (props.child || props.execution === "owner" || props.execution === "direct") return undefined;
   const event = events.value.find(event => event.type === "subagent.called");
   return discoveredChild.value || (event?.type === "subagent.called" ? event.data.childSessionId : undefined);
 });

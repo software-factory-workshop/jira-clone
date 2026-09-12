@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { proposalInputSchema, recordProposals, renderProposal } from "../agent/lib/proposals.ts";
+import { proposalInputSchema, recordProposals, renderProposal } from "../runtime/lib/proposals.ts";
 
 const proposal = {
   title: "Review one candidate", outcome: "A focused review draft", whyNow: "The owner needs to decide",

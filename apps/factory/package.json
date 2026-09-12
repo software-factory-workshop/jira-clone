@@ -4,13 +4,17 @@
   "type": "module",
   "scripts": {
     "dev": "nuxt dev --host 127.0.0.1 --port 3000",
-    "build": "nuxt build",
+    "build": "pnpm run build:agent && nuxt build",
     "build:agent": "node scripts/build-eve.mjs",
     "typecheck": "nuxt typecheck && tsc -p tsconfig.agent.json",
     "test": "node --test tests/*.test.ts",
-    "prepare": "nuxt prepare"
+    "prepare": "nuxt prepare",
+    "dev:task-miner": "cd agents/task-miner && eve dev --port 4274",
+    "dev:worker": "cd agents/worker && eve dev --port 4275",
+    "dev:reviewer": "cd agents/reviewer && eve dev --port 4276"
   },
   "dependencies": {
+    "@agent-browser/eve": "file:../../vendor/agent-browser-eve-0.37.1-eve.0.52.5.tgz",
     "@jira-clone/context": "workspace:*",
     "@software-factory-workshop/nuxt-adeo-ds": "file:../../vendor/software-factory-workshop-nuxt-adeo-ds-0.1.1.tgz",
     "@vercel/blob": "^2.8.0",
@@ -21,6 +25,7 @@
     "markdown-it": "14.1.0",
     "nuxt": "4.5.2",
     "vue": "^3.5.0",
+    "workflow": "4.8.8",
     "zod": "^4.0.0"
   },
   "devDependencies": {

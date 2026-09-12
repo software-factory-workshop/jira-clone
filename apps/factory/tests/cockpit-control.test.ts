@@ -31,7 +31,7 @@ test('deleting and recreating a record cannot revive a stale writer version',()=
  assert.equal(recreated.version,3);assert.throws(()=>changeRecord(doc,'drafts','one',draft,1),CockpitConflict);
 });
 test('CAS retry recomputes against newest document without losing another record',async()=>{
- const {mutateCockpit}=await import('../agent/lib/cockpit-store.ts');
+ const {mutateCockpit}=await import('../runtime/lib/cockpit-store.ts');
  let actual=emptyDocument();let revision=0;let writes=0;
  const storage={read:async()=>({document:structuredClone(actual),etag:String(revision)}),write:async(doc:typeof actual,etag:string|undefined)=>{
   writes++;if(writes===1){changeRecord(actual,'drafts','other',{...draft,title:'Concurrent'},0);revision++;return false;}
@@ -41,7 +41,7 @@ test('CAS retry recomputes against newest document without losing another record
  assert.equal(writes,2);assert.equal(actual.drafts.other!.value.title,'Concurrent');assert.equal(actual.drafts.one!.value.title,draft.title);
 });
 test('storage failures propagate without changing an accepted record',async()=>{
- const {mutateCockpit}=await import('../agent/lib/cockpit-store.ts');const actual=emptyDocument();
+ const {mutateCockpit}=await import('../runtime/lib/cockpit-store.ts');const actual=emptyDocument();
  await assert.rejects(mutateCockpit({read:async()=>({document:structuredClone(actual),etag:undefined}),write:async()=>{throw Error('outage');}},doc=>changeRecord(doc,'drafts','one',draft,0)),/outage/);
  assert.equal(actual.drafts.one,undefined);
 });
@@ -49,7 +49,7 @@ test('storage failures propagate without changing an accepted record',async()=>{
 test('both durable stores request identity encoding for strong conditional-write ETags',async()=>{
  const {readFile}=await import('node:fs/promises');
  for(const file of ['cockpit-store.ts','delivery-store.ts']){
-  const source=await readFile(new URL('../agent/lib/'+file,import.meta.url),'utf8');
+  const source=await readFile(new URL('../runtime/lib/'+file,import.meta.url),'utf8');
   assert.match(source,/'accept-encoding':'identity'/);assert.match(source,/etag\.startsWith\('W\/'\)/);
  }
 });

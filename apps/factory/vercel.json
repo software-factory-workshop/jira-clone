@@ -1,0 +1,92 @@
+{
+  "services": {
+    "web": {
+      "root": ".",
+      "framework": "nuxtjs",
+      "buildCommand": "pnpm exec nuxt build"
+    },
+    "task-miner": {
+      "root": "agents/task-miner",
+      "framework": "eve",
+      "buildCommand": "node ../../scripts/build-eve.mjs task-miner",
+      "routes": [
+        {
+          "src": "^/task-miner/(.*)$",
+          "transforms": [
+            {
+              "type": "request.path",
+              "op": "set",
+              "args": "/$1"
+            }
+          ]
+        }
+      ]
+    },
+    "worker": {
+      "root": "agents/worker",
+      "framework": "eve",
+      "buildCommand": "node ../../scripts/build-eve.mjs worker",
+      "routes": [
+        {
+          "src": "^/worker/(.*)$",
+          "transforms": [
+            {
+              "type": "request.path",
+              "op": "set",
+              "args": "/$1"
+            }
+          ]
+        }
+      ]
+    },
+    "reviewer": {
+      "root": "agents/reviewer",
+      "framework": "eve",
+      "buildCommand": "node ../../scripts/build-eve.mjs reviewer",
+      "routes": [
+        {
+          "src": "^/reviewer/(.*)$",
+          "transforms": [
+            {
+              "type": "request.path",
+              "op": "set",
+              "args": "/$1"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "rewrites": [
+    {
+      "source": "/task-miner/(.*)",
+      "destination": {
+        "service": "task-miner"
+      }
+    },
+    {
+      "source": "/worker/(.*)",
+      "destination": {
+        "service": "worker"
+      }
+    },
+    {
+      "source": "/reviewer/(.*)",
+      "destination": {
+        "service": "reviewer"
+      }
+    },
+    {
+      "source": "/eve/v1/(.*)",
+      "destination": {
+        "service": "task-miner"
+      }
+    },
+    {
+      "source": "/factory/(.*)",
+      "destination": {
+        "service": "task-miner"
+      }
+    }
+  ]
+}

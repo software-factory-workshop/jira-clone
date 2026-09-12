@@ -7,11 +7,13 @@
     "skipLibCheck": true,
     "noEmit": true,
     "types": [
-      "node"
+      "node",
+      "eve/workflow-modules"
     ],
     "allowImportingTsExtensions": true
   },
   "include": [
-    "agent/**/*.ts"
+    "runtime/**/*.ts",
+    "agents/**/*.ts"
   ]
 }

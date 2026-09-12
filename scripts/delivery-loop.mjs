@@ -26,7 +26,7 @@ if(!id){if(!values.task)throw new Error('--task <request.json> is required for a
 if(values.continue){const operationId=checkpoint?.pendingResume||randomUUID();await save({pendingResume:operationId});await api(`/${id}/resume`,{operationId});await save({pendingResume:null});}
 if(values.revision){const brief=await readFile(values.revision,'utf8');const request=checkpoint?.pendingRevision?.brief===brief?checkpoint.pendingRevision:{operationId:randomUUID(),brief};await save({pendingRevision:request});await api(`/${id}/revise`,request);await save({pendingRevision:null});}
 let previous='';
-for(;;){const state=await api(`/${id}/advance`,{});await save({lastPhase:state.phase,sessionId:state.sessionId,childSessionId:state.childSessionId,publication:state.publication});const summary=JSON.stringify({id,phase:state.phase,cycle:state.cycle,sessionId:state.sessionId,childSessionId:state.childSessionId,publication:state.publication,error:state.error,review:state.review});if(summary!==previous){console.log(summary);previous=summary;}
- if(values.once||['human_review','ready','blocked','cancelled','needs_revision'].includes(state.phase))break;
+for(;;){const state=await api(`/${id}`);await save({lastPhase:state.phase,sessionId:state.sessionId,childSessionId:state.childSessionId,publication:state.publication});const summary=JSON.stringify({id,phase:state.phase,cycle:state.cycle,sessionId:state.sessionId,childSessionId:state.childSessionId,publication:state.publication,error:state.error,review:state.review});if(summary!==previous){console.log(summary);previous=summary;}
+ if(values.once||['human_review','ready','blocked','cancelled','needs_revision','merged'].includes(state.phase))break;
  await new Promise(resolve=>setTimeout(resolve,5000));
 }

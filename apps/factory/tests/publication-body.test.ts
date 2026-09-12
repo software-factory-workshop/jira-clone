@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { publicationBody } from "../agent/lib/publication-body.ts";
+import { publicationBody } from "../runtime/lib/publication-body.ts";
 
 const command = (check: string, exitCode = 0) => ({ command: `export PATH="$HOME/.local/bin:$PATH"; cd /workspace/repo; ${check}`, exitCode });
 

@@ -1,8 +1,8 @@
 import { z } from "zod";
 import type { EveMessageData, MessageStreamEvent } from "eve/client";
 
-export const stationSessionSchema = z.object({ sessionId: z.string().regex(/^wrun_[A-Za-z0-9_-]+$/), execution: z.enum(["owner", "dispatcher"]).optional(), ownerSessionId: z.string().optional(), deliveryId: z.string().min(1).optional(), operationId: z.string().uuid().optional() });
-export const stationLinkSchema = z.object({ station: z.enum(["worker", "reviewer"]), run: z.string().regex(/^wrun_[A-Za-z0-9_-]+$/), execution: z.enum(["owner", "dispatcher"]).optional(), deliveryId: z.string().min(1).max(200).optional(), operationId: z.string().uuid().optional() });
+export const stationSessionSchema = z.object({ sessionId: z.string().regex(/^wrun_[A-Za-z0-9_-]+$/), execution: z.enum(["owner", "dispatcher", "direct"]).optional(), rootAgent:z.enum(["worker","reviewer"]).optional(), ownerSessionId: z.string().optional(), deliveryId: z.string().min(1).optional(), operationId: z.string().uuid().optional() });
+export const stationLinkSchema = z.object({ station: z.enum(["worker", "reviewer"]), run: z.string().regex(/^wrun_[A-Za-z0-9_-]+$/), execution: z.enum(["owner", "dispatcher", "direct"]).optional(), rootAgent:z.enum(["worker","reviewer"]).optional(), deliveryId: z.string().min(1).max(200).optional(), operationId: z.string().uuid().optional() });
 export type StationLink = z.infer<typeof stationLinkSchema>;
 export type StationKind = z.infer<typeof stationLinkSchema>["station"];
 

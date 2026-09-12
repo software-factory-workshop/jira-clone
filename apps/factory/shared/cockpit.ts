@@ -2,7 +2,7 @@ import { z } from 'zod';
 export const idSchema = z.string().min(1).max(240).regex(/^[\w:.-]+$/);
 export const draftInput = z.object({ title: z.string().trim().min(1).max(200), request: z.string().trim().min(1).max(40000) }).strict();
 export const feedbackInput = z.object({ verdict: z.enum(['useful','not-useful']), reason: z.string().max(500) }).strict();
-export const runInput = z.object({ label: z.string().max(200), station: z.enum(['mining','worker','reviewer','loop']), operationId: z.string().max(240).optional(), execution: z.enum(['owner','dispatcher']).optional(), deliveryId: z.string().optional() }).strict();
+export const runInput = z.object({ label: z.string().max(200), station: z.enum(['mining','worker','reviewer','loop']), operationId: z.string().max(240).optional(), execution: z.enum(['owner','dispatcher','direct']).optional(), rootAgent:z.enum(['task-miner','worker','reviewer']).optional(), deliveryId: z.string().optional() }).strict();
 export const recordSchema = z.object({ id: idSchema, version: z.number().int().positive(), updatedAt: z.string(), createdAt: z.string(), value: z.record(z.string(), z.unknown()) });
 export type CockpitRecord = z.infer<typeof recordSchema>;
 export const collections = ['drafts','feedback','runs'] as const;
