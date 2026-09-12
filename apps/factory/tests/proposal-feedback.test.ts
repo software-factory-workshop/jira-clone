@@ -118,3 +118,40 @@ test("unavailable storage warning clears after a later load succeeds", () => {
   assert.equal(after.unavailable, false);
   assert.equal(storageProblemFor(after), "");
 });
+
+test("a storage failure after a success shows a problem again without losing verdicts", () => {
+  let broken = false;
+  const store = new Map<string, string>();
+  const storage = {
+    getItem: (key: string) => {
+      if (broken) throw new Error("denied");
+      return store.get(key) ?? null;
+    },
+    setItem: (key: string, value: string) => { store.set(key, value); },
+  };
+  // Success first: verdict and reason round-trip through storage.
+  const saved = setFeedbackEntry({}, "wrun_a:proposal:1", verdict);
+  assert.equal(storeFeedback(storage, saved).unavailable, false);
+  let loaded = loadFeedback(storage);
+  assert.equal(storageProblemFor(loaded), "");
+  assert.equal(loaded.entries["wrun_a:proposal:1"]?.reason, "It names the gap");
+  // Later failure: the loader reports a truthful problem again, and the
+  // previously saved entry survives (component keeps last-known marks).
+  broken = true;
+  loaded = loadFeedback(storage);
+  assert.equal(storageProblemFor(loaded), "unavailable");
+  assert.equal(loaded.entries["wrun_a:proposal:1"], undefined);
+  assert.equal(saved["wrun_a:proposal:1"]?.verdict, "useful");
+  assert.equal(saved["wrun_a:proposal:1"]?.reason, "It names the gap");
+  // A failed save reports unavailability without clobbering stored marks.
+  const failedSave = storeFeedback(
+    { getItem: storage.getItem, setItem: () => { throw new Error("denied"); } },
+    setFeedbackEntry(saved, "wrun_a:proposal:2", { verdict: "not-useful", reason: "Too broad" }),
+  );
+  assert.equal(failedSave.unavailable, true);
+  broken = false;
+  const recovered = loadFeedback(storage);
+  assert.equal(storageProblemFor(recovered), "");
+  assert.equal(recovered.entries["wrun_a:proposal:1"]?.verdict, "useful");
+  assert.equal(recovered.entries["wrun_a:proposal:1"]?.reason, "It names the gap");
+});

@@ -27,7 +27,9 @@ const reasonChanged = computed(() => reasonDraft.value.trim().slice(0, 500) !== 
 function refresh() {
   try {
     const loaded = loadFeedback(localStorage);
-    entries.value = loaded.entries;
+    // Keep the last known marks when storage cannot be read, so a failure
+    // after a success still shows the selected verdict alongside the warning.
+    if (!loaded.unavailable) entries.value = loaded.entries;
     // A clean load proves storage recovered, so a previous warning clears
     // instead of lingering after the failure is gone.
     storageProblem.value = storageProblemFor(loaded);
@@ -59,7 +61,9 @@ function update(transform: (fresh: ProposalFeedbackMap) => ProposalFeedbackMap) 
   try {
     const loaded = loadFeedback(localStorage);
     storageProblem.value = storageProblemFor(loaded);
-    persist(transform(loaded.entries));
+    // Build on the last known in-memory marks when the re-read fails, so a
+    // transient read failure cannot wipe this or sibling verdicts on save.
+    persist(transform(loaded.unavailable ? entries.value : loaded.entries));
   } catch {
     saveProblem.value = true;
   }
