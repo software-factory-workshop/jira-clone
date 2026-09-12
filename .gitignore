@@ -1,0 +1,10 @@
+node_modules/
+.nuxt/
+.output/
+.eve/
+.vercel/
+.turbo/
+.env*
+!.env.example
+.DS_Store
+output/

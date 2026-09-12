@@ -1,0 +1,33 @@
+{
+  "$schema": "https://turbo.build/schema.json",
+  "tasks": {
+    "build": {
+      "dependsOn": [
+        "^build"
+      ],
+      "outputs": [
+        ".output/**",
+        ".vercel/output/**",
+        ".eve/**"
+      ],
+      "env": [
+        "VERCEL",
+        "VERCEL_ENV",
+        "VERCEL_PROJECT_ID",
+        "VERCEL_TEAM_ID"
+      ]
+    },
+    "typecheck": {
+      "dependsOn": [
+        "^build"
+      ]
+    },
+    "test": {
+      "outputs": []
+    },
+    "dev": {
+      "cache": false,
+      "persistent": true
+    }
+  }
+}

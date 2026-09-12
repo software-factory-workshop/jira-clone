@@ -1,0 +1,34 @@
+{
+  "observedOn": "2026-09-12",
+  "baseUrl": "https://jira-dev-sandbox-remi-vercel.atlassian.net",
+  "method": "Read-only authenticated REST; selected non-secret metadata",
+  "requests": [
+    { "path": "/rest/api/3/myself", "status": 200 },
+    { "path": "/rest/api/3/project/KAN", "status": 200 },
+    { "path": "/rest/api/3/project/KAN/statuses", "status": 200 },
+    { "path": "/rest/agile/1.0/board?projectKeyOrId=KAN", "status": 200 }
+  ],
+  "project": {
+    "id": "10000",
+    "key": "KAN",
+    "name": "My Kanban Space",
+    "projectTypeKey": "software",
+    "simplified": true,
+    "style": "next-gen"
+  },
+  "boards": [{ "id": 1, "name": "KAN board", "type": "simple" }],
+  "boardPaginationComplete": true,
+  "issueTypes": ["Epic", "Subtask", "Task", "Story", "Feature", "Bug"],
+  "statusesForEachListedIssueType": [
+    "Done",
+    "To Do",
+    "In Review",
+    "In Progress"
+  ],
+  "limitations": [
+    "Statuses are not a verified transition graph.",
+    "No issues or configuration were changed.",
+    "Browser appearance, issue content, permissions and MCP schemas were not inspected.",
+    "This is a reference snapshot, not clone compatibility proof."
+  ]
+}

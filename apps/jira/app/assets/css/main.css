@@ -1,0 +1,310 @@
+body {
+  margin: 0;
+  color: #273943;
+  background: #fff;
+}
+.jira-header {
+  height: 72px;
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  border-bottom: 1px solid #e1e7ea;
+  padding: 0 30px;
+}
+.brand {
+  font-size: 28px;
+  font-weight: 800;
+  letter-spacing: -1px;
+  color: #007f8c;
+}
+.product-name {
+  font-size: 15px;
+  font-weight: 500;
+}
+.jira-header > a:last-child {
+  margin-left: auto;
+}
+.jira-body {
+  display: grid;
+  grid-template-columns: 220px minmax(0, 1fr);
+  min-height: calc(100vh - 72px);
+}
+.project-sidebar {
+  background: #f7f9fa;
+  border-right: 1px solid #e0e6e9;
+  padding: 30px 18px;
+  display: flex;
+  flex-direction: column;
+}
+.project-avatar {
+  background: #007f8c;
+  color: #fff;
+  font-size: 20px;
+  font-weight: 600;
+  width: 42px;
+  height: 42px;
+  display: grid;
+  place-items: center;
+  border-radius: 4px;
+  margin-bottom: 14px;
+}
+.project-sidebar h2 {
+  font-size: 15px;
+  font-weight: 600;
+}
+.project-sidebar > p {
+  font-size: 12px;
+  color: #7a8790;
+  margin-top: 5px;
+}
+nav {
+  display: grid;
+  gap: 6px;
+  margin-top: 30px;
+}
+nav button {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  padding: 12px;
+  border: 0;
+  background: transparent;
+  text-align: left;
+  font-size: 13px;
+  border-radius: 4px;
+  cursor: pointer;
+  color: #62757d;
+}
+nav button.active {
+  background: #e2f0f1;
+  color: #007f8c;
+  font-weight: 600;
+}
+.sidebar-note {
+  margin-top: auto;
+  display: flex;
+  gap: 10px;
+  padding-top: 50px;
+  font-size: 12px;
+  color: #819198;
+  line-height: 1.7;
+}
+.sidebar-note > .iconify {
+  flex-shrink: 0;
+  color: #007f8c;
+  font-size: 18px;
+}
+.jira-main {
+  padding: 30px 36px;
+  min-width: 0;
+}
+.breadcrumb {
+  font-size: 12px;
+  color: #819099;
+  margin-bottom: 22px;
+}
+.fixture-notice {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border: 1px solid #e0ebed;
+  background: #f4f9f9;
+  border-radius: 4px;
+  padding: 13px 16px;
+  font-size: 12px;
+  line-height: 1.6;
+  color: #5f767d;
+  margin: 25px 0;
+}
+.fixture-notice > .iconify {
+  color: #007f8c;
+  flex-shrink: 0;
+  font-size: 17px;
+}
+.filters {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  margin: 25px 0;
+}
+.filters > span {
+  margin-left: auto;
+  font-size: 12px;
+  color: #7a8b93;
+}
+.table-wrap {
+  overflow: auto;
+  border: 1px solid #e0e6e9;
+  border-radius: 5px;
+}
+table {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 13px;
+  white-space: nowrap;
+}
+th {
+  text-align: left;
+  font-size: 11px;
+  font-weight: 500;
+  color: #72848e;
+  background: #f8fafb;
+  padding: 14px 16px;
+}
+td {
+  padding: 19px 16px;
+  border-top: 1px solid #e6ebed;
+}
+tr:hover td {
+  background: #fafcfc;
+}
+.type-icon {
+  color: #007f8c;
+  font-size: 18px;
+  vertical-align: middle;
+}
+.issue-key {
+  color: #7c8b93;
+  font-size: 12px;
+}
+.issue-title {
+  cursor: pointer;
+  text-align: left;
+  color: #273943;
+}
+.issue-title:hover {
+  color: #007f8c;
+  text-decoration: underline;
+}
+.assignee {
+  color: #778892;
+  font-size: 12px;
+}
+.footer-note {
+  font-size: 11px;
+  color: #8b979e;
+  margin-top: 24px;
+}
+.board {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(190px, 1fr));
+  gap: 16px;
+  overflow: auto;
+}
+.board-column {
+  background: #f3f6f7;
+  border-radius: 5px;
+  min-height: 390px;
+  padding: 14px;
+}
+.board-column header {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  margin: 5px 0 22px;
+}
+.board-column h2 {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  font-weight: 600;
+  color: #72838d;
+}
+.board-column header > span {
+  font-size: 11px;
+  color: #8c9aa3;
+}
+.issue-card {
+  background: white;
+  border: 1px solid #e0e7e9;
+  box-shadow: 0 1px 2px #23313b05;
+  border-radius: 4px;
+  padding: 17px;
+  text-align: left;
+  width: 100%;
+  display: grid;
+  gap: 28px;
+  margin-bottom: 12px;
+  cursor: pointer;
+}
+.issue-card:hover {
+  border-color: #007f8c;
+}
+.issue-card strong {
+  font-size: 13px;
+  line-height: 1.6;
+  font-weight: 500;
+}
+.issue-card > span {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11px;
+  color: #7b8b94;
+}
+.issue-card .iconify {
+  color: #007f8c;
+  font-size: 16px;
+}
+.issue-details {
+  display: grid;
+  gap: 24px;
+}
+.issue-details h2 {
+  font-size: 22px;
+  font-weight: 600;
+}
+.issue-details p {
+  color: #6d818a;
+  line-height: 1.8;
+  font-size: 14px;
+}
+.issue-details dl {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+  font-size: 13px;
+}
+.issue-details dt {
+  color: #7c8d94;
+}
+.empty {
+  padding: 35px;
+  text-align: center;
+  color: #7b8b93;
+}
+@media (max-width: 800px) {
+  .jira-body {
+    grid-template-columns: 1fr;
+  }
+  .project-sidebar {
+    padding: 15px 20px;
+  }
+  .project-sidebar > h2,
+  .project-avatar,
+  .project-sidebar > p,
+  .sidebar-note {
+    display: none;
+  }
+  nav {
+    display: flex;
+    margin: 0;
+  }
+  .jira-main {
+    padding: 24px 18px;
+  }
+  .jira-header {
+    padding: 15px;
+    height: auto;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+  .jira-header > a:last-child {
+    margin-left: 0;
+  }
+  .filters {
+    flex-wrap: wrap;
+  }
+  .product-name {
+    font-size: 13px;
+  }
+}
