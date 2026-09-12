@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { z } from "zod";
-defineEmits<{ draft: [value: { title: string; body: string }] }>();
+defineEmits<{ draft: [value: { title: string; body: string;id?:string;version?:number }] }>();
 const savedSchema = z.array(z.object({ id: z.string().min(1), label: z.string(), createdAt: z.string() })).max(30);
 const history = ref<z.infer<typeof savedSchema>>([]);
 const selected = ref<string>();

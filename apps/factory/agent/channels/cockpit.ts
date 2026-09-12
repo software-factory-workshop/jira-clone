@@ -6,7 +6,7 @@ import { repository,references,stages,starterRequests } from '@jira-clone/contex
 import { factoryAuth } from '../lib/route-auth';
 import { readCockpit,updateCockpit } from '../lib/cockpit-store';
 import { collections,idSchema,changeRecord,importRecords,CockpitConflict } from '../../shared/cockpit';
-import { readRun } from '../lib/cockpit-run';
+import { readRun,readStationRun } from '../lib/cockpit-run';
 import { proposalDraft } from '../../app/utils/mining-output';
 const collectionSchema=z.enum(collections);
 const mutation=z.object({value:z.unknown(),expectedVersion:z.number().int().nonnegative()}).strict();
@@ -24,7 +24,7 @@ export default defineChannel({routes:[
  PUT('/factory/cockpit/:collection/:id',(request,{params})=>authorized(request,async()=>{const body=mutation.parse(await request.json());return {item:await updateCockpit(doc=>changeRecord(doc,collectionSchema.parse(params.collection),idSchema.parse(params.id),body.value,body.expectedVersion))};})),
  DELETE('/factory/cockpit/:collection/:id',(request,{params})=>authorized(request,async()=>{const body=z.object({expectedVersion:z.number().int().positive()}).strict().parse(await request.json());return {item:await updateCockpit(doc=>changeRecord(doc,collectionSchema.parse(params.collection),idSchema.parse(params.id),null,body.expectedVersion))};})),
  POST('/factory/cockpit/issue-link',request=>authorized(request,async()=>{const body=z.object({title:z.string().max(200),request:z.string().max(40000)}).strict().parse(await request.json());return {url:`${repository.url}/issues/new?title=${encodeURIComponent(body.title)}&body=${encodeURIComponent(body.request)}`};})),
- GET('/factory/cockpit/run/:id',(request,{params,attachSession})=>authorized(request,async()=>readRun(attachSession(z.string().regex(/^wrun_[\w-]+$/).parse(params.id)),z.object({operationId:z.string().uuid().optional(),deliveryId:z.string().max(200).optional()}).parse(Object.fromEntries(new URL(request.url).searchParams))))),
+ GET('/factory/cockpit/run/:id',(request,{params,attachSession})=>authorized(request,async()=>readStationRun(attachSession,z.string().regex(/^wrun_[\w-]+$/).parse(params.id),z.object({operationId:z.string().uuid().optional(),deliveryId:z.string().max(200).optional()}).parse(Object.fromEntries(new URL(request.url).searchParams))))),
  POST('/factory/cockpit/activate',(request,{attachSession})=>authorized(request,async()=>{
   const body=z.object({sessionId:z.string().regex(/^wrun_[\w-]+$/),proposalId:z.string().optional()}).strict().parse(await request.json());
   const projected=await readRun(attachSession(body.sessionId));const result=projected.result;

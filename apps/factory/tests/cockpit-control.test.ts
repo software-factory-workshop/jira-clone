@@ -30,3 +30,18 @@ test('deleting and recreating a record cannot revive a stale writer version',()=
  const recreated=changeRecord(doc,'drafts','one',{...draft,title:'Recreated'},0)!;
  assert.equal(recreated.version,3);assert.throws(()=>changeRecord(doc,'drafts','one',draft,1),CockpitConflict);
 });
+test('CAS retry recomputes against newest document without losing another record',async()=>{
+ const {mutateCockpit}=await import('../agent/lib/cockpit-store.ts');
+ let actual=emptyDocument();let revision=0;let writes=0;
+ const storage={read:async()=>({document:structuredClone(actual),etag:String(revision)}),write:async(doc:typeof actual,etag:string|undefined)=>{
+  writes++;if(writes===1){changeRecord(actual,'drafts','other',{...draft,title:'Concurrent'},0);revision++;return false;}
+  if(etag!==String(revision))return false;actual=structuredClone(doc);revision++;return true;
+ }};
+ await mutateCockpit(storage,doc=>changeRecord(doc,'drafts','one',draft,0));
+ assert.equal(writes,2);assert.equal(actual.drafts.other!.value.title,'Concurrent');assert.equal(actual.drafts.one!.value.title,draft.title);
+});
+test('storage failures propagate without changing an accepted record',async()=>{
+ const {mutateCockpit}=await import('../agent/lib/cockpit-store.ts');const actual=emptyDocument();
+ await assert.rejects(mutateCockpit({read:async()=>({document:structuredClone(actual),etag:undefined}),write:async()=>{throw Error('outage');}},doc=>changeRecord(doc,'drafts','one',draft,0)),/outage/);
+ assert.equal(actual.drafts.one,undefined);
+});

@@ -3,7 +3,7 @@ import { useEveAgent } from "eve/vue";
 import { authorizationLink, miningProgress, parseMiningOutput, proposalDraft, terminalMiningFailure, type MiningProposal } from "../utils/mining-output";
 import { renderReport } from "../utils/report";
 const props = defineProps<{ sessionId?: string }>();
-const emit = defineEmits<{ session: [id: string, label: string]; draft: [value: { title: string; body: string }]; new: [] }>();
+const emit = defineEmits<{ session: [id: string, label: string]; draft: [value: { title: string; body: string;id?:string;version?:number }]; new: [] }>();
 const focus = ref("");
 const actionError = ref("");
 const { data, events, status, error, session, send, cancel, resume, respond } = useEveAgent({
@@ -50,7 +50,7 @@ async function useProposal(proposal: MiningProposal, _index: number) {
 }
 async function activate(proposalId?:string) {
  const sessionId=session.value?.sessionId||props.sessionId;if(!sessionId)return;
- try {const response=await $fetch<{item:{value:{title:string;request:string}}}>("/factory/cockpit/activate",{method:"POST",body:{sessionId,proposalId},retry:0});emit("draft",{title:response.item.value.title,body:response.item.value.request});}
+ try {const response=await $fetch<{item:{id:string;version:number;value:{title:string;request:string}}}>("/factory/cockpit/activate",{method:"POST",body:{sessionId,proposalId},retry:0});emit("draft",{id:response.item.id,version:response.item.version,title:response.item.value.title,body:response.item.value.request});}
  catch {actionError.value="Could not activate this proposal. Retry; no work agent was started.";}
 }
 async function draft() {await activate();}

@@ -10,7 +10,7 @@ async function refresh(){try{await cockpit.refresh("feedback");storageProblem.va
 async function choose(value:FeedbackVerdict){if(!feedbackId.value||busy.value)return;busy.value=true;try{await cockpit.save("feedback",feedbackId.value,{verdict:value,reason:reasonDraft.value.trim()},saved.value?.version??0);saveProblem.value=false;storageProblem.value="";}catch{saveProblem.value=true;}finally{busy.value=false;}}
 async function saveReason(){if(verdict.value)await choose(verdict.value);}
 async function clear(){if(!saved.value||busy.value)return;busy.value=true;try{await cockpit.remove("feedback",saved.value);reasonDraft.value="";saveProblem.value=false;}catch{saveProblem.value=true;}finally{busy.value=false;}}
-onMounted(async()=>{try{let legacy={};try{legacy=loadFeedback(localStorage).entries;}catch{}await cockpit.migrate("feedback",Object.entries(legacy).map(([id,value])=>({id,value:value as Record<string,unknown>})).map(r=>({id:r.id,value:{verdict:r.value.verdict,reason:r.value.reason}})));reasonDraft.value=String(saved.value?.value.reason??"");storageProblem.value="";}catch{storageProblem.value="unavailable";}});
+onMounted(async()=>{const initialId=feedbackId.value;try{let legacy={};try{legacy=loadFeedback(localStorage).entries;}catch{}await cockpit.migrate("feedback",Object.entries(legacy).map(([id,value])=>({id,value:value as Record<string,unknown>})).map(r=>({id:r.id,value:{verdict:r.value.verdict,reason:r.value.reason}})));if(feedbackId.value===initialId&&!reasonDraft.value)reasonDraft.value=String(saved.value?.value.reason??"");storageProblem.value="";}catch{storageProblem.value="unavailable";}});
 watch(feedbackId,()=>{reasonDraft.value=String(saved.value?.value.reason??"");saveProblem.value=false;});
 </script>
 
