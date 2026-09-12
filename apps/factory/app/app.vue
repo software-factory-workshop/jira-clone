@@ -24,16 +24,21 @@ const {
   refresh: refreshGithub,
 } = useFetch("/api/github", { server: false, immediate: false });
 const storageKey = "adeo-factory-drafts-v1";
-onMounted(() => {
+const cockpit = useCockpit();
+const draftVersions = ref<Record<string,number>>({});
+async function refreshDrafts() {
+ const rows=await cockpit.refresh("drafts");
+ drafts.value=rows.map(row=>({id:row.id,title:String(row.value.title),request:String(row.value.request),updatedAt:row.updatedAt}));
+ draftVersions.value=Object.fromEntries(rows.map(row=>[row.id,row.version]));
+}
+onMounted(async () => {
   void refreshGithub();
   try {
-    drafts.value = parseDrafts(
-      JSON.parse(localStorage.getItem(storageKey) || "[]"),
-    );
-  } catch {
-    notice.value =
-      "Browser storage is unavailable. You can still compose a request.";
-  }
+    let legacy: Draft[]=[];
+    try { legacy=parseDrafts(JSON.parse(localStorage.getItem(storageKey)||"[]")); } catch { /* Retain inaccessible legacy data. */ }
+    await cockpit.migrate("drafts",legacy.map(d=>({id:d.id,value:{title:d.title,request:d.request}})));
+    await refreshDrafts();
+  } catch { notice.value="Shared drafts are unavailable. Keep your work and retry; browser drafts remain untouched."; }
 });
 async function compose(starter?: { title: string; body: string }) {
   activeId.value = null;
@@ -55,29 +60,16 @@ async function focusEditor() {
   editor.value?.scrollIntoView({ block: "start", behavior: "instant" });
   editor.value?.querySelector("input")?.focus({ preventScroll: true });
 }
-function save() {
+async function save() {
   if (!title.value.trim() || !request.value.trim()) return;
-  const draft: Draft = {
-    id: activeId.value || crypto.randomUUID(),
-    title: title.value.trim(),
-    request: request.value.trim(),
-    updatedAt: new Date().toISOString(),
-  };
-  const next = [draft, ...drafts.value.filter((item) => item.id !== draft.id)];
+  const id=activeId.value||crypto.randomUUID();
   try {
-    localStorage.setItem(storageKey, JSON.stringify(next));
-    drafts.value = next;
-    activeId.value = draft.id;
-    notice.value = "Draft saved in this browser.";
-  } catch {
-    notice.value =
-      "Could not save to browser storage. Keep a copy of your request.";
-  }
+    await cockpit.save("drafts",id,{title:title.value.trim(),request:request.value.trim()},draftVersions.value[id]??0);
+    activeId.value=id;await refreshDrafts();notice.value="Draft saved in the shared cockpit.";
+  } catch { notice.value="Could not save. This draft may have changed elsewhere. Your text is retained; reload shared drafts before retrying."; }
 }
-const issueUrl = computed(
-  () =>
-    `${repository.url}/issues/new?title=${encodeURIComponent(title.value)}&body=${encodeURIComponent(request.value)}`,
-);
+const issueUrl=ref("");
+watch([title,request],async()=>{try{issueUrl.value=(await $fetch<{url:string}>("/factory/cockpit/issue-link",{method:"POST",body:{title:title.value,request:request.value}})).url;}catch{issueUrl.value="";}});
 </script>
 
 <template>
@@ -167,7 +159,7 @@ const issueUrl = computed(
                     drafts.length
                   }}</UBadge>
                 </div>
-                <p class="muted small">Saved in this browser</p>
+                <p class="muted small">Saved in the shared cockpit</p>
                 <div v-if="!drafts.length" class="empty-drafts">
                   <UIcon name="i-lucide-file-pen-line" />
                   <h3>A little context goes a long way</h3>

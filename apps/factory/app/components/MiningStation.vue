@@ -9,19 +9,23 @@ const storageNotice = ref("");
 const storageKey = "adeo-factory-mining-v1";
 const route = useRoute();
 const router = useRouter();
-onMounted(() => {
+const cockpit=useCockpit();
+onMounted(async () => {
   try {
-    history.value = savedSchema.parse(JSON.parse(localStorage.getItem(storageKey) || "[]"));
+    let legacy: z.infer<typeof savedSchema>=[];
+    try{legacy=savedSchema.parse(JSON.parse(localStorage.getItem(storageKey)||"[]"));}catch{}
+    await cockpit.migrate("runs",legacy.map(r=>({id:r.id,value:{label:r.label,station:"mining"}})));
+    history.value=cockpit.items.value.runs.filter(r=>r.value.station==="mining").map(r=>({id:r.id,label:String(r.value.label),createdAt:r.createdAt}));
     const linkedSession = z.string().regex(/^wrun_[A-Za-z0-9_-]+$/).safeParse(route.query.investigation);
     selected.value = linkedSession.success ? linkedSession.data : history.value[0]?.id;
-  } catch { storageNotice.value = "Recent investigations could not be restored from this browser."; }
+  } catch { storageNotice.value = "Shared investigations could not be loaded. Browser history remains untouched."; }
 });
-function remember(id: string, label: string) {
+async function remember(id: string, label: string) {
   void router.replace({ query: { ...route.query, investigation: id } });
   if (history.value.some(item => item.id === id)) return;
   history.value = [{ id, label: label.slice(0, 90), createdAt: new Date().toISOString() }, ...history.value].slice(0, 30);
-  try { localStorage.setItem(storageKey, JSON.stringify(history.value)); }
-  catch { storageNotice.value = "Browser storage is unavailable. Keep the session ID below to reopen this investigation."; }
+  try { const row=cockpit.items.value.runs.find(r=>r.id===id); await cockpit.save("runs",id,{label,station:"mining"},row?.version??0); }
+  catch { storageNotice.value = "Shared history is unavailable. Keep the session ID below to reopen this investigation."; }
 }
 function fresh() {
   selected.value = undefined;
@@ -45,7 +49,7 @@ function choose(id: string) {
     </section>
     <aside class="panel mining-history">
       <div class="panel-heading"><h2>Recent investigations</h2><UButton icon="i-lucide-plus" variant="ghost" aria-label="New investigation" @click="fresh" /></div>
-      <p class="small muted">This browser remembers the session links. Eve keeps each run and its findings.</p>
+      <p class="small muted">The shared cockpit remembers the session links. Eve keeps each run and its findings.</p>
       <p v-if="!history.length" class="muted">Your first investigation will appear here.</p>
       <button v-for="item in history" :key="item.id" class="history-item" :class="{ selected: selected === item.id }" @click="choose(item.id)">
         <UIcon name="i-lucide-search" /><span>{{ item.label }}<small>{{ new Date(item.createdAt).toLocaleString() }}</small></span>

@@ -45,16 +45,15 @@ async function start() {
 }
 async function stop() { try { await cancel(); } catch { actionError.value = "Cancellation could not be confirmed. Reconnect to check the run."; } }
 async function reconnect() { try { await resume(); actionError.value = ""; } catch { actionError.value = "Could not reconnect to this investigation."; } }
-function useProposal(proposal: MiningProposal, index: number) {
-  const current = output.value;
-  const id = session.value?.sessionId || props.sessionId;
-  if (!current || !id) return;
-  emit("draft", proposalDraft({ proposal, index, sessionId: id, revision: current.revision, capturedAt: current.capturedAt, phase: current.phase, contextGaps: current.contextGaps }));
+async function useProposal(proposal: MiningProposal, _index: number) {
+  await activate(proposal.id);
 }
-function draft() {
-  if (!output.value?.report) return;
-  emit("draft", { title: "Review task-mining proposals", body: `${output.value.report}\n\n---\nInvestigation: ${session.value?.sessionId || props.sessionId}\nSource revision: ${output.value.revision}\nCaptured: ${output.value.capturedAt}\n\nInvestigation status: ${output.value.phase}\nThese are proposals for human review, not approved work.` });
+async function activate(proposalId?:string) {
+ const sessionId=session.value?.sessionId||props.sessionId;if(!sessionId)return;
+ try {const response=await $fetch<{item:{value:{title:string;request:string}}}>("/factory/cockpit/activate",{method:"POST",body:{sessionId,proposalId},retry:0});emit("draft",{title:response.item.value.title,body:response.item.value.request});}
+ catch {actionError.value="Could not activate this proposal. Retry; no work agent was started.";}
 }
+async function draft() {await activate();}
 </script>
 
 <template>

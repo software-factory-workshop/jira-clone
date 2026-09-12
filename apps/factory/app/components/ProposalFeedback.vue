@@ -1,118 +1,26 @@
 <script setup lang="ts">
-import {
-  clearFeedbackEntry,
-  feedbackChangedEvent,
-  feedbackKeyFor,
-  loadFeedback,
-  setFeedbackEntry,
-  storeFeedback,
-  storageProblemFor,
-  type FeedbackStorageProblem,
-  type FeedbackVerdict,
-  type ProposalFeedbackMap,
-} from "../utils/proposal-feedback";
-
-const props = defineProps<{ proposalId?: string; proposalTitle: string }>();
-
-const entries = ref<ProposalFeedbackMap>({});
-const reasonDraft = ref("");
-const storageProblem = ref<FeedbackStorageProblem>("");
-const saveProblem = ref(false);
-
-const feedbackId = computed(() => feedbackKeyFor(props.proposalId));
-const saved = computed(() => (feedbackId.value ? entries.value[feedbackId.value] : undefined));
-const verdict = computed<FeedbackVerdict | undefined>(() => saved.value?.verdict);
-const reasonChanged = computed(() => reasonDraft.value.trim().slice(0, 500) !== (saved.value?.reason ?? ""));
-
-function refresh() {
-  try {
-    const loaded = loadFeedback(localStorage);
-    // Keep the last known marks when storage cannot be read, so a failure
-    // after a success still shows the selected verdict alongside the warning.
-    if (!loaded.unavailable) entries.value = loaded.entries;
-    // A clean load proves storage recovered, so a previous warning clears
-    // instead of lingering after the failure is gone.
-    storageProblem.value = storageProblemFor(loaded);
-  } catch {
-    storageProblem.value = "unavailable";
-  }
-}
-
-function persist(next: ProposalFeedbackMap) {
-  try {
-    const result = storeFeedback(localStorage, next);
-    saveProblem.value = result.unavailable;
-    if (!result.unavailable) {
-      entries.value = next;
-      // A successful save proves storage works, so it also clears a stale
-      // malformed/unavailable warning (the save overwrote the bad entry).
-      storageProblem.value = "";
-      window.dispatchEvent(new CustomEvent(feedbackChangedEvent));
-    }
-  } catch {
-    saveProblem.value = true;
-  }
-}
-
-// Re-read before every write so two proposal cards on the same report never
-// overwrite each other's feedback from a stale in-memory copy.
-function update(transform: (fresh: ProposalFeedbackMap) => ProposalFeedbackMap) {
-  if (!feedbackId.value) return;
-  try {
-    const loaded = loadFeedback(localStorage);
-    storageProblem.value = storageProblemFor(loaded);
-    // Build on the last known in-memory marks when the re-read fails, so a
-    // transient read failure cannot wipe this or sibling verdicts on save.
-    persist(transform(loaded.unavailable ? entries.value : loaded.entries));
-  } catch {
-    saveProblem.value = true;
-  }
-}
-
-function choose(value: FeedbackVerdict) {
-  update(fresh => setFeedbackEntry(fresh, feedbackId.value!, { verdict: value, reason: reasonDraft.value }));
-}
-
-function saveReason() {
-  const current = saved.value;
-  if (!current) return;
-  update(fresh => setFeedbackEntry(fresh, feedbackId.value!, { verdict: current.verdict, reason: reasonDraft.value }));
-}
-
-function clear() {
-  reasonDraft.value = "";
-  update(fresh => clearFeedbackEntry(fresh, feedbackId.value!));
-}
-
-function onExternalChange() {
-  const before = saved.value?.reason ?? "";
-  refresh();
-  // Keep an unsaved typed reason; adopt the stored one only when untouched.
-  if (!reasonChanged.value) reasonDraft.value = saved.value?.reason ?? before;
-}
-
-watch(feedbackId, () => {
-  reasonDraft.value = saved.value?.reason ?? "";
-  saveProblem.value = false;
-});
-
-onMounted(() => {
-  refresh();
-  reasonDraft.value = saved.value?.reason ?? "";
-  window.addEventListener(feedbackChangedEvent, onExternalChange);
-});
-
-onUnmounted(() => {
-  window.removeEventListener(feedbackChangedEvent, onExternalChange);
-});
+import { feedbackKeyFor,loadFeedback,type FeedbackVerdict } from "../utils/proposal-feedback";
+const props=defineProps<{proposalId?:string;proposalTitle:string}>();
+const cockpit=useCockpit();const reasonDraft=ref("");const storageProblem=ref("");const saveProblem=ref(false);const busy=ref(false);
+const feedbackId=computed(()=>feedbackKeyFor(props.proposalId));
+const saved=computed(()=>cockpit.items.value.feedback.find(r=>r.id===feedbackId.value));
+const verdict=computed(()=>saved.value?.value.verdict as FeedbackVerdict|undefined);
+const reasonChanged=computed(()=>reasonDraft.value.trim()!==(saved.value?.value.reason??""));
+async function refresh(){try{await cockpit.refresh("feedback");storageProblem.value="";}catch{storageProblem.value="unavailable";}}
+async function choose(value:FeedbackVerdict){if(!feedbackId.value||busy.value)return;busy.value=true;try{await cockpit.save("feedback",feedbackId.value,{verdict:value,reason:reasonDraft.value.trim()},saved.value?.version??0);saveProblem.value=false;storageProblem.value="";}catch{saveProblem.value=true;}finally{busy.value=false;}}
+async function saveReason(){if(verdict.value)await choose(verdict.value);}
+async function clear(){if(!saved.value||busy.value)return;busy.value=true;try{await cockpit.remove("feedback",saved.value);reasonDraft.value="";saveProblem.value=false;}catch{saveProblem.value=true;}finally{busy.value=false;}}
+onMounted(async()=>{try{let legacy={};try{legacy=loadFeedback(localStorage).entries;}catch{}await cockpit.migrate("feedback",Object.entries(legacy).map(([id,value])=>({id,value:value as Record<string,unknown>})).map(r=>({id:r.id,value:{verdict:r.value.verdict,reason:r.value.reason}})));reasonDraft.value=String(saved.value?.value.reason??"");storageProblem.value="";}catch{storageProblem.value="unavailable";}});
+watch(feedbackId,()=>{reasonDraft.value=String(saved.value?.value.reason??"");saveProblem.value=false;});
 </script>
 
 <template>
   <section v-if="feedbackId" class="proposal-feedback" :aria-label="`Usefulness feedback for ${proposalTitle}`">
     <h4 class="feedback-title">Is this proposal useful?</h4>
-    <p class="small muted">Saved in this browser only. It does not start work or change factory policy.</p>
+    <p class="small muted">Saved in the shared cockpit. It does not start work or change factory policy.</p>
     <URadioGroup
       :model-value="verdict"
+      :disabled="busy"
       :items="[
         { value: 'useful', label: 'Useful' },
         { value: 'not-useful', label: 'Not useful' },
@@ -123,7 +31,7 @@ onUnmounted(() => {
       @update:model-value="choose($event as FeedbackVerdict)"
     />
     <p v-if="verdict" class="small feedback-saved" role="status">
-      Marked {{ verdict === "useful" ? "useful" : "not useful" }} in this browser.
+      Marked {{ verdict === "useful" ? "useful" : "not useful" }} in the shared cockpit.
     </p>
     <UFormField label="Why? (optional)" :name="`proposal-feedback-reason-${feedbackId}`">
       <UTextarea
@@ -152,9 +60,9 @@ onUnmounted(() => {
         @click="clear"
       >Clear</UButton>
     </div>
-    <p v-if="storageProblem === 'malformed'" role="status" class="small muted">Some saved feedback in this browser could not be read, so those marks are hidden. Readable marks stay shown and your typed reason stays on screen. Saving a new mark replaces the unreadable saved data.</p>
-    <p v-else-if="storageProblem === 'unavailable'" role="status" class="small muted">Browser storage is not available right now, so your latest choice may not be kept after reload until saving succeeds. Your typed reason stays on screen — try saving again; the warning clears when storage recovers.</p>
-    <p v-if="saveProblem" role="alert" class="small muted">Could not save feedback in this browser yet, so that choice was not kept. Your typed reason stays on screen — try saving again.</p>
+    <p v-if="storageProblem" role="status" class="small muted">Shared feedback is unavailable. Your typed reason is retained.</p>
+    <p v-if="saveProblem" role="alert" class="small muted">Could not save; another user may have changed this feedback. Your reason is retained.</p>
+    <UButton v-if="storageProblem || saveProblem" variant="ghost" @click="refresh">Reload saved feedback</UButton>
   </section>
   <p v-else class="small muted">Feedback is unavailable for findings without a recorded proposal ID.</p>
 </template>

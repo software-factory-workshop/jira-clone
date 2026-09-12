@@ -13,6 +13,7 @@
   "dependencies": {
     "@jira-clone/context": "workspace:*",
     "@software-factory-workshop/nuxt-adeo-ds": "file:../../vendor/software-factory-workshop-nuxt-adeo-ds-0.1.1.tgz",
+    "@vercel/blob": "^2.8.0",
     "@vercel/connect": "2.0.4",
     "@vercel/oidc": "3.8.7",
     "eve": "0.52.5",
