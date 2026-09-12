@@ -19,4 +19,8 @@ export default defineTool({description:"Prepare a clean pinned main snapshot, fr
   const setup=await prepareRepository(sandbox,token,ctx.abortSignal,snapshot);
   workState.update(s=>({...s,prepared:setup.prepared,revision:setup.revision,baseline:setup.files.map(({file,sha256})=>({file,sha256})),commands:setup.commands}));
   yield{phase:setup.prepared?"Prepared":"Setup failed",revision:setup.revision,request:stationRequest(ctx),workspace:"/workspace/repo",fileCount:setup.files.length,commands:setup.commands,limitations:setup.contextGaps};
- }});
+ },
+ toModelOutput(output){
+  return {type:"text",value:JSON.stringify("commands" in output ? {...output,commands:output.commands?.map(command=>({command:command.command,exitCode:command.exitCode,stdout:command.stdout.slice(-600),stderr:command.stderr.slice(-1000)}))} : output)};
+ }
+});

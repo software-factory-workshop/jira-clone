@@ -26,6 +26,8 @@ Remi can mark a structured mining proposal useful or not useful and optionally e
 
 ## Handoff
 
+Use the existing `UButton` and `UTextarea` patterns: two judgment buttons, an optional reason field, and a clear action are enough for this first version. Do not investigate Nuxt UI's internal radio-group types or invent a new form framework. Start with `apps/factory/app/components/MiningRun.vue`, `apps/factory/app/utils/mining-output.ts` and the current storage/test conventions. After the required task and repository context, inspect at most six additional relevant files before making the first implementation; expand only for a concrete failing check or unresolved requirement.
+
 Read AGENTS.md, the goal, project map and work already underway, then inspect the actual mining component, its output parser and existing draft/storage conventions. Implement this task in the disposable repository workspace. Open one draft PR with a concise problem/behavior description and actual validation evidence. Do not implement other mining proposals or modify agent instructions, review policy, deployment configuration, credentials or CI workflows.
 
 The independent reviewer must inspect the PR's exact head revision and the acceptance evidence above, run relevant checks, and return actionable findings. Model approval does not merge the PR.

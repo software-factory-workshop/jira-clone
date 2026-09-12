@@ -1,5 +1,17 @@
 # Factory verification
 
+## First worker PR — 12 September 2026
+
+Native Eve worker `wrun_41M2AVC0FK0GPK3KVJFW3B1QA3`, dispatched by cockpit session `wrun_41M2AVBS640GXB6E761Y5HCQTT`, published [draft PR #2](https://github.com/software-factory-workshop/jira-clone/pull/2). The host created branch `factory/work-014995639614c448c6e56d11`, head `a6d6e591207918a81bc4f8f2c9e4bc7d345d3b70`, from source `65ff1fb74af68344d8042a1b655e0c0c00e99d39`. This proves the app-scoped GitHub publication path on actual useful work. No merge occurred.
+
+The worker wrote the feedback component, browser-storage utility, MiningRun integration and focused tests. Its `verify_work` ran typecheck, 44 factory tests and both app builds successfully before publication. GitHub Actions run `34695846890` passed, and both PR previews reached Ready. The original PR explicitly says it has no live-browser evidence; independent review and browser verification are recorded separately when completed.
+
+This was an assisted run: excessive preliminary reads exhausted the original input allowance, then a continued run needed an explicit steer to implement and later an output-budget continuation. The same sandbox state resumed and the same worker published. No feature code was written by the supervising development session. The resulting context changes make the existing control choices explicit, bound preliminary exploration and shorten dependency-install output shown to the model. Their impact on a fresh worker is not yet measured.
+
+[Original publication, command and usage evidence](../factory/mining/native/2026-09-12/worker-proposal-feedback.json) records 1,050,658 input / 32,825 output tokens for the child. Root plus child model cost was $0.023956004; Sandbox compute is separate. The original dispatch failure cost an additional $0.0004135. A stopped sandbox with a saved snapshot was confirmed after publication.
+
+The run also exposed a cockpit projection bug: the dispatcher completed before the background `subagent.called` event, so the chat composable stopped before discovering its child. The UI now follows the durable station stream beyond that boundary, exposes explicit budget choices, and judges cancellation from the latest turn rather than an earlier interrupted turn. Live replay verification follows deployment.
+
 ## Worker and reviewer bootstrap — 12 September 2026
 
 The implementation follows [the station design and source decisions](../factory/work-stations.md). Root typecheck, tests and both app builds passed, including 38 factory tests. A Vercel-mode Nuxt build confirmed both `/eve/v1/*` and `/factory/stations/*` route to the existing Eve service with their original paths. The native Eve Vercel build also passed. A local HTTP probe of the custom worker route returned 400 for invalid input without starting a model run.

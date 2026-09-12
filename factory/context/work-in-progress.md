@@ -8,7 +8,7 @@ The first selected worker assignment is `factory/tasks/proposal-usefulness.md`. 
 
 PR #1, “Expose cockpit UI capabilities through tested APIs”, was reviewed at `71ed287` and left unmerged because of an incorrect issue URL and a draft restore/save race. See `docs/pr-1-review.md`. The stations do not depend on those unmerged APIs.
 
-Updated 12 September 2026 after native Eve machine-access and structured-proposal validation. This supplements GitHub; an empty issue list does not imply no active work. A focused run recognized both existing candidates as pending owner review rather than new discoveries.
+Updated 12 September 2026 after the first native Eve worker published its draft PR. This supplements GitHub; an empty issue list does not imply no active work. A focused run recognized both existing candidates as pending owner review rather than new discoveries.
 
 ## Native task-mining investigation and context experiments
 
@@ -20,14 +20,11 @@ Do not propose starting this same baseline/transfer experiment, creating its run
 
 Artifacts exist in `factory/mining/native/2026-09-12/`, intentionally excluded from mining snapshots. `docs/verification.md` records accessible dated verification and limitations. A subsequent focused structured-proposal evaluation passed six operational and identity gates using machine access; this does not replace owner usefulness judgment.
 
-## Proposals awaiting Remi's review
+## Selected work and pending proposals
 
-The following are existing candidate proposals, not accepted work or novel discoveries:
+Under Remi's instruction to validate the worker with useful work and make reasonable choices while he is away, the development session selected browser-local proposal usefulness feedback. The native Eve worker published [draft PR #2](https://github.com/software-factory-workshop/jira-clone/pull/2), head `a6d6e591207918a81bc4f8f2c9e4bc7d345d3b70`, from main `65ff1fb`. Its sandbox checks and GitHub CI passed. Independent reviewer and live browser verification are still underway. Do not rediscover or implement this assignment again; inspect the PR and its current status. This assignment is not evidence of Remi's subjective usefulness judgment or merge authorization.
 
-- Capture browser-local usefulness feedback on mining proposals.
-- Define the bounded ADEO Jira demo scope for the workshop.
-
-Remi has not accepted either proposal. Do not implement them or reintroduce them as newly discovered tasks merely because GitHub has no corresponding issue. If they are still the best next step, explain that owner review is pending. The proposed two-prompt transfer experiment overlaps the completed development-session work above; further experimentation needs a distinct question.
+Defining the bounded ADEO Jira demo scope remains a candidate awaiting owner review. Do not reintroduce it as a new discovery merely because GitHub has no corresponding issue. The proposed two-prompt transfer experiment overlaps the completed development-session work above; further experimentation needs a distinct question.
 
 ## Cockpit delivery and remaining verification
 
@@ -37,7 +34,7 @@ Remi selected machine-to-machine Vercel access and individual task drafts on 12 
 
 Structured proposals now have host-assigned identities and source provenance. Each has its own cockpit action opening an individual editable task draft; reflection and shared evidence remain separate. This selection does not start implementation. Hosted run `wrun_41M2ASGX7J0GQQ5XJY7ETJ54F7` verified opening and saving one proposal, then restoring both report and draft after reload. Do not propose building machine access or splitting proposal drafts again. Remaining investigation-quality observations include failure to retry logs with available deployment IDs and asserting runtime evidence is necessary without showing why. The dedicated token expires on 12 October 2026 and must be rotated before then. Current run and deployment evidence belongs in `docs/verification.md`.
 
-No Jira feature implementation, automatic issue publication or factory-rule activation is underway. Proposed tasks and candidate factory rules require owner review before activation. Check current GitHub issues and PRs for work started elsewhere; this dated record does not supersede newer evidence.
+Native worker and reviewer stations now exist; see `factory/work-stations.md`. Worker publication is limited to an explicitly assigned task and a draft PR. PR #1 remains open after review found a repository URL bug and a draft restoration race. No Jira feature implementation, automatic merge or factory-rule activation is underway. Candidate factory rules require owner review before activation. Check current GitHub issues and PRs for work started elsewhere; this dated record does not supersede newer evidence.
 
 ## Historical fx calibration
 

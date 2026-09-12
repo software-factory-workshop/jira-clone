@@ -10,5 +10,5 @@ export default defineAgent({
   verifyGatewayScope(await getVercelOidcToken(),process.env.AI_GATEWAY_API_KEY);
   return model;
  }}}),
- limits:{maxInputTokensPerSession:500000,maxOutputTokensPerSession:16000,maxTokenCostUsdPerSession:0.2}
+ limits:{maxInputTokensPerSession:1000000,maxOutputTokensPerSession:32000,maxTokenCostUsdPerSession:0.2}
 });

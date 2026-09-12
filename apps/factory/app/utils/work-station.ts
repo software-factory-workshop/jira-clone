@@ -1,4 +1,5 @@
 import { z } from "zod";
+import type { EveMessageData, MessageStreamEvent } from "eve/client";
 
 export const stationSessionSchema = z.object({ sessionId: z.string().regex(/^wrun_[A-Za-z0-9_-]+$/) });
 export const stationLinkSchema = z.object({ station: z.enum(["worker", "reviewer"]), run: z.string().regex(/^wrun_[A-Za-z0-9_-]+$/) });
@@ -25,4 +26,52 @@ const reviewerResult = z.object({ station: z.literal("reviewer"), sessionId: z.s
 export function parseStationResult(value: unknown) {
   const parsed = z.discriminatedUnion("station", [workerResult, reviewerResult]).safeParse(value);
   return parsed.success ? parsed.data : undefined;
+}
+
+export function dispatchedTask(value: unknown): string | undefined {
+  const parsed = z.object({ status: z.literal("working"), taskId: z.string().min(1) }).safeParse(value);
+  return parsed.success ? parsed.data.taskId : undefined;
+}
+
+export function pendingStationRequests(data: EveMessageData) {
+  return data.messages.flatMap(message => message.parts).flatMap(part => part.type === "dynamic-tool" && part.state === "approval-requested" && part.toolMetadata?.eve?.inputRequest ? [part.toolMetadata.eve.inputRequest] : []);
+}
+
+// The last turn boundary wins: cancellation of an earlier turn is not a stopped
+// session after a steer or continuation starts a new turn.
+export function latestStationTurn(events: readonly { type: string }[]) {
+  for (const event of [...events].reverse()) {
+    if (event.type === "turn.cancelled") return "cancelled";
+    if (["turn.failed", "session.failed"].includes(event.type)) return "failed";
+    if (event.type === "turn.completed") return "completed";
+    if (["turn.started", "step.started", "message.received"].includes(event.type)) return "running";
+  }
+  return "unknown";
+}
+
+// Eve's Vue entry is browser-bundled; its generic client entry contains Node
+// package aliases that conflict with Nuxt's #shared alias. Follow the public
+// same-origin NDJSON route and keep Eve's Vue reducer for message projection.
+export async function* readStationStream(sessionId: string, signal: AbortSignal): AsyncGenerator<MessageStreamEvent> {
+  const response = await fetch(`/eve/v1/session/${encodeURIComponent(sessionId)}/stream?startIndex=0`, { cache: "no-store", signal });
+  if (!response.ok || !response.body) throw new Error("Station stream is unavailable");
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+  try {
+    for (;;) {
+      const chunk = await reader.read();
+      buffer += decoder.decode(chunk.value, { stream: !chunk.done });
+      const lines = buffer.split("\n");
+      buffer = lines.pop() || "";
+      if (chunk.done && buffer.trim()) { lines.push(buffer); buffer = ""; }
+      for (const line of lines) {
+        if (!line.trim()) continue;
+        const event = JSON.parse(line);
+        if (!event || typeof event.type !== "string" || !event.data || typeof event.data !== "object") throw new Error("Invalid station event");
+        yield event;
+      }
+      if (chunk.done) break;
+    }
+  } finally { await reader.cancel().catch(() => {}); reader.releaseLock(); }
 }
