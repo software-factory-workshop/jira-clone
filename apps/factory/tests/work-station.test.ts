@@ -1,7 +1,7 @@
 import test from "node:test";
 import { defaultMessageReducer } from "eve/client";
 import assert from "node:assert/strict";
-import { dispatchedTask, parsePullRequest, parseStationResult, pendingStationRequests, stationLinkSchema, latestStationTurn, readStationStream } from "../app/utils/work-station.ts";
+import { dispatchedTask, parsePullRequest, parseStationResult, pendingStationRequests, stationLinkSchema, latestStationTurn, readStationStream, workerRequest, stationLaunchError, matchesStationDelivery, parseStationToolResult } from "../app/utils/work-station.ts";
 const sha = "a".repeat(40);
 test("review input only accepts PRs in the configured repository", () => {
   assert.equal(parsePullRequest("2"), 2);
@@ -16,9 +16,10 @@ test("worker success requires a real scoped PR link and exact head/base identity
   assert.equal(parseStationResult({ ...result, publication: { ...result.publication, headSha: "unknown" } }), undefined);
 });
 test("review findings retain exact reviewed head, limitations and command failures", () => {
-  const result = parseStationResult({ station: "reviewer", sessionId: "wrun_test", prNumber: 2, url: "https://github.com/software-factory-workshop/jira-clone/pull/2", baseSha: sha, headSha: sha, verdict: "changes_requested", summary: "A regression", findings: [{ severity: "blocking", path: "app.ts", line: 12, message: "Lost draft", evidence: "Reproduced save/restore race" }], commands: [{ command: "pnpm test", exitCode: 1, stdout: "Failed", stderr: "" }], limitations: ["No hosted browser run"], capturedAt: "2026-09-12T14:00:00Z" });
+  const result = parseStationResult({ station: "reviewer", sessionId: "wrun_test", prNumber: 2, url: "https://github.com/software-factory-workshop/jira-clone/pull/2", baseSha: sha, headSha: sha, targetBranch: "factory/parent", verdict: "changes_requested", summary: "A regression", findings: [{ severity: "blocking", path: "app.ts", line: 12, message: "Lost draft", evidence: "Reproduced save/restore race" }], commands: [{ command: "pnpm test", exitCode: 1, stdout: "Failed", stderr: "" }], limitations: ["No hosted browser run"], capturedAt: "2026-09-12T14:00:00Z" });
   assert(result?.station === "reviewer");
   assert.equal(result.headSha, sha);
+  assert.equal(result.targetBranch, "factory/parent");
   assert.equal(result.findings[0]?.line, 12);
   assert.equal(result.commands[0]?.exitCode, 1);
   assert.deepEqual(result.limitations, ["No hosted browser run"]);
@@ -74,4 +75,54 @@ test("durable station tail reads late dispatch and child decisions beyond a turn
   const received = [];
   for await (const event of readStationStream("wrun_child", new AbortController().signal)) received.push(event);
   assert.deepEqual(received, events);
+});
+
+test("work actions keep same-owner revision distinct from a new child contribution", () => {
+  const draft = { title: "Fix feedback", brief: " Preserve the selected proposal " };
+  assert.deepEqual(workerRequest("create", draft, ""), { path: "/factory/stations/worker", body: { title: "Fix feedback", brief: "Preserve the selected proposal" } });
+  assert.deepEqual(workerRequest("revise", { ...draft, title: "" }, "2"), { path: "/factory/stations/revisions", body: { prNumber: 2, brief: "Preserve the selected proposal" } });
+  assert.deepEqual(workerRequest("contribute", draft, "2"), { path: "/factory/stations/worker", body: { parentPrNumber: 2, title: "Fix feedback", brief: "Preserve the selected proposal" } });
+  assert.throws(() => workerRequest("revise", draft, "https://github.com/other/repo/pull/2"));
+  assert.throws(() => workerRequest("contribute", { ...draft, title: "" }, "2"));
+});
+
+test("unavailable ownership does not suggest silently taking the branch", () => {
+  assert.match(stationLaunchError({ data: { error: { code: "owner_unavailable", message: "internal detail" } } }), /No replacement took control/);
+  assert.match(stationLaunchError({ data: { error: { code: "ownership_unverified", message: "internal detail" } } }), /No worker was assigned/);
+});
+
+test("child PR results preserve target branch and owner provenance", () => {
+  const result = parseStationResult({ station: "worker", sessionId: "wrun_child", revision: sha, summary: "Contributed", commands: [], publication: { branch: "factory/child", number: 3, url: "https://github.com/software-factory-workshop/jira-clone/pull/3", headSha: sha, baseSha: sha, targetBranch: "factory/parent", targetHeadSha: sha, ownerSessionId: "wrun_child", parentPrNumber: 2 } });
+  assert(result?.station === "worker");
+  assert.equal(result.publication.parentPrNumber, 2);
+  assert.equal(result.publication.targetBranch, "factory/parent");
+  assert.equal(result.publication.ownerSessionId, "wrun_child");
+});
+
+test("revision run links and event projection identify the new delivery", () => {
+  const link = { station: "worker", run: "wrun_owner", execution: "owner", operationId: "d4c2d7da-37da-45ad-a782-c903e59a3c5d", deliveryId: "delivery_revision" };
+  assert.deepEqual(stationLinkSchema.parse(link), link);
+  assert.equal(matchesStationDelivery({}, link.deliveryId, false), false);
+  assert.equal(matchesStationDelivery({ meta: { deliveryIds: ["delivery_old"] } }, link.deliveryId, false), false);
+  assert.equal(matchesStationDelivery({ meta: { deliveryIds: [link.deliveryId] } }, link.deliveryId, false), true);
+  assert.equal(matchesStationDelivery({}, link.deliveryId, true), true);
+  assert.equal(matchesStationDelivery({ meta: { deliveryIds: ["delivery_other"] } }, link.deliveryId, true), false);
+});
+
+test("the previous publication is not a completed revision of the same owner session", () => {
+  const operationId = "d4c2d7da-37da-45ad-a782-c903e59a3c5d";
+  const output = { station: "worker", sessionId: "wrun_owner", revision: sha, summary: "Changed", commands: [], publication: { branch: "factory/owner", number: 2, url: "https://github.com/software-factory-workshop/jira-clone/pull/2", headSha: sha, baseSha: sha } };
+  assert.equal(parseStationResult(output, operationId), undefined);
+  assert.equal(parseStationResult({ ...output, operationId: "77e646cd-a877-43c3-a87f-b69e302e4a94" }, operationId), undefined);
+  assert.equal(parseStationResult({ ...output, operationId }, operationId)?.sessionId, "wrun_owner");
+});
+
+test("an identical revision replay displays only the owner's matching cached publication", () => {
+  const operationId = "d4c2d7da-37da-45ad-a782-c903e59a3c5d";
+  const result = { station: "worker", sessionId: "wrun_owner", operationId, revision: sha, summary: "Already done", commands: [], publication: { branch: "factory/owner", number: 2, url: "https://github.com/software-factory-workshop/jira-clone/pull/2", headSha: sha, baseSha: sha } };
+  const output = { phase: "Already published", result };
+  assert.equal(parseStationToolResult("prepare_work", output, operationId)?.sessionId, "wrun_owner");
+  assert.equal(parseStationToolResult("prepare_work", output, "77e646cd-a877-43c3-a87f-b69e302e4a94"), undefined);
+  assert.equal(parseStationToolResult("prepare_work", { ...output, phase: "Prepared" }, operationId), undefined);
+  assert.equal(parseStationToolResult("read_file", output, operationId), undefined);
 });

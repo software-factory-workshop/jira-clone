@@ -48,8 +48,8 @@ test("publication preserves existing executable mode but refuses symlinks",async
  t.mock.restoreAll();const symlinkWrites=mockGitHub(t,{mode:"120000"});await assert.rejects(publishWork("test-token",input),/symlinks/);assert.equal(symlinkWrites.length,0);
 });
 test("stale main and unexpected branch heads never create a ref or PR",async t=>{
- const writes=mockGitHub(t,{main:"f".repeat(40)});await assert.rejects(publishWork("test-token",input),/Main advanced/);assert(!writes.some(x=>x.path==="git/refs"||x.path==="pulls"));
- t.mock.restoreAll();const collisionWrites=mockGitHub(t,{existingDifferent:true});await assert.rejects(publishWork("test-token",input),/different head/);assert(!collisionWrites.some(x=>x.path==="git/refs"||x.path==="pulls"));
+ const writes=mockGitHub(t,{main:"f".repeat(40)});await assert.rejects(publishWork("test-token",input),/Target advanced/);assert(!writes.some(x=>x.path==="git/refs"||x.path==="pulls"));
+ t.mock.restoreAll();const collisionWrites=mockGitHub(t,{existingDifferent:true});await assert.rejects(publishWork("test-token",input),/cannot adopt/);assert(!collisionWrites.some(x=>x.path==="git/refs"||x.path==="pulls"));
 });
 test("protected or oversized changes fail before any provider request",async t=>{
  t.mock.method(globalThis,"fetch",async()=>{throw Error("must not call");});
@@ -60,4 +60,10 @@ test("review refuses foreign repository PRs and head changes",async t=>{
  const pr={number:1,html_url:`https://github.com/${repo}/pull/1`,title:"test",body:"",state:"open",head:{sha:head,ref:"feature",repo:{full_name:"attacker/fork"}},base:{sha:base,ref:"main",repo:{full_name:repo}}};
  t.mock.method(globalThis,"fetch",async()=>Response.json(pr));await assert.rejects(loadPullRequest("test-token",1));
  pr.head.repo.full_name=repo;await assert.rejects(verifyPullRequestHead("test-token",1,base),/changed or closed/);
+});
+test("a completed publication is recovered after target advances without a second commit",async t=>{
+ const options={main:base};const writes=mockGitHub(t,options);const first=await publishWork("test-token",input);
+ options.main="f".repeat(40);const replay=await publishWork("test-token",input);
+ assert.equal(replay.headSha,first.headSha);assert.equal(replay.number,first.number);assert.equal(replay.targetAdvanced,true);
+ assert.equal(writes.filter(w=>w.path==="git/commits").length,1);assert.equal(writes.filter(w=>w.path==="pulls").length,1);
 });

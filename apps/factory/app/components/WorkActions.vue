@@ -1,13 +1,21 @@
 <script setup lang="ts">
-import { parsePullRequest, stationLinkSchema, stationSessionSchema, type StationKind } from "../utils/work-station";
+import { parsePullRequest, stationLinkSchema, stationSessionSchema, workerRequest, stationLaunchError, type StationKind, type StationLink } from "../utils/work-station";
 const props = defineProps<{ title: string; brief: string }>();
 const route = useRoute();
 const router = useRouter();
 const pr = ref("");
+const workMode = ref<"create" | "revise" | "contribute">("create");
+const parentPr = ref("");
+const workModes = [
+  { label: "Create work", value: "create" },
+  { label: "Revise existing PR · same owner", value: "revise" },
+  { label: "Contribute via child PR · new owner", value: "contribute" },
+];
+const workLabel = computed(() => workMode.value === "revise" ? "Revise existing PR" : workMode.value === "contribute" ? "Build a child PR" : "Build a PR");
 const starting = ref<StationKind>();
 const error = ref("");
 let pendingLaunch: { key: string; operationId: string } | undefined;
-const active = ref<{ station: StationKind; run: string }>();
+const active = ref<StationLink>();
 onMounted(() => {
   const linked = stationLinkSchema.safeParse(route.query);
   if (linked.success) active.value = linked.data;
@@ -17,18 +25,21 @@ async function start(station: StationKind) {
   error.value = "";
   const prNumber = parsePullRequest(pr.value);
   if (station === "reviewer" && !prNumber) { error.value = "Enter a PR number or a jira-clone GitHub pull-request URL."; return; }
-  if (station === "worker" && (!props.title.trim() || !props.brief.trim())) return;
+  let request;
+  try { request = station === "worker" ? workerRequest(workMode.value, props, parentPr.value) : { path: "/factory/stations/reviewer", body: { prNumber } }; }
+  catch (cause) { error.value = cause instanceof Error ? cause.message : "Check the draft details."; return; }
   starting.value = station;
   try {
-    const body = station === "worker" ? { title: props.title.trim(), brief: props.brief.trim() } : { prNumber };
-    const key = JSON.stringify({ station, body });
+    const body = request.body;
+    const key = JSON.stringify({ path: request.path, body });
     if (pendingLaunch?.key !== key) pendingLaunch = { key, operationId: crypto.randomUUID() };
     // Keep this identifier after an uncertain response so retry cannot start a duplicate.
-    const response = stationSessionSchema.parse(await $fetch(`/factory/stations/${station}`, { method: "POST", body: { ...body, operationId: pendingLaunch.operationId }, retry: 0 }));
+    const response = stationSessionSchema.parse(await $fetch(request.path, { method: "POST", body: { ...body, operationId: pendingLaunch.operationId }, retry: 0 }));
+    if (request.path === "/factory/stations/revisions" && (response.execution !== "owner" || !response.deliveryId || !response.operationId)) throw new Error("Revision delivery was not identified");
     pendingLaunch = undefined;
-    active.value = { station, run: response.sessionId };
-    await router.replace({ query: { ...route.query, station, run: response.sessionId } });
-  } catch { error.value = "The station could not start. Your draft is unchanged; check access and try again."; }
+    active.value = { station, run: response.sessionId, execution: response.execution, deliveryId: response.deliveryId, operationId: station === "worker" ? response.operationId : undefined };
+    await router.replace({ query: { ...route.query, ...active.value } });
+  } catch (cause) { error.value = stationLaunchError(cause); }
   finally { starting.value = undefined; }
 }
 </script>
@@ -37,10 +48,15 @@ async function start(station: StationKind) {
   <section class="work-stations">
     <div class="station-actions">
       <UCard>
-        <template #header><h2>Build from this draft</h2></template>
+        <template #header><h2>Work from this draft</h2></template>
+        <UFormField label="Work action" name="work-mode"><USelect v-model="workMode" :disabled="!!starting" :items="workModes" class="w-full" /></UFormField>
+        <UFormField v-if="workMode !== 'create'" :label="workMode === 'revise' ? 'PR to revise' : 'Parent PR to contribute to'" name="parent-pr" class="parent-pr"><UInput v-model="parentPr" class="w-full" placeholder="PR number or jira-clone GitHub PR URL" /></UFormField>
         <p v-if="title.trim()"><strong>{{ title }}</strong></p><p v-else>Select or write a draft above.</p>
-        <p class="muted">The worker uses the current title and brief, implements a bounded change and opens a draft PR. This starts an agent run.</p>
-        <template #footer><UButton icon="i-lucide-git-pull-request" :disabled="!title.trim() || !brief.trim() || !!starting" :loading="starting === 'worker'" @click="start('worker')">Build a PR</UButton></template>
+        <p v-if="workMode === 'create'" class="muted">A new worker uses this title and brief to create a branch and draft PR.</p>
+        <p v-else-if="workMode === 'revise'" class="muted">The existing branch owner resumes with this brief and updates the same PR. If that owner is busy, the revision queues for the same owner. The branch is never reassigned.</p>
+        <p v-else class="muted">A new worker creates its own branch and a child PR targeting the parent PR’s branch. The parent owner keeps control of the parent branch.</p>
+        <p class="muted">Each action starts an agent run. PRs stay open for manual review and merge.</p>
+        <template #footer><UButton icon="i-lucide-git-pull-request" :disabled="!brief.trim() || (workMode !== 'revise' && !title.trim()) || (workMode !== 'create' && !parentPr.trim()) || !!starting" :loading="starting === 'worker'" @click="start('worker')">{{ workLabel }}</UButton></template>
       </UCard>
       <UCard>
         <template #header><h2>Review a PR</h2></template>
@@ -48,12 +64,13 @@ async function start(station: StationKind) {
       </UCard>
     </div>
     <UAlert v-if="error" color="error" variant="soft" title="Station not started" :description="error" />
-    <ClientOnly><WorkRun v-if="active" :key="active.run" :session-id="active.run" :station="active.station" /></ClientOnly>
+    <ClientOnly><WorkRun v-if="active" :key="`${active.run}:${active.operationId || ''}`" :session-id="active.run" :station="active.station" :execution="active.execution" :delivery-id="active.deliveryId" :operation-id="active.operationId" /></ClientOnly>
   </section>
 </template>
 <style scoped>
 .work-stations { margin:36px 0; }
 .station-actions { display:grid; grid-template-columns:1fr 1fr; gap:24px; margin-bottom:24px; }
+.parent-pr { margin-top:16px; }
 h2 { font-size:22px; font-weight:600; }
 p { margin:12px 0; line-height:1.6; }
 @media(max-width:900px) { .station-actions { grid-template-columns:1fr; } }

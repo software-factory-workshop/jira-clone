@@ -22,8 +22,8 @@ export default defineTool({description:"Fetch the authenticated PR's exact base/
   for(const entry of pull.baseSnapshot.entries.filter(entry=>changed.has(entry.file)))await sandbox.writeBinaryFile({path:`base/${entry.file}`,content:entry.content});
   const rules=pull.baseSnapshot.entries.filter(e=>e.file==="AGENTS.md"||e.file.startsWith("factory/context/")||e.file.startsWith("factory/policies/"));
   for(const rule of rules)await sandbox.writeBinaryFile({path:`review-policy/${rule.file}`,content:rule.content});
-  await sandbox.writeTextFile({path:"review-policy/pull-request.json",content:JSON.stringify({number:pull.number,title:pull.title,body:pull.body,baseSha:pull.baseSha,headSha:pull.headSha,files:pull.files},null,2)});
-  const metadata={number:pull.number,url:pull.url,title:pull.title,body:pull.body,baseSha:pull.baseSha,headSha:pull.headSha,files:pull.files};
+  await sandbox.writeTextFile({path:"review-policy/pull-request.json",content:JSON.stringify({number:pull.number,title:pull.title,body:pull.body,baseSha:pull.baseSha,headSha:pull.headSha,targetBranch:pull.targetBranch,files:pull.files},null,2)});
+  const metadata={number:pull.number,url:pull.url,title:pull.title,body:pull.body,baseSha:pull.baseSha,headSha:pull.headSha,targetBranch:pull.targetBranch,files:pull.files};
   workState.update(s=>({...s,prepared:setup.prepared,revision:setup.revision,baseline:setup.files.map(({file,sha256})=>({file,sha256})),commands:setup.commands,pull:metadata,contextGaps:[...setup.contextGaps,...pull.contextGaps]}));
   yield{phase:setup.prepared?"Prepared":"Setup failed",pull:metadata,policy:"/workspace/review-policy",originalChangedFiles:"/workspace/base",workspace:"/workspace/repo",commands:setup.commands,limitations:[...setup.contextGaps,...pull.contextGaps,...hostReviewLimitations(pull.files)]};
  },
