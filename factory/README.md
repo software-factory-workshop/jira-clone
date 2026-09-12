@@ -2,7 +2,7 @@
 
 Start with [the current goal](context/goal.md), then use [the project map](context/project-map.md) to inspect the relevant code and evidence.
 
-The cockpit now includes the first Eve station: understand the goal, current code and GitHub work, then propose useful tasks and reflect on missing context. It uses the same AI SDK Harness/fx runtime as the calibration CLI. The Jira demo remains a fixture shell. Request-to-work-order admission is a later candidate, not the immediate milestone.
+The cockpit now includes the first Eve station: understand the goal, current code and GitHub work, then propose useful tasks and reflect on missing context. Eve runs the deployed investigation directly with its own sandbox and tools. The AI SDK Harness/fx runner is a separate experiment that helped test context; it is not nested inside the station. The Jira demo remains a fixture shell. Request-to-work-order admission is a later candidate, not the immediate milestone.
 
 The factory's project instructions, tools, context, evaluations and reviewed lessons belong in this repository. Keep raw runs and evaluation material separate from the context supplied to a fresh agent. Do not feed a run its expected answer.
 

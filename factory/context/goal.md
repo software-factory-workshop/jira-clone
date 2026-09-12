@@ -16,6 +16,14 @@ A useful proposal connects a present gap to the goal, checks what already exists
 
 The near-term question is: can a fresh agent understand enough of this project to suggest work Remi would seriously consider, without reconstructing the conversation for it?
 
+## Establish the task before proposing work
+
+Treat the user's focus as a desired outcome to understand, not as an instruction to build whichever missing capability is easiest to spot. Establish who needs the result, what decision or demo it should support, the smallest useful outcome, and the constraints already decided. State any consequential ambiguity explicitly; do not fill it with a large architecture choice.
+
+Connect each proposed task to the evidence needed for that outcome. Documentation explains intent and decisions. Code shows what is implemented. Current issues and the work-in-progress record show what is already underway. A command checks a specific behavioral claim. Vercel evidence establishes what revision is deployed and what that deployment observed. Having one of these sources does not substitute for the others.
+
+A missing source is worth proposing work on only when it prevents a relevant decision or reproduction. Explain which claim remains unresolved and the smallest context addition that would resolve it. Do not automatically rank more infrastructure above understanding the task. A reflection should name the misunderstanding or uncertainty, the proposed context change, and a different question that could test whether the improvement transfers. Keep hypotheses distinct from tested improvements and owner acceptance.
+
 ## Product direction and open choices
 
 The demo should have recognizable Jira issue, list and board behavior using the ADEO Nuxt UI design system. Eventual targets include the Jira API operations needed by demos, Vercel Connect, Jira MCP using MCP Toolkit, accounts derived from verified Passport identity, SAML and directory sync. The exact compatibility subset and identity behavior need concrete demo scenarios before implementation. The earlier phrase "feature parity" is not evidence of a complete, agreed endpoint specification.
