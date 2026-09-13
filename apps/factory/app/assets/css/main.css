@@ -557,9 +557,6 @@ nav button span:last-child:not(:first-child) {
   .brand {
     font-size: 22px;
   }
-  .mobile-work-jump {
-    display: flex;
-  }
 }
 
 .starter-card.active {
@@ -609,6 +606,11 @@ nav button span:last-child:not(:first-child) {
 }
 .mobile-work-jump .small {
   line-height: 1.5;
+}
+@media (max-width: 850px) {
+  .mobile-work-jump {
+    display: flex;
+  }
 }
 
 .unsaved-hint {
