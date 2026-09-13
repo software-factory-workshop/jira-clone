@@ -8,6 +8,8 @@ export type VisualReviewApp = z.infer<typeof visualReviewAppSchema>;
 
 export const visualReviewFrameSchema = z.object({
   phase: z.enum(["before", "after"]),
+  source: z.enum(["base", "head"]).optional(),
+  sourceSha: sha.optional(),
   url: z.string().url(),
   sha256: digest,
   mediaType: z.enum(["image/png", "image/jpeg", "image/webp"]),
@@ -80,13 +82,17 @@ function frameMarkup(frame: VisualReviewFrame | undefined, label: string) {
   return `<a href="${url}"><img src="${url}" alt="${escapeHtml(label)}" width="480" /></a>`;
 }
 
+function frameLabel(frame: VisualReviewFrame | undefined, fallback: string) {
+  return frame?.source === "base" ? "Base design" : frame?.source === "head" ? "Candidate design" : fallback;
+}
+
 function statusLabel(status: VisualReviewStatus) {
   return status === "not_required" ? "Not required" : status[0]!.toUpperCase() + status.slice(1);
 }
 
 export function visualReviewMarkdown(packet: VisualReviewPacket, binding?: VisualReviewBinding) {
   const status = visualReviewStatusFor(packet, binding);
-  const rows = packet.artifacts.map(artifact => `<tr><th scope="row"><code>${escapeHtml(artifact.app)}</code><br /><code>${escapeHtml(artifact.route)}</code></th><td>${frameMarkup(artifact.before, `${artifact.app} before`)}<br /><small>captured ${escapeHtml(artifact.capturedAt)}</small></td><td>${frameMarkup(artifact.after, `${artifact.app} after`)}</td><td><code>${escapeHtml(artifact.headSha)}</code><br /><code>${escapeHtml(artifact.targetBranch)} @ ${escapeHtml(artifact.baseSha)}</code></td></tr>`).join("\n");
+  const rows = packet.artifacts.map(artifact => `<tr><th scope="row"><code>${escapeHtml(artifact.app)}</code><br /><code>${escapeHtml(artifact.route)}</code></th><td><strong>${escapeHtml(frameLabel(artifact.before, `${artifact.app} before`))}</strong><br />${frameMarkup(artifact.before, `${artifact.app} ${frameLabel(artifact.before, "before").toLowerCase()}`)}<br /><small>captured ${escapeHtml(artifact.capturedAt)}</small></td><td><strong>${escapeHtml(frameLabel(artifact.after, `${artifact.app} after`))}</strong><br />${frameMarkup(artifact.after, `${artifact.app} ${frameLabel(artifact.after, "after").toLowerCase()}`)}</td><td><code>${escapeHtml(artifact.headSha)}</code><br /><code>${escapeHtml(artifact.targetBranch)} @ ${escapeHtml(artifact.baseSha)}</code></td></tr>`).join("\n");
   const limitations = packet.limitations.length ? `<p><strong>Packet limitations:</strong> ${packet.limitations.map(escapeHtml).join(" ")}</p>` : "";
   const empty = packet.requiredApps.length && !packet.artifacts.length ? "<p>No visual frames were captured for the changed browser surfaces.</p>" : "";
   return `## Visual review
@@ -105,4 +111,3 @@ export function withVisualReviewSection(body: string, packet: VisualReviewPacket
   const marker = new RegExp(`${escapedStart}[\\s\\S]*?${escapedEnd}`);
   return marker.test(body) ? body.replace(marker, section) : `${body.trim()}\n\n${section}`.trim();
 }
-
