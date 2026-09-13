@@ -254,6 +254,38 @@ test("trusted operation runner never executes denied or invalid operations and e
   for (const audit of audits) assertAuditMetadata(audit, "operation-allowed");
 });
 
+test("malformed runtime authorization input fails closed with a bounded redacted audit", async () => {
+  const audits: FactoryDecisionAudit[] = [];
+  let executed = false;
+  await assert.rejects(
+    runFactoryOperation({
+      operationId: "operation-malformed-context",
+      principal: worker,
+      action: "publish_change",
+      input: { branch, candidateSha, baseSha, draft: true },
+      context: null as unknown as ReturnType<typeof context>,
+      resource: change(),
+      execute: async () => {
+        executed = true;
+        return true;
+      },
+      onAudit: audit => audits.push(audit),
+    }),
+    (error: unknown) => error instanceof FactoryAuthorizationError,
+  );
+
+  assert.equal(executed, false);
+  assert.equal(audits.length, 1);
+  assert.equal(audits[0]?.decision, "DENY");
+  assert.equal(audits[0]?.outcome, "blocked");
+  assert.equal(audits[0]?.valid, false);
+  assert.equal(audits[0]?.policyRevision, FACTORY_POLICY_REVISION);
+  assert.equal(audits[0]?.schemaRevision, FACTORY_SCHEMA_REVISION);
+  assert.deepEqual(audits[0]?.contextFields, []);
+  assert.ok(audits[0]?.errors.every(error => error.length <= 500));
+  assert.equal(JSON.stringify(audits[0]).includes(candidateSha), false);
+});
+
 test("trusted operation runner records a failed allowed execution with decision revisions", async () => {
   const audits: FactoryDecisionAudit[] = [];
   const result = await runFactoryOperation({
