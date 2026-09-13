@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url";
 import root from "../agents/task-miner/agent/agent.ts";
 import worker from "../agents/worker/agent/agent.ts";
 import reviewer from "../agents/reviewer/agent/agent.ts";
+import { factoryModelLimits } from "../runtime/lib/factory-config.ts";
 
 const agentRoots = ["task-miner", "worker", "reviewer"] as const;
 
@@ -15,9 +16,12 @@ test("each built root includes its stop-after-turn hook entrypoint", () => {
  }
 });
 
-test("All three root agents model usage are uncapped",()=>{
+test("all three root agents use the shared model ceilings",()=>{
  for(const definition of [root,worker,reviewer]){
-  assert.deepEqual(definition.limits,{maxInputTokensPerSession:false,maxOutputTokensPerSession:false,maxTokenCostUsdPerSession:false});
+  assert.deepEqual(definition.limits,factoryModelLimits);
+  assert.ok(definition.limits?.maxInputTokensPerSession);
+  assert.ok(definition.limits?.maxOutputTokensPerSession);
+  assert.ok(definition.limits?.maxTokenCostUsdPerSession);
  }
 });
 test("Worker and reviewer configure tool policy statically and deny wrong station before model selection",async()=>{

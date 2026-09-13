@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { formatModelUsage } from "./model-usage.ts";
 
 export type DeliveryBadgeColor = "primary" | "info" | "warning" | "success" | "error" | "neutral";
 
@@ -10,6 +11,7 @@ const deliverySnapshotSchema = z.object({
   review: z.object({ summary: z.string().optional() }).passthrough().optional(),
   mergeDecision: z.object({ reason: z.string().optional() }).passthrough().optional(),
   failure: z.object({ kind: z.string().min(1), retryable: z.boolean() }).passthrough().optional(),
+  usage: z.object({ inputTokens: z.number().int().positive().optional(), outputTokens: z.number().int().positive().optional(), usd: z.number().finite().positive().optional() }).passthrough().optional(),
   request: z.object({ title: z.string().optional() }).passthrough().optional(),
   publication: z.object({
     number: z.number().int().positive(),
@@ -32,6 +34,7 @@ export interface DeliverySummary {
   attentionReason?: string;
   failureKind?: string;
   failureRetryable?: boolean;
+  usageLabel?: string;
 }
 
 const phaseLabels: Record<string, { label: string; color: DeliveryBadgeColor }> = {
@@ -132,6 +135,7 @@ export function summarizeDelivery(value: unknown, fallbackTitle?: string, now: D
     prUrl,
     ...(attentionReason ? { attentionReason } : {}),
     ...(snapshot.failure ? { failureKind: snapshot.failure.kind, failureRetryable: snapshot.failure.retryable } : {}),
+    ...(snapshot.usage && formatModelUsage(snapshot.usage) ? { usageLabel: formatModelUsage(snapshot.usage) } : {}),
   };
 }
 

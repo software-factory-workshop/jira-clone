@@ -103,6 +103,7 @@ onBeforeUnmount(() => clearInterval(refreshTimer));
           <p v-if="deliveryFor(run.id)?.status === 'loading'" role="status" class="muted small">Checking delivery status…</p>
           <template v-else-if="deliveryFor(run.id)?.status === 'ready' && deliveryFor(run.id)?.summary">
             <p class="muted small">{{ deliveryFor(run.id)?.summary?.updatedLabel }}<template v-if="deliveryFor(run.id)?.summary?.targetBranch"> · Target {{ deliveryFor(run.id)?.summary?.targetBranch }}</template></p>
+            <p v-if="deliveryFor(run.id)?.summary?.usageLabel" class="muted small">Model usage · {{ deliveryFor(run.id)?.summary?.usageLabel }}</p>
             <p v-if="attentionReasonFor(run.id)" class="muted small">Needs attention: {{ attentionReasonFor(run.id) }}</p>
           </template>
           <p v-else class="muted small">Delivery details are unavailable. The saved run link still works.</p>

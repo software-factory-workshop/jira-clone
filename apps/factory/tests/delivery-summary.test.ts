@@ -104,3 +104,9 @@ test("terminal attention cards keep a bounded reason while active cards do not n
   assert.equal(reviewing?.attentionReason, "Delivery is blocked");
   assert.equal(attentionPhases.has(reviewing?.phase ?? ""), false);
 });
+
+test("delivery summaries retain positive model usage without rendering zeroes", () => {
+  const summary = summarizeDelivery({ id: "delivery-usage", phase: "reviewing", usage: { inputTokens: 1200, outputTokens: 300, usd: 0.125 } });
+  assert.equal(summary?.usageLabel, "1,200 in · 300 out · $0.125");
+  assert.equal(summarizeDelivery({ id: "delivery-zero", phase: "reviewing", usage: { inputTokens: 0, outputTokens: 0, usd: 0 } })?.usageLabel, undefined);
+});

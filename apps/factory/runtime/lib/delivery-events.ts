@@ -8,12 +8,152 @@ import {
   parseSuccessfulActionResultEvent,
   successfulActionResultEventSchema,
 } from './factory-protocol.ts';
+import type { ModelUsage } from './delivery-usage.ts';
 
 export const MAX_OBSERVATION_EVENTS = 30_000;
 export const OBSERVATION_IDLE_TIMEOUT_MS = 10_000;
 
 export const deliveryFailureKindValues = ['observation', 'provider', 'auth', 'input', 'target', 'conflict', 'unknown'] as const;
 export type DeliveryFailureKind = (typeof deliveryFailureKindValues)[number];
+
+type RecordValue = Record<string, unknown>;
+
+function recordValue(value: unknown): RecordValue | undefined {
+  return typeof value === 'object' && value !== null && !Array.isArray(value) ? value as RecordValue : undefined;
+}
+
+function eventPayload(event: unknown) {
+  const record = recordValue(event);
+  return recordValue(record?.data) ?? record;
+}
+
+function stringValue(value: unknown) {
+  return typeof value === 'string' && value.trim() ? value.trim() : undefined;
+}
+
+function positiveInteger(value: unknown) {
+  return typeof value === 'number' && Number.isSafeInteger(value) && value > 0 ? value : undefined;
+}
+
+function positiveNumber(value: unknown) {
+  const number = typeof value === 'number' ? value : typeof value === 'string' && value.trim() ? Number(value) : Number.NaN;
+  return Number.isFinite(number) && number > 0 ? number : undefined;
+}
+
+function add(current: number | undefined, value: number | undefined) {
+  if (value === undefined) return current;
+  const total = (current ?? 0) + value;
+  return Number.isFinite(total) && total > 0 ? total : current;
+}
+
+function modelId(value: unknown) {
+  const model = recordValue(value);
+  return stringValue(model?.modelId) ?? stringValue(value);
+}
+
+function usageValues(value: unknown) {
+  const usage = recordValue(value);
+  return {
+    inputTokens: positiveInteger(usage?.inputTokens),
+    outputTokens: positiveInteger(usage?.outputTokens),
+    usd: positiveNumber(usage?.usd) ?? positiveNumber(usage?.costUsd),
+  };
+}
+
+function factorySha() {
+  if (typeof process === 'undefined') return undefined;
+  return stringValue(process.env.VERCEL_GIT_COMMIT_SHA);
+}
+
+/**
+ * Projects model-call usage without trusting model text or inventing zeroes.
+ * Eve's instrumentation events are flat; the protocol's step events are kept
+ * as a compatibility fallback because their usage is the same provider data
+ * exposed to the session stream.
+ */
+export function modelUsageFromEvents(events: readonly unknown[], options: { attachFactorySha?: boolean } = {}): ModelUsage | undefined {
+  const modelsByCall = new Map<string, string>();
+  const modelsByAttempt = new Map<string, string>();
+  const modelCompletions: Array<{ model?: string; values: ReturnType<typeof usageValues> }> = [];
+  const stepCompletions: Array<{ model?: string; values: ReturnType<typeof usageValues> }> = [];
+  let currentModel: string | undefined;
+
+  for (const event of events) {
+    const record = recordValue(event);
+    const payload = eventPayload(event);
+    const type = stringValue(record?.type);
+    if (!payload || !type) continue;
+
+    if (type === 'model.call.started') {
+      const model = modelId(payload.model) ?? stringValue(payload.modelId);
+      const callId = stringValue(payload.idempotencyKey);
+      const attemptId = stringValue(recordValue(payload.scope)?.attemptId);
+      if (model) {
+        currentModel = model;
+        if (callId) modelsByCall.set(callId, model);
+        if (attemptId) modelsByAttempt.set(attemptId, model);
+      }
+      continue;
+    }
+
+    if (type === 'model.call.completed') {
+      const callId = stringValue(payload.idempotencyKey);
+      const attemptId = stringValue(recordValue(payload.scope)?.attemptId);
+      const model = modelId(payload.model)
+        ?? (callId ? modelsByCall.get(callId) : undefined)
+        ?? (attemptId ? modelsByAttempt.get(attemptId) : undefined)
+        ?? currentModel;
+      if (model) currentModel = model;
+      modelCompletions.push({ model, values: usageValues(payload.usage) });
+      continue;
+    }
+
+    if (type === 'step.started') {
+      const model = stringValue(payload.modelId) ?? modelId(payload.model);
+      if (model) currentModel = model;
+      continue;
+    }
+
+    if (type === 'step.completed') {
+      stepCompletions.push({ model: currentModel, values: usageValues(payload.usage) });
+    }
+  }
+
+  let model: string | undefined;
+  let inputTokens: number | undefined;
+  let outputTokens: number | undefined;
+  let usd: number | undefined;
+  let modelTokenUsage = false;
+  let modelCostUsage = false;
+
+  for (const completion of modelCompletions) {
+    model ??= completion.model;
+    inputTokens = add(inputTokens, completion.values.inputTokens);
+    outputTokens = add(outputTokens, completion.values.outputTokens);
+    usd = add(usd, completion.values.usd);
+    modelTokenUsage ||= completion.values.inputTokens !== undefined || completion.values.outputTokens !== undefined;
+    modelCostUsage ||= completion.values.usd !== undefined;
+  }
+
+  for (const completion of stepCompletions) {
+    model ??= completion.model;
+    if (!modelTokenUsage) {
+      inputTokens = add(inputTokens, completion.values.inputTokens);
+      outputTokens = add(outputTokens, completion.values.outputTokens);
+    }
+    if (!modelCostUsage) usd = add(usd, completion.values.usd);
+  }
+
+  const sha = options.attachFactorySha ? factorySha() : undefined;
+  const usage: ModelUsage = {
+    ...(model ? { model } : {}),
+    ...(inputTokens !== undefined ? { inputTokens } : {}),
+    ...(outputTokens !== undefined ? { outputTokens } : {}),
+    ...(usd !== undefined ? { usd } : {}),
+    ...(sha ? { factorySha: sha } : {}),
+  };
+  return Object.keys(usage).length ? usage : undefined;
+}
 
 export interface ClassifiedDeliveryError {
   code: string;
