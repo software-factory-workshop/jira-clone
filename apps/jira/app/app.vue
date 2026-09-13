@@ -1,15 +1,20 @@
 <script setup lang="ts">
-import { demoIssues } from "@jira-clone/context";
 import {
   fetchIssueComments,
   submitIssueComment,
   type DemoComment,
+  type IssueCommentsResponse,
 } from "~/utils/issueComments";
 import {
   failedDetail,
   fetchIssueDetail,
   loadedDetail,
+  type IssueDetailResponse,
 } from "~/utils/issueDetail";
+import {
+  fetchBoardIssues,
+  type RestSearchShape,
+} from "~/utils/restIssues";
 import {
   ALL_ASSIGNEES,
   OBSERVED_STATUSES,
@@ -120,7 +125,7 @@ const commentsDemoOnly = ref(false);
 const commentDraft = ref("");
 const commentSaving = ref(false);
 const commentError = ref<string | null>(null);
-const issues = ref<BoardIssue[]>(demoIssues.map((issue) => ({ ...issue })));
+const issues = ref<BoardIssue[]>([]);
 const loading = ref(true);
 const loadError = ref<string | null>(null);
 const moveError = ref<string | null>(null);
@@ -158,7 +163,7 @@ async function loadDetail(key: string) {
   detailLoading.value = true;
   try {
     const result = await fetchIssueDetail(key, (url) =>
-      $fetch<{ issue: BoardIssue; demoOnly?: boolean }>(url),
+      $fetch<IssueDetailResponse>(url),
     );
     if (selectedKey.value !== key) return;
     const loaded = loadedDetail(result);
@@ -180,7 +185,7 @@ async function loadComments(key: string) {
   commentsLoading.value = true;
   try {
     const result = await fetchIssueComments(key, (url) =>
-      $fetch<{ comments: DemoComment[]; demoOnly?: boolean }>(url),
+      $fetch<IssueCommentsResponse>(url),
     );
     if (selectedKey.value !== key) return;
     comments.value = result.comments;
@@ -277,12 +282,15 @@ async function refresh() {
   loading.value = true;
   loadError.value = null;
   try {
-    const data = await $fetch<{ issues: BoardIssue[] }>("/api/issues");
+    const data = await fetchBoardIssues((url) =>
+      $fetch<RestSearchShape>(url),
+    );
     issues.value = data.issues;
   } catch (error) {
+    issues.value = [];
     loadError.value = demoErrorMessage(
       error,
-      "Could not load demo issues. Showing labelled fixtures.",
+      "Could not load board issues through the REST search read.",
     );
   } finally {
     loading.value = false;
@@ -404,13 +412,15 @@ async function resetBoard() {
   priorityError.value = null;
   saveNotice.value = null;
   try {
-    const data = await $fetch<{ issues: BoardIssue[] }>("/api/issues/reset", {
+    await $fetch("/api/issues/reset", {
       method: "POST",
       headers: demoHeaders(),
     });
-    issues.value = data.issues;
-    saveNotice.value =
-      "Demo board reset to labelled fixture identities. Reset only affects this demo-only store.";
+    await refresh();
+    if (!loadError.value) {
+      saveNotice.value =
+        "Demo board reset to labelled fixture identities. Reset only affects this demo-only store.";
+    }
   } catch (error) {
     moveError.value = demoErrorMessage(error, "Demo reset failed.");
   }

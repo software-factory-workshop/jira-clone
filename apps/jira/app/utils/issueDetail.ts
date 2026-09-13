@@ -1,9 +1,11 @@
 import type { BoardIssue } from "./boardMove";
+import {
+  restIssueToBoardIssue,
+  restIssueUrl,
+  type RestIssueShape,
+} from "./restIssues.ts";
 
-export type IssueDetailResponse = {
-  issue: BoardIssue;
-  demoOnly?: boolean;
-};
+export type IssueDetailResponse = RestIssueShape;
 
 export type IssueDetailResult = {
   issue: BoardIssue;
@@ -17,20 +19,25 @@ export type IssueDetailState = {
 };
 
 /**
- * Single-issue detail read through GET /api/issues/:key.
+ * Single-issue detail read through the canonical Jira-shaped route
+ * GET /api/rest/api/3/issue/:key.
  *
  * The caller supplies a JSON fetcher (Nuxt `$fetch` in the dialog, a stub in
- * tests) so list cards stay on the list endpoint while the detail dialog
- * renders this server read. Rejections propagate so the dialog can keep the
- * selected key, clear stale detail and report the error without claiming
- * success.
+ * tests) so list cards stay on the search-lite read while the detail dialog
+ * renders this canonical server read. The Jira-shaped bean is mapped back to
+ * the existing `BoardIssue` display shape. Rejections propagate so the
+ * dialog can keep the selected key, clear stale detail and report the error
+ * without claiming success.
  */
 export async function fetchIssueDetail(
   key: string,
   fetchJson: (url: string) => Promise<IssueDetailResponse>,
 ): Promise<IssueDetailResult> {
-  const data = await fetchJson(`/api/issues/${key}`);
-  return { issue: data.issue, demoOnly: data.demoOnly === true };
+  const data = await fetchJson(restIssueUrl(key));
+  return {
+    issue: restIssueToBoardIssue(data),
+    demoOnly: data?.demoOnly === true,
+  };
 }
 
 /** Detail state for a successful single-issue read. */

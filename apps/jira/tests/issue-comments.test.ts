@@ -14,12 +14,14 @@ import {
   type DemoComment,
   type IssueCommentsResponse,
 } from "../app/utils/issueComments.ts";
+import { restCommentsUrl } from "../app/utils/restIssues.ts";
 
 /** Stub JSON fetcher backed by the real demo-only server store. */
 function commentsFetch(calls: string[]) {
   return async (url: string): Promise<IssueCommentsResponse> => {
     calls.push(url);
-    const key = url.split("/").slice(-2, -1)[0] ?? "";
+    const match = /\/issue\/([^/]+)\/comment/.exec(url);
+    const key = decodeURIComponent(match?.[1] ?? "");
     const comments = listComments(key);
     if (!comments) {
       throw new Error(`Unknown issue key: ${key}.`);
@@ -43,7 +45,7 @@ test("add/list round-trips comments on a seeded key", async () => {
   assert.equal(listed?.length, 1);
   const calls: string[] = [];
   const result = await fetchIssueComments("ADEO-1", commentsFetch(calls));
-  assert.deepEqual(calls, ["/api/issues/ADEO-1/comments"]);
+  assert.deepEqual(calls, [restCommentsUrl("ADEO-1")]);
   assert.equal(result.demoOnly, true);
   assert.deepEqual(result.comments, listed);
   resetIssues();

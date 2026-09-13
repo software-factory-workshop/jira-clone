@@ -27,6 +27,21 @@ demoOnly 400 naming unsupported; it is never silently ignored. Out-of-range
 `startAt`/`maxResults` values are labelled demoOnly 400s. All failed reads
 change nothing. Native write routes and transition semantics are unchanged.
 
+## UI reads
+
+The board list renders `GET /api/rest/api/3/search` with bounded
+`startAt`/`maxResults` (the board page uses `startAt=0&maxResults=50`),
+single-issue detail renders `GET /api/rest/api/3/issue/:key`, and comments
+render `GET /api/rest/api/3/issue/:key/comment` with the same bounds.
+`apps/jira/app/utils/restIssues.ts` maps those Jira-shaped envelopes back to
+the existing board/comment display shapes (`summary` → `title`,
+`author.displayName`, `created`). Demo writes (`PATCH /api/issues/:key`,
+creation, reset, comment posts) are unchanged; successful status/priority
+saves refresh the affected issue through the canonical single-issue read.
+Loading and transport failures clear (or never populate) the affected data
+and report the error; the UI no longer seeds from fixtures or the demo
+list-store read.
+
 ## Later MCP mapping
 
 A future Jira MCP toolkit wraps these contracts 1:1 without new server
