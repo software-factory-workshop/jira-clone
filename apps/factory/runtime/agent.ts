@@ -1,6 +1,7 @@
 import { defineAgent, defineDynamic } from "eve";
 import { getVercelOidcToken } from "@vercel/oidc";
 import { model, verifyGatewayScope } from "./lib/github.mjs";
+import { factoryModelLimits } from "./lib/factory-config.ts";
 
 export default defineAgent({
   model: defineDynamic({events:{"session.started":async()=>{verifyGatewayScope(await getVercelOidcToken(),process.env.AI_GATEWAY_API_KEY);return model;}}}),
@@ -10,9 +11,5 @@ export default defineAgent({
   // wrun_41M2AV3MBZ0GKQ7CVGE2RTP7S7, 12 Sep 2026). Authority therefore comes from
   // fixed tool lists plus the immutable station check, never from a model choice.
   defaultTools: false,
-  limits: {
-    maxInputTokensPerSession: false,
-    maxOutputTokensPerSession: false,
-    maxTokenCostUsdPerSession: false,
-  },
+  limits: factoryModelLimits,
 });

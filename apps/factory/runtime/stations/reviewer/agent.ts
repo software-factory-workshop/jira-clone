@@ -1,6 +1,7 @@
 import { defineAgent,defineDynamic } from "eve";
 import { getVercelOidcToken } from "@vercel/oidc";
 import { model,verifyGatewayScope } from "../../lib/github.mjs";
+import { factoryModelLimits } from "../../lib/factory-config.ts";
 import { requireStation } from "../../lib/station-access.ts";
 export default defineAgent({
  description:"Run the authenticated reviewer station only. Other station/mining sessions are denied before the model runs.",
@@ -11,5 +12,5 @@ export default defineAgent({
   verifyGatewayScope(await getVercelOidcToken(),process.env.AI_GATEWAY_API_KEY);
   return model;
  }}}),
- limits:{maxInputTokensPerSession:false,maxOutputTokensPerSession:false,maxTokenCostUsdPerSession:false}
+ limits:factoryModelLimits
 });

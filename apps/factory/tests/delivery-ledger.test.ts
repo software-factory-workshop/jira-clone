@@ -90,6 +90,7 @@ test('legacy projections are upgraded without changing the durable phase', () =>
 
 test('transitions update the projection and produce an attributed receipt', () => {
   const state = delivery();
+  state.usage = { model: 'meta/example', inputTokens: 120, outputTokens: 30, usd: 0.125, factorySha: 'a'.repeat(40) };
   state.failure = {
     code: 'provider_unavailable',
     kind: 'provider',
@@ -110,6 +111,11 @@ test('transitions update the projection and produce an attributed receipt', () =
   assert.equal(state.history.at(-1)?.receiptId, receipt?.receiptId);
   assert.equal(receipt?.expectedVersion, 1);
   assert.equal(receipt?.state, 'dispatched');
+  assert.equal(receipt?.model, state.usage.model);
+  assert.equal(receipt?.inputTokens, state.usage.inputTokens);
+  assert.equal(receipt?.outputTokens, state.usage.outputTokens);
+  assert.equal(receipt?.usd, state.usage.usd);
+  assert.equal(receipt?.factorySha, state.usage.factorySha);
   assert.deepEqual(receipt?.failure, state.failure);
   deliveryReceiptSchema.parse(receipt);
 });

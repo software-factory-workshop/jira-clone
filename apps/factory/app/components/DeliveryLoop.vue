@@ -3,6 +3,7 @@ import { deliveryFlow } from "../utils/observability-flow";
 import { describeDeliveryPhase, formatDeliveryUpdatedAt } from "../utils/delivery-summary";
 import { MIN_WORK_REQUEST_LENGTH } from "../utils/work-station";
 import { copyText, shortIdentifier } from "../utils/technical-details";
+import { formatModelUsage } from "../utils/model-usage.ts";
 import type { VisualReviewBinding, VisualReviewPacket } from "../../runtime/lib/visual-review";
 
 interface Delivery {
@@ -22,6 +23,7 @@ interface Delivery {
   error?: string;
   request?: { title?: string; brief?: string };
   history: Array<{ phase: string; at?: string; sessionId?: string; headSha?: string }>;
+  usage?: { model?: string; inputTokens?: number; outputTokens?: number; usd?: number; factorySha?: string };
 }
 interface ReconciliationResult { eligible: boolean; reason: string; commitSha?: string }
 
@@ -70,6 +72,7 @@ const flowModel = computed(() => deliveryFlow({
 const phaseInfo = computed(() => run.value ? describeDeliveryPhase(run.value.phase) : { label: "Workflow blueprint", color: "neutral" as const });
 const phaseDetail = computed(() => run.value?.error || run.value?.mergeDecision?.reason || run.value?.review?.summary || "The durable workflow is observing the next station.");
 const updatedLabel = computed(() => formatDeliveryUpdatedAt(run.value?.updatedAt));
+const usageLabel = computed(() => formatModelUsage(run.value?.usage));
 const briefLength = computed(() => props.brief.trim().length);
 const briefReady = computed(() => briefLength.value >= MIN_WORK_REQUEST_LENGTH);
 const canCompose = computed(() => props.mode === "compose");
@@ -258,6 +261,7 @@ onBeforeUnmount(() => {
       <span class="delivery-updated">{{ updatedLabel }}</span>
     </div>
     <p v-if="run" class="delivery-id">Delivery <code>{{ shortIdentifier(run.id) }}</code> · cycle {{ run.cycle }}<template v-if="run.publication?.targetBranch"> · target {{ shortIdentifier(run.publication.targetBranch, 24) }}</template></p>
+    <p v-if="run && usageLabel" class="delivery-usage">Model usage · {{ usageLabel }}</p>
     <details v-if="run" class="technical-evidence"><summary>Technical evidence</summary><dl><div><dt>Delivery ID</dt><dd><code>{{ run.id }}</code><UButton size="xs" variant="ghost" @click="copyEvidence(run.id)">{{ copyLabel(run.id) }}</UButton></dd></div><div v-if="run.publication?.targetBranch"><dt>Target branch</dt><dd><code>{{ run.publication.targetBranch }}</code><UButton size="xs" variant="ghost" @click="copyEvidence(run.publication.targetBranch)">{{ copyLabel(run.publication.targetBranch) }}</UButton></dd></div><div><dt>Cycle</dt><dd>{{ run.cycle }}</dd></div></dl></details>
     <p v-if="run?.mergeDecision" class="delivery-note">{{ run.mergeDecision.reason }}</p>
     <p v-if="run?.error" class="delivery-error" role="alert">{{ run.error }}</p>
@@ -309,6 +313,7 @@ onBeforeUnmount(() => {
 .delivery-live div span { overflow: hidden; color: var(--ui-text-muted); font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
 .delivery-updated { margin-left: auto; flex-shrink: 0; color: var(--ui-text-muted); font-size: 11px; }
 .delivery-id, .delivery-note, .delivery-error { margin: 14px 0 0; font-size: 12px; line-height: 1.6; }
+.delivery-usage { margin: 8px 0 0; color: var(--ui-text-muted); font-size: 12px; }
 .delivery-id { color: var(--ui-text-muted); overflow-wrap: anywhere; }
 .technical-evidence { margin: 16px 0 0; padding: 12px 14px; border: 1px solid var(--ui-border); border-radius: 6px; background: var(--ui-bg-muted); font-size: 12px; }
 .technical-evidence summary { cursor: pointer; font-weight: 600; }

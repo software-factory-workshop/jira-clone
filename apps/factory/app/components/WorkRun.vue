@@ -6,6 +6,8 @@ import { dispatchedTask, parseStationToolResult, pendingStationRequests, matches
 import { authorizationLink } from "../utils/mining-output";
 import { stationFlow } from "../utils/observability-flow";
 import { copyText, shortIdentifier } from "../utils/technical-details";
+import { formatModelUsage } from "../utils/model-usage.ts";
+import { modelUsageFromEvents } from "../../runtime/lib/delivery-events.ts";
 import type { VisualReviewBinding } from "../../runtime/lib/visual-review";
 const props = defineProps<{ sessionId: string; station: StationKind; child?: boolean; awaitingDecision?: boolean; execution?: "owner" | "dispatcher" | "direct"; rootAgent?: "worker" | "reviewer"; deliveryId?: string; operationId?: string }>();
 const emit = defineEmits<{ settled: [value: boolean]; recorded: [value: boolean] }>();
@@ -93,6 +95,8 @@ const step = computed(() => {
   return part?.toolName.replaceAll("_", " ") || "Preparing the station";
 });
 const summary = computed(() => (tailData.value || data.value).messages.filter(message => message.role === "assistant").flatMap(message => message.parts.flatMap(part => part.type === "text" ? [part.text] : [])).join("\n"));
+const usageEvents = computed(() => props.deliveryId ? tailEvents.value : events.value);
+const usageLabel = computed(() => formatModelUsage(modelUsageFromEvents(usageEvents.value)));
 const toolActivities = computed(() => parts.value.filter((part): part is Extract<typeof part, { type: "dynamic-tool" }> => part.type === "dynamic-tool").map((part, index) => ({ id: `tool-${index}-${part.toolName}`, toolName: part.toolName, state: part.state })));
 const visualReviewBinding = computed<VisualReviewBinding | undefined>(() => {
   const review = result.value?.station === "reviewer" ? result.value : undefined;
@@ -152,7 +156,7 @@ async function copyEvidence(value: string) {
 <template>
   <div :class="{ 'panel station-run': !child }">
     <template v-if="!childId">
-      <div class="run-heading"><h2>{{ station === 'worker' ? 'Worker' : 'PR reviewer' }}</h2><UBadge :color="result && (result.station === 'worker' || result.verdict === 'approve') ? 'success' : 'neutral'" variant="soft">{{ label }}</UBadge></div>
+      <div class="run-heading"><h2>{{ station === 'worker' ? 'Worker' : 'PR reviewer' }}</h2><div class="run-heading-meta"><UBadge :color="result && (result.station === 'worker' || result.verdict === 'approve') ? 'success' : 'neutral'" variant="soft">{{ label }}</UBadge><span v-if="usageLabel" class="run-usage" aria-label="Model usage">{{ usageLabel }}</span></div></div>
       <p v-if="queuedForOwner" role="status">Waiting for the existing branch owner to begin this revision. Earlier results belong to earlier work.</p>
       <p v-else-if="awaitingChild" role="status">Waiting for the {{ station === 'worker' ? 'worker' : 'reviewer' }} session. The task has been dispatched.</p>
       <p v-else-if="active && !result && !authorizations.length && !needsDecision" role="status">{{ step }}…</p>
@@ -184,6 +188,8 @@ async function copyEvidence(value: string) {
 <style scoped>
 .station-run { padding:28px; margin-top:24px; overflow-wrap:anywhere; }
 .run-heading, .run-actions { display:flex; align-items:center; gap:16px; flex-wrap:wrap; }
+.run-heading-meta { display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+.run-usage { color:var(--ui-text-muted); font-size:12px; }
 h2 { font-size:22px; font-weight:600; }
 h3 { font-weight:600; margin-top:10px; }
 p { line-height:1.65; margin:16px 0; }

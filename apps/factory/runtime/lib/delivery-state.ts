@@ -5,10 +5,11 @@ import { z } from 'zod';
 import { workerRequest } from './station-access.ts';
 import type { VisualReviewPacket } from './visual-review.ts';
 import { deliveryFailureKindValues, type ClassifiedDeliveryError } from './delivery-events.ts';
+import { modelUsageSchema, type ModelUsage } from './delivery-usage.ts';
 
 export const deliveryRequest = workerRequest.extend({
   // Bounds same-owner repair rounds after blocking review findings. It is not a
-  // token or cost budget; model limits are disabled per session.
+  // token or cost budget; model limits are configured in factory-config.ts.
   maxRevisions: z.number().int().min(0).max(10).default(3),
 });
 export type DeliveryRequest = z.infer<typeof deliveryRequest>;
@@ -86,6 +87,11 @@ export interface DeliveryReceipt {
   reason: string;
   expectedVersion: number;
   recordedAt: string;
+  model?: string;
+  inputTokens?: number;
+  outputTokens?: number;
+  usd?: number;
+  factorySha?: string;
   failure?: ClassifiedDeliveryError;
 }
 
@@ -107,6 +113,11 @@ export const deliveryReceiptSchema = z.object({
   reason: z.string().max(1000),
   expectedVersion: z.number().int().nonnegative(),
   recordedAt: z.string().datetime(),
+  model: z.string().min(1).max(240).optional(),
+  inputTokens: z.number().int().positive().optional(),
+  outputTokens: z.number().int().positive().optional(),
+  usd: z.number().finite().positive().optional(),
+  factorySha: z.string().min(1).max(240).optional(),
   failure: z.object({
     code: z.string().min(1).max(240),
     kind: z.enum(deliveryFailureKindValues),
@@ -163,6 +174,7 @@ export interface Delivery {
   resumeAttemptedAt?: number;
   resumeOperationId?: string;
   resumeRequests?: Record<string, boolean>;
+  usage?: ModelUsage;
   failure?: ClassifiedDeliveryError;
   failedPhase?: Phase;
   admissionFailure?: DeliveryAdmissionFailure;
@@ -260,6 +272,7 @@ function receiptFor(state: Delivery, from: Phase | null, to: Phase, options: Req
     reason: options.reason,
     expectedVersion,
     recordedAt: new Date().toISOString(),
+    ...(state.usage ? state.usage : {}),
     ...(state.failure ? { failure: state.failure } : {}),
   };
 }
@@ -272,6 +285,7 @@ export function normalizeDelivery(raw: LegacyDelivery): Delivery {
   if (!Number.isInteger(raw.version) || raw.version < 1) throw new Error('Invalid delivery version');
   if (!Number.isInteger(raw.cycle) || raw.cycle < 0) throw new Error('Invalid delivery cycle');
   const request = deliveryRequest.parse(raw.request);
+  const usage = raw.usage ? modelUsageSchema.parse(raw.usage) : undefined;
   const attempt = raw.attempt ?? raw.cycle + 1;
   if (!Number.isInteger(attempt) || attempt < 1) throw new Error('Invalid delivery attempt');
   const history = Array.isArray(raw.history) ? raw.history : [];
@@ -282,6 +296,7 @@ export function normalizeDelivery(raw: LegacyDelivery): Delivery {
     kind: 'code_change',
     state: workStateForPhase(raw.phase),
     attempt,
+    ...(usage ? { usage } : {}),
     ...(raw.changeId || raw.publication ? { changeId: raw.changeId ?? raw.id } : {}),
     history: history.slice(-MAX_DELIVERY_HISTORY),
   } as Delivery;

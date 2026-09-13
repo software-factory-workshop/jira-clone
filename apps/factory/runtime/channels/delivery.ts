@@ -12,7 +12,7 @@ import { factoryAuth } from '../lib/route-auth';
 import { stationOperation } from './stations';
 import { deliveryRequest,newDelivery,operationFor,transition,terminal,applyReview,referenceState,claimAdvance,commitAdvance,requestResume,beginRevision,admissionRecoveryAction,recordAdmissionFailure,retryAdmission,type Delivery } from '../lib/delivery-state';
 import { listDeliveryReceipts,readDelivery,updateDelivery } from '../lib/delivery-store';
-import { classifyDeliveryError,snapshotEvents,childIn,hostResult,stoppedWithoutResult,eventsForDelivery,resumeMessage,resumeReceipt,type ClassifiedDeliveryError } from '../lib/delivery-events';
+import { classifyDeliveryError,snapshotEvents,childIn,hostResult,stoppedWithoutResult,eventsForDelivery,modelUsageFromEvents,resumeMessage,resumeReceipt,type ClassifiedDeliveryError } from '../lib/delivery-events';
 import { readPull,readBranch,WorkError,workBranch } from '../lib/work-github';
 import { repository } from '../lib/github.mjs';
 import { reconcileManuallyMergedDelivery } from '../lib/delivery-reconcile';
@@ -82,6 +82,8 @@ async function advance(request:Request,ctx:RouteHandlerArgs){
    if(state.childSessionId&&state.childSessionId!==state.sessionId)events=await snapshotEvents((await factorySession(state.childSessionId,ctx.attachSession)));
    const owner=state.childSessionId||state.sessionId;
    if(state.deliveryId)events=eventsForDelivery(events,state.deliveryId);
+   const usage=modelUsageFromEvents(events,{attachFactorySha:true});
+   if(usage)state.usage=usage;
    const result=hostResult(events,state.phase==='reviewing'?'record_review':'publish_work',owner,state.phase==='reviewing'?undefined:state.operationId);
    if(result&&state.phase==='reviewing'){
     const observed=review.parse(result);await checkCurrent(state.publication!);applyReview(state,observed);
