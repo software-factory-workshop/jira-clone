@@ -57,6 +57,12 @@ const DEMO_ACCOUNT_OPTIONS: DemoAccountOption[] = [
 const demoUserId = ref(DEFAULT_DEMO_USER_ID);
 const demoAccount = ref<DemoAccountOption>(DEMO_ACCOUNT_OPTIONS[1]!);
 const demoMeError = ref<string | null>(null);
+/** Resolved account display from /api/me: passport-derived identity when present, else the synthetic fallback. */
+const meIdentitySource = ref<"passport" | "demoFallback">("demoFallback");
+const meAccountId = ref<string>(DEFAULT_DEMO_USER_ID);
+const meDisplayName = ref<string>(DEMO_ACCOUNT_OPTIONS[1]!.label);
+const meRole = ref<DemoAccountOption["role"]>("member");
+const meIsFallback = computed(() => meIdentitySource.value === "demoFallback");
 const demoAccountItems = DEMO_ACCOUNT_OPTIONS.map((account) => ({
   label: `${account.label} — ${account.role} · ${account.blurb}`,
   value: account.id,
@@ -72,14 +78,33 @@ function readStoredDemoUser(): string | null {
     return null;
   }
 }
+type MeResponse = {
+  account: {
+    id: string;
+    label: string;
+    displayName?: string | null;
+    role: DemoAccountOption["role"];
+    identitySource: "passport" | "demoFallback";
+    explicit: boolean;
+  };
+  identitySource: "passport" | "demoFallback";
+  explicit: boolean;
+};
 async function loadMe() {
   demoMeError.value = null;
   try {
-    const data = await $fetch<{
-      account: { id: string; label: string; role: DemoAccountOption["role"] };
-    }>("/api/me", { headers: demoHeaders() });
-    const known = DEMO_ACCOUNT_OPTIONS.find((option) => option.id === data.account.id);
-    if (known) demoAccount.value = known;
+    const data = await $fetch<MeResponse>("/api/me", { headers: demoHeaders() });
+    meIdentitySource.value = data.identitySource;
+    meAccountId.value = data.account.id;
+    meDisplayName.value = data.account.displayName ?? data.account.label;
+    meRole.value = data.account.role;
+    // The synthetic switcher only drives the explicit local/demo fallback:
+    // a Passport-derived identity keeps its own display and never maps onto
+    // the synthetic options.
+    if (data.identitySource === "demoFallback") {
+      const known = DEMO_ACCOUNT_OPTIONS.find((option) => option.id === data.account.id);
+      if (known) demoAccount.value = known;
+    }
   } catch (error) {
     demoMeError.value =
       error instanceof Error ? error.message : "Could not load the demo account.";
@@ -97,7 +122,7 @@ try {
 }
 watch(demoUserId, (next) => {
   const known = DEMO_ACCOUNT_OPTIONS.find((option) => option.id === next);
-  if (known) demoAccount.value = known;
+  if (known && meIsFallback.value) demoAccount.value = known;
   try {
     if (typeof sessionStorage !== "undefined") {
       sessionStorage.setItem(DEMO_USER_STORAGE_KEY, next);
@@ -445,8 +470,13 @@ await refresh();
         ><span class="product-name">Jira workspace</span
         ><UBadge color="neutral" variant="subtle">Stage-zero shell</UBadge>
         <div class="demo-account-switcher">
-          <UBadge color="warning" variant="soft">Demo-only identity</UBadge>
+          <UBadge v-if="meIdentitySource === 'passport'" color="primary" variant="soft">Passport identity</UBadge>
+          <UBadge v-else color="warning" variant="soft">Demo-only identity</UBadge>
+          <span v-if="meIdentitySource === 'passport'" class="demo-account-passport" role="status">
+            {{ meDisplayName }} · {{ meRole }}
+          </span>
           <USelect
+            v-else
             v-model="demoUserId"
             :items="demoAccountItems"
             value-key="value"
@@ -455,7 +485,7 @@ await refresh();
             class="demo-account-select"
           />
           <UBadge color="neutral" variant="subtle"
-            >{{ demoAccount.label }} · {{ demoAccount.role }}</UBadge
+            >{{ meIdentitySource === "passport" ? `${meDisplayName} · ${meRole}` : `${demoAccount.label} · ${demoAccount.role}` }}</UBadge
           >
         </div>
         <UButton
@@ -503,12 +533,19 @@ await refresh();
               on this server and reset on redeploy. Status moves follow a
               fixed <strong>demo-only transition matrix</strong> (To Do →
               In Progress → In Review → Done → To Do); other moves are
-              rejected and save nothing. Acting as
+              rejected and save nothing. <span v-if="meIdentitySource === 'passport'">Acting as
+              <strong>{{ meDisplayName }} ({{ meRole }})</strong
+              > via the platform Passport identity (<strong>{{ meAccountId }}</strong
+              >); Passport deployment protection is an external prerequisite
+              and this demo reads only the platform-injected verified token
+              header.</span><span v-else>Acting as
               <strong>{{ demoAccount.label }} ({{ demoAccount.role }})</strong
-              > — a demo-only simulation with no real login or production
-              permissions. {{ DEMO_ROLE_MATRIX_LABEL }} Unknown or blank
+              > — a labelled synthetic fallback with no real login or production
+              permissions; the synthetic account switcher applies only to this
+              local/demo fallback.</span> {{ DEMO_ROLE_MATRIX_LABEL }} Unknown or blank
               x-demo-user values are rejected before any write, while reads
-              stay available as demo reads.
+              stay available as demo reads. Malformed or unrecognised Passport
+              identities fail closed with 401 before any mutation.
             </p>
           </div>
           <p v-if="demoMeError" class="save-error" role="alert">

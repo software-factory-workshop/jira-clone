@@ -9,12 +9,22 @@ ADEO demo store, so a later Jira MCP toolkit can wrap stable contracts 1:1.
 > created issues survive reload against the same server, reset on redeploy or
 > reset). There is no full Jira parity, no JQL engine, no writes, and no
 > production auth.
+>
+> Identity boundary: accounts derive from the platform-injected verified
+> `x-vercel-oidc-passport-token` header when present (stable
+> `passport:<external_sub>` account id, explicit claims/groups role mapping
+> with a documented viewer default, malformed or unrecognised identities fail
+> closed with 401 before any mutation, raw token never returned/logged/sent
+> to the browser, accounts never keyed by email). Without a Passport identity
+> the labelled synthetic `x-demo-user` fallback applies so the workshop still
+> runs. Vercel Passport deployment protection is an external prerequisite
+> managed outside this demo; this code never enables Passport on a project.
 
 ## Endpoints (all GET-only)
 
 | Adapter route | Contract |
 | --- | --- |
-| `GET /api/rest/api/3/myself` | Resolves `x-demo-user` (or the explicit `demo-member` default) to a Jira-shaped demo user. Reads stay open to the demo viewer. |
+| `GET /api/rest/api/3/myself` | Resolves the request through the shared request-to-application-account resolver to a Jira-shaped demo user plus a read `permissions` summary (`canCreate/canUpdate/canComment/canReset`). A present Passport identity maps through the explicit claims/groups role mapping (default viewer); otherwise the labelled synthetic `x-demo-user` fallback applies (explicit `demo-member` default). Reads stay open to read-only accounts. The response distinguishes `identitySource` passport versus demoFallback and never exposes the raw token. |
 | `GET /api/rest/api/3/project/KAN` | Observed reference project (id `10000`, `My Kanban Space`, simplified next-gen software). Other keys stay 404. |
 | `GET /api/rest/api/3/project/KAN/statuses` | Observed statuses per observed issue type (`Epic`, `Subtask`, `Task`, `Story`, `Feature`, `Bug` × `To Do`, `In Progress`, `In Review`, `Done`). An observed list, not a transition graph. |
 | `GET /api/rest/api/3/issue/:key` | Jira-like bean: `key`, `fields.summary` (= demo title), `issuetype`, `status`, `priority`, `assignee`, `description`, project ref. Unknown keys stay 404. |

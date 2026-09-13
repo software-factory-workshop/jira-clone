@@ -30,11 +30,12 @@ import {
   listComments,
   type DemoIssue,
 } from "./issues.ts";
+import { DEMO_ROLE_MATRIX_LABEL, type DemoRole } from "./demoAccounts.ts";
 import {
-  DEMO_ROLE_MATRIX_LABEL,
-  resolveDemoActor,
-  type DemoRole,
-} from "./demoAccounts.ts";
+  resolveAppActor,
+  type AppIdentitySource,
+  type AppRequestIdentity,
+} from "./appAccounts.ts";
 
 /** Explicit boundary note attached to every adapter response. */
 export const REST_BOUNDARY =
@@ -85,10 +86,15 @@ function demoEnvelope(): DemoEnvelope {
 
 export type RestUser = {
   accountId: string;
-  accountType: "demo";
+  accountType: "atlassian:passport-demo";
   displayName: string;
   active: true;
   demoRole: DemoRole;
+  /** Which identity produced this Jira-shaped user: passport or demoFallback. */
+  identitySource: AppIdentitySource;
+  /** Stable platform subject for passport accounts; null for the demo fallback. */
+  externalSub: string | null;
+  emailAddress: string | null;
 } & DemoEnvelope;
 
 export type RestProject = {
@@ -154,19 +160,48 @@ export type RestTransitionList = {
   transitions: RestTransition[];
 } & DemoEnvelope;
 
-/** Jira-shaped demo user for GET /api/rest/api/3/myself. Never writes. */
+/**
+ * Jira-shaped demo user for GET /api/rest/api/3/myself. Passport-derived
+ * accounts carry the stable `passport:<external_sub>` account id; the local
+ * synthetic fallback keeps its labelled demo id. Never writes and never
+ * exposes the raw token.
+ */
 export function toRestUser(account: {
   id: string;
   label: string;
   role: DemoRole;
+  identitySource?: AppIdentitySource;
+  externalSub?: string | null;
+  email?: string | null;
+  displayName?: string | null;
 }): RestUser {
   return {
     accountId: account.id,
-    accountType: "demo",
-    displayName: account.label,
+    accountType: "atlassian:passport-demo",
+    displayName: account.displayName ?? account.label,
     active: true,
     demoRole: account.role,
+    identitySource: account.identitySource ?? "demoFallback",
+    externalSub: account.externalSub ?? null,
+    emailAddress: account.email ?? null,
     ...demoEnvelope(),
+  };
+}
+
+/**
+ * Demo permission summary attached to read metadata: which write kinds the
+ * resolved account may perform. Mirrors `authorizeAppWrite` semantics without
+ * writing.
+ */
+export function restPermissions(account: {
+  canWrite: boolean;
+  canReset: boolean;
+}): { canCreate: boolean; canUpdate: boolean; canComment: boolean; canReset: boolean } {
+  return {
+    canCreate: account.canWrite,
+    canUpdate: account.canWrite,
+    canComment: account.canWrite,
+    canReset: account.canReset,
   };
 }
 
@@ -281,12 +316,22 @@ export function parseRestPagination(
 }
 
 /**
- * Demo identity read for the adapter. Mirrors the native /api/me resolution
- * (explicit default, 401 unknown, 400 malformed) in a Jira-shaped user bean.
- * Pure; never writes.
+ * Identity read for the adapter through the shared request-to-account
+ * resolver. A present Passport identity maps through the explicit
+ * claims/groups role mapping (default viewer); otherwise the labelled
+ * synthetic `x-demo-user` fallback applies (explicit default, 401 unknown,
+ * 400 malformed). Pure; never writes.
  */
-export function restMyself(header: unknown): RestResult<RestUser> {
-  const resolved = resolveDemoActor(header);
+export function restMyself(
+  header: unknown,
+  passport?: Pick<AppRequestIdentity, "passportToken" | "devUser" | "nodeEnv">,
+): RestResult<RestUser> {
+  const resolved = resolveAppActor({
+    passportToken: passport?.passportToken,
+    demoUser: header,
+    devUser: passport?.devUser,
+    nodeEnv: passport?.nodeEnv,
+  });
   if (!resolved.ok) {
     return { ok: false, statusCode: resolved.statusCode, error: resolved.error };
   }

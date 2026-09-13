@@ -48,7 +48,9 @@ test("myself maps the resolved demo account with the demo envelope", () => {
     assert.equal(member.data.accountId, "demo-member");
     assert.equal(member.data.displayName, "Demo Member");
     assert.equal(member.data.demoRole, "member");
-    assert.equal(member.data.accountType, "demo");
+    assert.equal(member.data.accountType, "atlassian:passport-demo");
+    assert.equal(member.data.identitySource, "demoFallback");
+    assert.equal(member.data.externalSub, null);
     assert.equal(member.data.active, true);
     assertEnvelope(member.data);
   }

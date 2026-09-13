@@ -4,11 +4,14 @@ import { restMyself } from "../../utils/jiraRest.ts";
 /**
  * Demo-only read-only MCP tool: current demo user.
  *
- * Wraps the `GET /api/rest/api/3/myself` contract 1:1. Reads stay open to
- * the demo viewer; unknown identities fail closed without writing. There is
- * no auth claim: the caller passes the same labelled demo identity the REST
- * adapter accepts (`demo-admin`, `demo-member`, `demo-viewer`, or the
- * explicit default when omitted).
+ * Wraps the `GET /api/rest/api/3/myself` contract 1:1 through the shared
+ * request-to-application-account resolver. Reads stay open to read-only
+ * accounts; unknown identities fail closed without writing. The caller
+ * passes the same labelled demo identity the REST adapter accepts
+ * (`demo-admin`, `demo-member`, `demo-viewer`, or the explicit default when
+ * omitted). There is no auth claim and no raw Passport token is accepted
+ * here: Passport identities arrive only via the platform-injected request
+ * header on the HTTP route.
  */
 export default defineMcpTool({
   name: "me",
