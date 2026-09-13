@@ -2,7 +2,7 @@ import { stationAddress } from "../runtime/lib/station-access.ts";
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { applyReview,newDelivery,operationFor,deliveryRequest,referenceState,claimAdvance,commitAdvance,transition,requestResume } from '../runtime/lib/delivery-state.ts';
-import { hostResult,eventsForDelivery,snapshotEvents,resumeMessage,resumeReceipt } from '../runtime/lib/delivery-events.ts';
+import { classifyDeliveryError,hostResult,eventsForDelivery,snapshotEvents,resumeMessage,resumeReceipt } from '../runtime/lib/delivery-events.ts';
 import { validateJiraLockfile, validateJiraManifest, validateJiraMcpChangeSet, validateJiraNuxtConfig,verificationCommands } from '../runtime/lib/jira-policy.ts';
 import { allowedWorkPath } from '../runtime/lib/work-github.ts';
 const task=deliveryRequest.parse({operationId:'11111111-1111-4111-8111-111111111111',title:'Jira state',brief:'Create a useful stateful issue list'});
@@ -39,7 +39,50 @@ test('lockfile policy preserves existing blocks and accepts only the MCP importe
 
 test('revision events use live Eve meta.deliveryIds and exclude the previous turn',()=>{const current={type:'turn.started',meta:{deliveryIds:['delivery-current']},data:{}};assert.deepEqual(eventsForDelivery([{type:'turn.completed',meta:{deliveryIds:['delivery-old']}},current],'delivery-current'),[current]);assert.deepEqual(eventsForDelivery([{type:'turn.started',deliveryIds:['delivery-current']}],'delivery-current'),[]);});
 test('stale refs demand an explicit owner revision instead of a retry loop',()=>{const p=state().publication!;assert.equal(referenceState(p,{state:'open',headSha:p.headSha,targetBranch:p.targetBranch,targetHeadSha:'c'.repeat(40)}),'needs_revision');assert.equal(referenceState(p,{state:'closed',headSha:p.headSha,targetBranch:p.targetBranch,targetHeadSha:p.targetHeadSha}),'blocked');});
-test('partial stream observations cannot produce trusted terminal evidence',async()=>{await assert.rejects(snapshotEvents({getStreamTailIndex:async()=>2,getEventStream:async()=>new ReadableStream({start(c){c.enqueue({type:'turn.completed'});c.close();}})} as never),/before captured tail/);});
+test('partial stream observations are typed and cannot produce trusted terminal evidence',async()=>{
+ let error: unknown;
+ await assert.rejects(snapshotEvents({getStreamTailIndex:async()=>2,getEventStream:async()=>new ReadableStream({start(c){c.enqueue({type:'turn.completed'});c.close();}})} as never),caught=>{error=caught;return true;});
+ assert.equal(classifyDeliveryError(error).code,'observation_partial');
+ assert.equal(classifyDeliveryError(error).retryable,true);
+});
+
+test('idle observation timeout is recoverable without accepting the partial prefix',async()=>{
+ let error: unknown;
+ await assert.rejects(snapshotEvents({getStreamTailIndex:async()=>1,getEventStream:async()=>new ReadableStream({start(c){c.enqueue({type:'turn.started'});}})} as never,{idleTimeoutMs:5}),caught=>{error=caught;return true;});
+ const failure=classifyDeliveryError(error);
+ assert.deepEqual({code:failure.code,kind:failure.kind,status:failure.status,retryable:failure.retryable,preservePhase:failure.preservePhase},{code:'observation_timeout',kind:'observation',status:503,retryable:true,preservePhase:true});
+});
+
+test('event limits stay typed and provider failures stay outside observation recovery',async()=>{
+ let limitError: unknown;
+ await assert.rejects(snapshotEvents({getStreamTailIndex:async()=>2,getEventStream:async()=>new ReadableStream()} as never,{maxEvents:2}),caught=>{limitError=caught;return true;});
+ assert.equal(classifyDeliveryError(limitError).code,'observation_limit');
+
+ let providerError: unknown;
+ await assert.rejects(snapshotEvents({getStreamTailIndex:async()=>0,getEventStream:async()=>{throw Object.assign(new Error('Eve gateway unavailable'),{status:503});}} as never),caught=>{providerError=caught;return true;});
+ assert.deepEqual([classifyDeliveryError(providerError).code,classifyDeliveryError(providerError).kind,classifyDeliveryError(providerError).status],['provider_unavailable','provider',502]);
+});
+
+test('provider, auth, input and closed-target errors have distinct contracts',()=>{
+ const provider=classifyDeliveryError(Object.assign(new Error('Eve service unavailable'),{code:'provider_unavailable'}));
+ const auth=classifyDeliveryError(Object.assign(new Error('Eve rejected the credentials'),{status:401}));
+ const input=classifyDeliveryError(Object.assign(new Error('Malformed delivery request'),{code:'invalid_request'}));
+ const target=classifyDeliveryError(Object.assign(new Error('PR was closed or retargeted'),{code:'target_closed'}));
+ assert.deepEqual([provider.code,provider.kind,provider.status,provider.retryable],[ 'provider_unavailable','provider',502,true ]);
+ assert.deepEqual([auth.code,auth.kind,auth.status,auth.retryable],[ 'provider_auth','auth',401,false ]);
+ assert.deepEqual([input.code,input.kind,input.status,input.retryable],[ 'invalid_request','input',400,false ]);
+ assert.deepEqual([target.code,target.kind,target.status,target.retryable],[ 'target_closed','target',409,false ]);
+});
+
+test('recoverable observation failure resumes the exact failed phase',()=>{
+ const s=state();
+ transition(s,'working');
+ s.failedPhase='working';
+ transition(s,'blocked');
+ requestResume(s,'resume-observation');
+ assert.equal(s.phase,'working');
+ assert.equal(s.attempt,1);
+});
 
 test('lost revision receipt recovers trusted cached prepare_work publication',()=>{const result={sessionId:'wrun_owner',operationId:'same',revisionProtocol:1,publication:{headSha:'a'.repeat(40)}};const event={type:'action.result',meta:{deliveryIds:['retry']},data:{status:'completed',result:{kind:'tool-result',toolName:'prepare_work',output:{phase:'Already published',result}}}};assert.deepEqual(hostResult(eventsForDelivery([event],'retry'),'publish_work','wrun_owner','same'),result);assert.equal(hostResult([event],'publish_work','wrun_owner','different'),undefined);});
 
