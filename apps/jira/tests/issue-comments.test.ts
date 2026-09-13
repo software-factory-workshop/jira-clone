@@ -10,8 +10,10 @@ import {
 } from "../server/utils/issues.ts";
 import {
   clearCommentDraft,
+  clearCommentDraftAfterSave,
   commentDraftStorageKey,
   fetchIssueComments,
+  isCommentDraftStorageAvailable,
   postIssueComment,
   readCommentDraft,
   submitIssueComment,
@@ -216,6 +218,43 @@ test("per-issue drafts are isolated and survive close/reopen", () => {
   assert.equal(readCommentDraft("ADEO-2", store), "");
 });
 
+test("late comment saves clear only the originating draft", async () => {
+  const store = memoryStore();
+  writeCommentDraft("ADEO-1", "originating draft", store);
+  writeCommentDraft("ADEO-2", "untouched draft", store);
+
+  // The POST resolves after the user typed a newer draft on the same issue:
+  // only the submitted text is cleared and the newer draft is preserved.
+  writeCommentDraft("ADEO-1", "newer draft typed while saving", store);
+  let deferredResolve: (value: string) => void = () => {};
+  const deferred = new Promise<string>((resolve) => {
+    deferredResolve = resolve;
+  });
+  const pending = submitIssueComment(
+    [],
+    "originating draft",
+    (body) => deferred.then(() => ({ id: "late-1", body, author: DEMO_COMMENT_AUTHOR, createdAt: "2026-09-12T00:00:03.000Z", demoOnly: true as const })),
+  );
+  deferredResolve("saved");
+  const result = await pending;
+  assert.equal(result.ok, true);
+  const cleared = clearCommentDraftAfterSave("ADEO-1", "originating draft", store);
+  assert.equal(cleared, false);
+  assert.equal(readCommentDraft("ADEO-1", store), "newer draft typed while saving");
+  assert.equal(readCommentDraft("ADEO-2", store), "untouched draft");
+
+  // When the stored text still matches the submitted one, the draft clears.
+  writeCommentDraft("ADEO-1", "originating draft", store);
+  assert.equal(clearCommentDraftAfterSave("ADEO-1", "originating draft", store), true);
+  assert.equal(readCommentDraft("ADEO-1", store), "");
+  assert.equal(readCommentDraft("ADEO-2", store), "untouched draft");
+
+  // Dialog closed mid-save: the stored-origin snapshot still clears cleanly.
+  writeCommentDraft("ADEO-1", "closing draft", store);
+  assert.equal(clearCommentDraftAfterSave("ADEO-1", "closing draft", store), true);
+  assert.equal(readCommentDraft("ADEO-1", store), "");
+});
+
 test("draft storage failures keep the in-memory draft", () => {
   const failing: Storage = memoryStore();
   failing.setItem = () => {
@@ -228,8 +267,47 @@ test("draft storage failures keep the in-memory draft", () => {
     throw new Error("storage unavailable");
   };
   assert.equal(readCommentDraft("ADEO-1", failing), "");
+  assert.equal(isCommentDraftStorageAvailable(failing), false);
   writeCommentDraft("ADEO-1", "kept in memory", failing);
   clearCommentDraft("ADEO-1", failing);
+});
+
+test("unavailable default storage falls back to an honest per-issue session draft", () => {
+  const failing = memoryStore();
+  failing.setItem = () => {
+    throw new Error("storage unavailable");
+  };
+  failing.getItem = () => {
+    throw new Error("storage unavailable");
+  };
+  failing.removeItem = () => {
+    throw new Error("storage unavailable");
+  };
+  const descriptor = Object.getOwnPropertyDescriptor(globalThis, "localStorage");
+  Object.defineProperty(globalThis, "localStorage", {
+    value: failing,
+    configurable: true,
+    writable: true,
+  });
+  try {
+    assert.equal(isCommentDraftStorageAvailable(), false);
+    writeCommentDraft("ADEO-1", "session draft one");
+    writeCommentDraft("ADEO-2", "session draft two");
+    // Session-only mirrors survive dialog close/reopen per issue key.
+    assert.equal(readCommentDraft("ADEO-1"), "session draft one");
+    assert.equal(readCommentDraft("ADEO-2"), "session draft two");
+    // A late save on another issue never clears the wrong session draft.
+    assert.equal(clearCommentDraftAfterSave("ADEO-2", "session draft two"), true);
+    assert.equal(readCommentDraft("ADEO-1"), "session draft one");
+    assert.equal(readCommentDraft("ADEO-2"), "");
+    // Blank mirrors never accumulate entries.
+    writeCommentDraft("ADEO-1", "   ");
+    assert.equal(readCommentDraft("ADEO-1"), "");
+    assert.equal(isCommentDraftStorageAvailable(), false);
+  } finally {
+    if (descriptor) Object.defineProperty(globalThis, "localStorage", descriptor);
+    else delete (globalThis as Record<string, unknown>)["localStorage"];
+  }
 });
 
 test("submit helper keeps the draft on failure and clears it on success", async () => {
