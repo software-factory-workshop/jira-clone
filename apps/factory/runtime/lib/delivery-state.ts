@@ -3,6 +3,7 @@ import type { Driver } from './delivery-driver-state.ts';
 import { createHash } from 'node:crypto';
 import { z } from 'zod';
 import { workerRequest } from './station-access.ts';
+import type { VisualReviewPacket } from './visual-review.ts';
 
 export const deliveryRequest = workerRequest.extend({
   maxRevisions: z.number().int().min(0).max(10).default(3),
@@ -138,6 +139,7 @@ export interface Delivery {
     targetBranch: string;
     findings: Array<{ severity: string; path: string; message: string; evidence: string }>;
     limitations: string[];
+    visualReview?: VisualReviewPacket;
   };
   mergeDecision?: MergeDecision;
   mergeReview?: MergeReview;

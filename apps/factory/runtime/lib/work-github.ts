@@ -77,6 +77,13 @@ export async function verifyPullRequestHead(token: string, number: number, headS
   if (pr.state !== "open" || pr.head.sha !== headSha || (targetBranch&&pr.base.ref!==targetBranch) || (baseSha && currentTarget!==baseSha)) throw new Error("Pull request changed or closed; start a fresh review.");
   return true;
 }
+export async function updatePullRequestBody(token:string,number:number,headSha:string,body:string,signal?:AbortSignal){
+ z.number().int().positive().parse(number);sha.parse(headSha);z.string().max(50000).parse(body);
+ const pull=await readPull(token,number,signal);
+ if(pull.state!=='open'||pull.head.sha!==headSha)throw new WorkError('stale_head','Pull request changed before its visual review section could be published.');
+ await request(token,`pulls/${number}`,signal,{body},'PATCH');
+ await verifyPullRequestHead(token,number,headSha,signal,undefined,pull.base.ref);
+}
 export async function loadPullRequest(token: string, number: number, signal?: AbortSignal) {
   const pr = await readPull(token, number, signal);
   if (pr.state !== "open") throw new Error("Review requires an open pull request.");

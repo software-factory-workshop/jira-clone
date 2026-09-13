@@ -16,6 +16,6 @@ export default defineTool({description:'Start a local browser target from the un
    reviewBrowser.update(s=>({...s,targets:{...s.targets,[origin]:state.pull!.headSha}}));
   }
   log.set({factory:{station:"reviewer",stage:"prepare_browser",outcome:"ready",app,port:app==='jira'?3001:3000,headSha:state.pull.headSha}});
-  return{origin,headSha:state.pull.headSha,sessionId:ctx.session.id,instructions:'Wait for the local server with browser tools. Exercise the changed acceptance criteria, take snapshots before and after interactions, use keyboard navigation and activation, inspect focus, and capture a screenshot. Report actual failures or missing coverage; tool use alone is not a passing assessment.'};
+  return{origin,headSha:state.pull.headSha,sessionId:ctx.session.id,instructions:'Wait for the local server with browser tools. On one review route, take a before screenshot, take an accessibility snapshot, exercise the changed acceptance criteria, navigate and activate controls with the keyboard, inspect visible focus, take a snapshot after the interaction, and take an after screenshot on that same route. The host records the frames and publishes a visual before/after packet into the PR when storage is available. Report actual failures or missing coverage; this visual packet is supplementary evidence and tool use alone is not a passing assessment.'};
  }
 });

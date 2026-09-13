@@ -9,6 +9,7 @@ import { readCockpit,updateCockpit } from '../lib/cockpit-store';
 import { collections,idSchema,changeRecord,importRecords,CockpitConflict } from '../../shared/cockpit';
 import { readRun,readStationRun } from '../lib/cockpit-run';
 import { proposalDraft } from '../../app/utils/mining-output';
+import { readVisualFrame } from '../lib/visual-review-store';
 const collectionSchema=z.enum(collections);
 const mutation=z.object({value:z.unknown(),expectedVersion:z.number().int().nonnegative()}).strict();
 async function authorized(request:Request,work:()=>Promise<unknown>) {
@@ -17,6 +18,13 @@ async function authorized(request:Request,work:()=>Promise<unknown>) {
  catch(error){const status=error instanceof CockpitConflict?409:error instanceof z.ZodError?400:503;return Response.json({error:{code:status===409?'conflict':status===400?'invalid_request':'unavailable',message:status===503?'Cockpit data is unavailable. Retry without discarding your work.':error instanceof Error?error.message:'Invalid request'}},{status});}
 }
 export default defineChannel({routes:[
+ GET('/factory/review-artifacts/:artifactId/:token',async(request,{params})=>{
+  try{
+   const image=await readVisualFrame(params.artifactId,params.token,new URL(request.url).searchParams.get('phase')||'');
+   if(!image)return new Response('Visual frame not found',{status:404});
+   return new Response(image.stream,{status:200,headers:{'cache-control':'private, max-age=31536000, immutable','content-type':image.mediaType,'x-content-type-options':'nosniff','etag':image.sha256}});
+  }catch{return new Response('Visual frame not found',{status:404});}
+ }),
  GET('/factory/cockpit',request=>authorized(request,async()=>({version:1,repository,references,stages,starterRequests,sections:['mining','work','knowledge','growth'],capabilities:{collections:'/factory/cockpit/records/:collection',import:'/factory/cockpit/import',respond:'/eve/v1/session/:id',reset:'/eve/v1/session/:id/reset',delivery:'/factory/delivery',record:'/factory/cockpit/records/:collection/:id',activate:'/factory/cockpit/activate',issueLink:'/factory/cockpit/issue-link',runResult:'/factory/cockpit/run/:id',worker:'/factory/stations/worker',reviewer:'/factory/stations/reviewer',revision:'/factory/stations/revisions',mining:'/eve/v1/session',stream:'/eve/v1/session/:id/stream',send:'/eve/v1/session/:id',cancel:'/eve/v1/session/:id/cancel'}}))),
  POST('/factory/cockpit/import',request=>authorized(request,async()=>{const body=z.object({collection:collectionSchema,items:z.array(z.object({id:idSchema,value:z.unknown()}).strict()).max(1000)}).strict().parse(await request.json());return {items:await updateCockpit(doc=>importRecords(doc,body.collection,body.items))};})),
  POST('/factory/cockpit/records/:collection',(request,{params})=>authorized(request,async()=>{const body=z.object({id:idSchema,value:z.unknown()}).strict().parse(await request.json());return {item:await updateCockpit(doc=>changeRecord(doc,collectionSchema.parse(params.collection),body.id,body.value,0))};})),

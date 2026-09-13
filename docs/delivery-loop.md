@@ -38,6 +38,8 @@ Each root agent mounts the official agent-browser Eve extension in its own sandb
 
 For review, `prepare_browser` starts the changed app locally from the unchanged PR snapshot. Browser tool results record the candidate and reviewer session alongside snapshots, interactions, keyboard use and screenshots. These observations establish that the reviewer used the browser; the reviewer must still assess the acceptance criteria and report failures or missing coverage.
 
+When a changed browser surface is exercised, the reviewer hook also keeps one before/after pair on the same route. `record_review` stores those frames in private Blob storage and publishes a deterministic `Visual review` section into the PR body. The section names the exact candidate and target SHAs, route and surface, and links each frame through a capability URL; a missing or stale packet is visible rather than silently treated as approval evidence. The packet is supplementary design-review context: it never replaces the host-owned semantic, keyboard, repository-check or deployment gates. `BLOB_READ_WRITE_TOKEN` must be available to the factory service, and `FACTORY_PUBLIC_URL` should be set when PR frame links must use a stable public origin instead of the deployment's `VERCEL_URL`.
+
 ## CLI and reconnect
 
 Supply a Vercel OIDC machine bearer token in `FACTORY_TOKEN` (not a Vercel REST API personal token). If the deployment also requires a protection bypass, supply `FACTORY_PROTECTION_BYPASS`. It is never written to the checkpoint. The request JSON contains the title and brief; use `factory/tasks/jira-teaching-loop.md` as the assignment source.
