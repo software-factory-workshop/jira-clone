@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { authorizationLink, miningProgress, parseMiningOutput, proposalDraft, terminalMiningFailure } from "../app/utils/mining-output.ts";
+import { authorizationLink, miningProgress, parseMiningOutput, proposalDeliveryRequest, proposalDraft, terminalMiningFailure } from "../app/utils/mining-output.ts";
 
 const capturedAt = "2026-09-12T12:00:00.000Z";
 const revision = "a".repeat(40);
@@ -61,6 +61,13 @@ test("each task draft contains only the selected proposal and retains host prove
   assert(draft.body.includes("Deployment access pending"));
   assert(draft.body.includes("Investigation status: Incomplete"));
   assert(draft.body.includes("Implementation has not started"));
+});
+
+test("proposal delivery handoff does not carry draft-only wording", () => {
+  const request = proposalDeliveryRequest({ proposal: firstProposal, index: 0, sessionId: "wrun_delivery", revision, capturedAt, phase: "Complete" });
+  assert.equal(request.title, "First candidate");
+  assert(request.body.includes("Selected to start the durable delivery"));
+  assert(!request.body.includes("Selected for review as an editable draft"));
 });
 
 test("legacy structured proposal identifiers are stable and explicitly derived", () => {

@@ -67,10 +67,12 @@ export function authorizationLink(value: string | undefined) {
   } catch { return undefined; }
 }
 
-export function proposalDraft(input: {
+type ProposalHandoff = "draft" | "delivery";
+
+function proposalRequest(input: {
   proposal: MiningProposal; index: number; sessionId: string;
   revision?: string; capturedAt?: string; phase: string; contextGaps?: string[];
-}) {
+}, handoff: ProposalHandoff) {
   const { proposal, index, sessionId, revision, capturedAt, phase, contextGaps } = input;
   const list = (values: string[]) => values.map(value => `- ${value}`).join("\n");
   const id = proposal.id || `${sessionId}:proposal:${index + 1}`;
@@ -80,8 +82,25 @@ export function proposalDraft(input: {
   if (proposal.uncertainties.length) sections.push(`## Uncertainties\n\n${list(proposal.uncertainties)}`);
   if (contextGaps?.length) sections.push(`## Investigation context gaps\n\n${list(contextGaps)}`);
   const provenance = proposal.provenance;
-  sections.push(`---\nProposal: ${id}\nProposal identity: ${proposal.id && provenance ? "Recorded by the investigation" : "Derived from the legacy session and proposal position"}\nInvestigation: ${provenance?.sessionId || sessionId}\nRepository: ${provenance?.repository || "software-factory-workshop/jira-clone"}\nSource revision: ${provenance?.revision || revision || "Unavailable"}\nCaptured: ${provenance?.capturedAt || capturedAt || "Unavailable"}\nInvestigation status: ${phase}\n\nSelected for review as an editable draft. Implementation has not started.`);
+  const handoffNote = handoff === "delivery"
+    ? "Selected to start the durable delivery. Preserve this scope through implementation and review."
+    : "Selected for review as an editable draft. Implementation has not started.";
+  sections.push(`---\nProposal: ${id}\nProposal identity: ${proposal.id && provenance ? "Recorded by the investigation" : "Derived from the legacy session and proposal position"}\nInvestigation: ${provenance?.sessionId || sessionId}\nRepository: ${provenance?.repository || "software-factory-workshop/jira-clone"}\nSource revision: ${provenance?.revision || revision || "Unavailable"}\nCaptured: ${provenance?.capturedAt || capturedAt || "Unavailable"}\nInvestigation status: ${phase}\n\n${handoffNote}`);
   return { title: proposal.title, body: sections.join("\n\n") };
+}
+
+export function proposalDraft(input: {
+  proposal: MiningProposal; index: number; sessionId: string;
+  revision?: string; capturedAt?: string; phase: string; contextGaps?: string[];
+}) {
+  return proposalRequest(input, "draft");
+}
+
+export function proposalDeliveryRequest(input: {
+  proposal: MiningProposal; index: number; sessionId: string;
+  revision?: string; capturedAt?: string; phase: string; contextGaps?: string[];
+}) {
+  return proposalRequest(input, "delivery");
 }
 
 export function terminalMiningFailure(input: {
