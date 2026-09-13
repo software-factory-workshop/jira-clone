@@ -1,1 +1,0 @@
-Error: ACP session initialization failed: Required MCP server 'ai-sdk-harness-tools' failed to start: InvalidSchema

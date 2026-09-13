@@ -1,3 +1,0 @@
-Mine the next useful task for this factory-first ADEO Jira project. Respect the current project goal and stage, inspect the current codebase and existing GitHub issues, and support every proposal with repository evidence.
-
-Return at most three proposals, ranked by usefulness now, or explain why none is justified. For each proposal give the outcome, why now, exact evidence references, relationship to existing issues, a bounded scope, acceptance criteria, and uncertainties. Finish with a short reflection: what context helped, what was missing or contradictory, and what would improve the next investigation.
