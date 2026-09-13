@@ -1,3 +1,8 @@
+import {
+  restCommentsUrl,
+  restCommentToDemoComment,
+  type RestCommentShape,
+} from "./restIssues.ts";
 
 /** Prefer the server-provided demo message (Nuxt FetchError `data.message`) over the generic transport message. */
 function serverMessage(error: unknown, fallback: string): string {
@@ -19,7 +24,10 @@ export type DemoComment = {
 };
 
 export type IssueCommentsResponse = {
-  comments: DemoComment[];
+  comments?: (DemoComment | RestCommentShape)[];
+  startAt?: number;
+  maxResults?: number;
+  total?: number;
   demoOnly?: boolean;
 };
 
@@ -29,19 +37,28 @@ export type IssueCommentsResult = {
 };
 
 /**
- * Demo-only per-issue comment read through GET /api/issues/:key/comments.
+ * Demo-only per-issue comment read through the canonical Jira-shaped route
+ * GET /api/rest/api/3/issue/:key/comment. Accepts both the comment-list
+ * envelope (`{ comments: [{ body, author: { displayName }, created }] }`)
+ * and already-mapped demo comments, so the dialog renders this canonical
+ * server read.
  *
  * The caller supplies a JSON fetcher (Nuxt `$fetch` in the dialog, a stub in
- * tests) so the dialog renders this server read. Rejections propagate so the
- * dialog can keep the selected key and report the error without claiming
- * success.
+ * tests). Rejections propagate so the dialog can keep the selected key and
+ * report the error without claiming success.
  */
 export async function fetchIssueComments(
   key: string,
   fetchJson: (url: string) => Promise<IssueCommentsResponse>,
 ): Promise<IssueCommentsResult> {
-  const data = await fetchJson(`/api/issues/${key}/comments`);
-  return { comments: data.comments, demoOnly: data.demoOnly === true };
+  const data = await fetchJson(restCommentsUrl(key));
+  const raw = data?.comments ?? [];
+  const comments: DemoComment[] = raw.map((comment) =>
+    "createdAt" in comment && typeof comment.createdAt === "string"
+      ? (comment as DemoComment)
+      : restCommentToDemoComment(comment as RestCommentShape),
+  );
+  return { comments, demoOnly: data?.demoOnly === true };
 }
 
 export type CommentSubmitResult =

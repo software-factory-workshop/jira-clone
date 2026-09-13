@@ -6,6 +6,8 @@ import {
   resetIssues,
   updateIssue,
 } from "../server/utils/issues.ts";
+import { toRestIssue } from "../server/utils/jiraRest.ts";
+import { restIssueUrl } from "../app/utils/restIssues.ts";
 import {
   failedDetail,
   fetchIssueDetail,
@@ -13,24 +15,24 @@ import {
   type IssueDetailResponse,
 } from "../app/utils/issueDetail.ts";
 
-/** Stub JSON fetcher backed by the real demo-only server store. */
+/** Stub JSON fetcher backed by the real canonical Jira-shaped server shape. */
 function serverFetch(calls: string[]) {
   return async (url: string): Promise<IssueDetailResponse> => {
     calls.push(url);
-    const key = url.split("/").pop() ?? "";
+    const key = decodeURIComponent(url.split("/").pop() ?? "");
     const issue = getIssue(key);
     if (!issue) {
       throw new Error(`Unknown issue key: ${key}.`);
     }
-    return { issue, demoOnly: true };
+    return toRestIssue(issue);
   };
 }
 
-test("selecting an issue reads GET /api/issues/:key with the demo-only label", async () => {
+test("selecting an issue reads the canonical GET /api/rest/api/3/issue/:key with the demo-only label", async () => {
   resetIssues();
   const calls: string[] = [];
   const result = await fetchIssueDetail("ADEO-1", serverFetch(calls));
-  assert.deepEqual(calls, ["/api/issues/ADEO-1"]);
+  assert.deepEqual(calls, [restIssueUrl("ADEO-1")]);
   assert.equal(result.issue.key, "ADEO-1");
   assert.equal(result.demoOnly, true);
   const loaded = loadedDetail(result);
