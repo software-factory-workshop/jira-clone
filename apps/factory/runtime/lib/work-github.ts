@@ -29,7 +29,7 @@ export function allowedWorkPath(path: string): boolean {
   if (["package.json", "pnpm-workspace.yaml", "turbo.json"].includes(name) || /^tsconfig(?:[.-].*)?\.json$/.test(name) || /\.config\.[cm]?[jt]s$/.test(name)) return false;
   if (path.split("/").some(part => ["middleware", "modules"].includes(part)) || (!jiraServer && !jiraMcpTools && path.split("/").includes("server"))) return false;
   if (path.split("/").some(part => ["AGENTS.md", "CLAUDE.md", "SKILL.md", ".npmrc", ".output", ".nuxt", "dist", "coverage"].includes(part))) return false;
-  return ![".agents/", ".github/", "factory/", "apps/factory/agent/", "apps/factory/scripts/", "vendor/"].some(prefix => path.startsWith(prefix));
+  return ![".agents/", ".github/", "factory/", "apps/factory/agents/", "apps/factory/shared/", "apps/factory/scripts/", "vendor/"].some(prefix => path.startsWith(prefix));
 }
 async function request(token: string, path: string, signal?: AbortSignal, body?: unknown, method?:"PATCH") {
   const response = await fetch(`https://api.github.com/repos/${repository}/${path}`, {

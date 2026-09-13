@@ -48,5 +48,5 @@ test('snapshot uses immutable commit tree and blobs; refuses truncated trees', a
   await assert.rejects(loadRepository('test-token'), /incomplete/);
   assert.equal(includeSource('factory/mining/runs/result.md'), false);
   assert.equal(includeSource('vendor/design-system.tgz'), false);
-  assert.equal(includeSource('apps/factory/agent/instructions.md'), true);
+  assert.equal(includeSource('apps/factory/agents/worker/agent/instructions.ts'), true);
 });

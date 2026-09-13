@@ -34,7 +34,7 @@ function mockGitHub(t: {mock:{method:Function}},options:{mode?:string;main?:stri
  return writes;
 }
 test("worker policy excludes rules, credentials, archives, traversal and generated files",()=>{
- for(const path of ["AGENTS.md","apps/jira/AGENTS.md",".agents/skills/a.md",".github/workflows/ci.yml","factory/context/goal.md","apps/factory/agent/agent.ts","apps/factory/scripts/build-eve.mjs","../escape","apps//file",".env.local","apps/jira/.env","vendor/pkg.tgz","apps/jira/.output/file","package.json","apps/factory/nuxt.config.ts","apps/factory/server/api/station.post.ts","tsconfig.json","apps/jira/tsconfig.app.json","vercel.json",".pnpmfile.cjs","packages/project-context/src/index.ts","README.md"]){assert.equal(allowedWorkPath(path),false,path);}
+ for(const path of ["AGENTS.md","apps/jira/AGENTS.md",".agents/skills/a.md",".github/workflows/ci.yml","factory/context/goal.md","apps/factory/agents/worker/agent/instructions.ts","apps/factory/shared/agent-quality.ts","apps/factory/scripts/build-eve.mjs","../escape","apps//file",".env.local","apps/jira/.env","vendor/pkg.tgz","apps/jira/.output/file","package.json","apps/factory/nuxt.config.ts","apps/factory/server/api/station.post.ts","tsconfig.json","apps/jira/tsconfig.app.json","vercel.json",".pnpmfile.cjs","packages/project-context/src/index.ts","README.md"]){assert.equal(allowedWorkPath(path),false,path);}
  assert.equal(allowedWorkPath("apps/jira/nuxt.config.ts"),true);
  assert.equal(allowedWorkPath("pnpm-lock.yaml"),true);
  assert.equal(allowedWorkPath("apps/jira/server/mcp/tools/list-issues.ts"),true);

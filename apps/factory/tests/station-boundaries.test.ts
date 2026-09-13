@@ -42,7 +42,7 @@ test("change collector ignores generated SWC output created by a reviewer build"
  }finally{await rm(root,{recursive:true,force:true});}
 });
 test("protected policy or validation edits cannot reach verification/publication",()=>{
- for(const path of ["AGENTS.md","apps/factory/agent/instructions.ts","package.json","apps/factory/package.json",".github/workflows/ci.yml","factory/context/goal.md","../escape"]){assert.throws(()=>validateCollectedChanges([{path,content:"changed"}]),path);}
+ for(const path of ["AGENTS.md","apps/factory/agents/worker/agent/instructions.ts","apps/factory/shared/agent-quality.ts","package.json","apps/factory/package.json",".github/workflows/ci.yml","factory/context/goal.md","../escape"]){assert.throws(()=>validateCollectedChanges([{path,content:"changed"}]),path);}
  assert.throws(()=>validateCollectedChanges([{path:"apps/factory/app/x.ts",content:"a"},{path:"apps/factory/app/x.ts",content:"b"}]));
 });
 test("model cannot reclassify required UI evidence to obtain approval",()=>{
