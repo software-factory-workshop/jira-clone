@@ -13,7 +13,9 @@
     "@jira-clone/context": "workspace:*",
     "nuxt": "4.5.2",
     "vue": "^3.5.0",
-    "@software-factory-workshop/nuxt-adeo-ds": "file:../../vendor/software-factory-workshop-nuxt-adeo-ds-0.1.1.tgz"
+    "@software-factory-workshop/nuxt-adeo-ds": "file:../../vendor/software-factory-workshop-nuxt-adeo-ds-0.1.1.tgz",
+    "@nuxtjs/mcp-toolkit": "0.21.0",
+    "zod": "4.6.1"
   },
   "devDependencies": {
     "typescript": "^5.9.0",
