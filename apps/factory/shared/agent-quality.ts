@@ -1,3 +1,11 @@
+/**
+ * Shared quality and communication contract for every factory station.
+ *
+ * The Markdown copy under factory/policies remains the human- and
+ * host-readable baseline. This module is the importable prompt boundary used
+ * by each Eve root, so the contract is resolved during the Eve build.
+ */
+export const agentQualityInstructions = `
 # Agent quality contract
 
 This contract is shared by the task-miner, worker and reviewer. It governs how
@@ -173,3 +181,8 @@ Receipt:
 
 The repository's source, tests and host receipts remain the evidence. This
 contract improves the run's habits; it does not prove that a run succeeded.
+`.trim();
+
+export function composeAgentInstructions(stationInstructions: string): string {
+  return [agentQualityInstructions, stationInstructions.trim()].join("\n\n");
+}
