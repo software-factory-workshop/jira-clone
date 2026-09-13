@@ -1,5 +1,6 @@
 import { z } from "zod";
 import type { EveMessageData, MessageStreamEvent } from "eve/client";
+import { visualReviewPacketSchema } from "../../runtime/lib/visual-review.ts";
 
 export const stationSessionSchema = z.object({ sessionId: z.string().regex(/^wrun_[A-Za-z0-9_-]+$/), execution: z.enum(["owner", "dispatcher", "direct"]).optional(), rootAgent:z.enum(["worker","reviewer"]).optional(), ownerSessionId: z.string().optional(), deliveryId: z.string().min(1).optional(), operationId: z.string().uuid().optional() });
 export const stationLinkSchema = z.object({ station: z.enum(["worker", "reviewer"]), run: z.string().regex(/^wrun_[A-Za-z0-9_-]+$/), execution: z.enum(["owner", "dispatcher", "direct"]).optional(), rootAgent:z.enum(["worker","reviewer"]).optional(), deliveryId: z.string().min(1).max(200).optional(), operationId: z.string().uuid().optional() });
@@ -24,7 +25,7 @@ const sha = z.string().regex(/^[a-f0-9]{40}$/);
 const prUrl = z.string().refine(value => parsePullRequest(value) !== undefined && value.startsWith("https://"));
 const command = z.object({ command: z.string(), exitCode: z.number(), stdout: z.string(), stderr: z.string(), truncated: z.boolean().optional() });
 const workerResult = z.object({ station: z.literal("worker"), operationId: z.string().uuid().optional(), sessionId: z.string(), revision: sha, summary: z.string(), publication: z.object({ branch: z.string(), number: z.number().int().positive(), url: prUrl, headSha: sha, baseSha: sha, ownerSessionId: z.string().optional(), targetBranch: z.string().optional(), targetHeadSha: sha.optional(), parentPrNumber: z.number().int().positive().optional() }), commands: z.array(command) });
-const reviewerResult = z.object({ station: z.literal("reviewer"), sessionId: z.string(), prNumber: z.number().int().positive(), url: prUrl, baseSha: sha, headSha: sha, targetBranch: z.string().optional(), verdict: z.enum(["approve", "changes_requested", "incomplete"]), summary: z.string(), findings: z.array(z.object({ severity: z.enum(["blocking", "nonblocking"]), path: z.string(), line: z.number().int().positive().optional(), message: z.string(), evidence: z.string() })), commands: z.array(command), limitations: z.array(z.string()), capturedAt: z.string() });
+const reviewerResult = z.object({ station: z.literal("reviewer"), sessionId: z.string(), prNumber: z.number().int().positive(), url: prUrl, baseSha: sha, headSha: sha, targetBranch: z.string().optional(), verdict: z.enum(["approve", "changes_requested", "incomplete"]), summary: z.string(), findings: z.array(z.object({ severity: z.enum(["blocking", "nonblocking"]), path: z.string(), line: z.number().int().positive().optional(), message: z.string(), evidence: z.string() })), commands: z.array(command), limitations: z.array(z.string()), visualReview: visualReviewPacketSchema.optional(), capturedAt: z.string() });
 export function parseStationResult(value: unknown, operationId?: string) {
   const parsed = z.discriminatedUnion("station", [workerResult, reviewerResult]).safeParse(value);
   if (!parsed.success) return undefined;
