@@ -17,7 +17,7 @@ export default defineMcpTool({
   },
   annotations: { readOnlyHint: true, openWorldHint: false },
   handler: async ({ issueKey }) => {
-    const result = restIssue(issueKey);
+    const result = await restIssue(issueKey);
     if (!result.ok) {
       throw createError({ statusCode: result.statusCode, message: result.error });
     }

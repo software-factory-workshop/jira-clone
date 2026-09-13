@@ -2,11 +2,12 @@ import { appActorLabel, authorizeAppWrite } from "../../../../../../utils/appAcc
 import { DEMO_ROLE_MATRIX_LABEL } from "../../../../../../utils/demoAccounts";
 import { PASSPORT_TOKEN_HEADER } from "../../../../../../utils/passportIdentity";
 import { REST_BOUNDARY, restAddComment, restBearerIdentity, authorizeBearerWrite } from "../../../../../../utils/jiraRest";
+import { getIssuePersistenceInfo } from "../../../../../../utils/issuePersistence";
 
 /**
  * Demo-only Jira-style POST /api/rest/api/3/issue/:key/comment.
  *
- * Bounded comment creation over the same in-memory demo comment store as
+ * Bounded comment creation over the same configured persistence boundary as
  * POST /api/issues/:key/comments: a nonblank `body` string is required.
  * Unknown keys, blank bodies and the deterministic `{fail:true}` path fail
  * closed and write nothing. Authority runs first through the shared
@@ -34,6 +35,7 @@ export default defineEventHandler(async (event) => {
         demoOnly: true,
         roleMatrix: DEMO_ROLE_MATRIX_LABEL,
         boundary: REST_BOUNDARY,
+        persistence: getIssuePersistenceInfo(),
         ...("account" in gate && gate.account
           ? { actor: appActorLabel(gate.account) }
           : {}),
@@ -45,7 +47,7 @@ export default defineEventHandler(async (event) => {
     body?: unknown;
     fail?: unknown;
   }>(event);
-  const result = restAddComment(
+  const result = await restAddComment(
     identity,
     key,
     {
@@ -62,6 +64,7 @@ export default defineEventHandler(async (event) => {
         demoOnly: true,
         roleMatrix: DEMO_ROLE_MATRIX_LABEL,
         boundary: REST_BOUNDARY,
+        persistence: getIssuePersistenceInfo(),
         actor: appActorLabel("data" in gate ? gate.data : gate.account),
       },
     });
@@ -71,5 +74,6 @@ export default defineEventHandler(async (event) => {
     demoOnly: true,
     roleMatrix: DEMO_ROLE_MATRIX_LABEL,
     boundary: REST_BOUNDARY,
+    persistence: getIssuePersistenceInfo(),
   };
 });

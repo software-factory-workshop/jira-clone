@@ -7,8 +7,8 @@ import { REST_BOUNDARY, restSearch } from "../../../../utils/jiraRest";
  * maxResults hard-bound 50). There is no JQL engine: any jql/JQL parameter
  * is a labelled demoOnly 400, never silently ignored. Never writes.
  */
-export default defineEventHandler((event) => {
-  const result = restSearch(getQuery(event) as Record<string, unknown>);
+export default defineEventHandler(async (event) => {
+  const result = await restSearch(getQuery(event) as Record<string, unknown>);
   if (!result.ok) {
     throw createError({
       statusCode: result.statusCode,

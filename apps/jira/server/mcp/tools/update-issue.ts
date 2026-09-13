@@ -39,7 +39,7 @@ export default defineMcpTool({
   },
   annotations: { readOnlyHint: false, openWorldHint: false },
   handler: async ({ issueKey, fields, demoUser, fail }) => {
-    const result = restUpdateIssue(mcpWriteIdentity(demoUser), issueKey, {
+    const result = await restUpdateIssue(mcpWriteIdentity(demoUser), issueKey, {
       fields,
       fail,
     });

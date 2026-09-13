@@ -6,9 +6,9 @@ import { REST_BOUNDARY, restIssue } from "../../../../../utils/jiraRest";
  * Single-issue read with the Jira-like envelope (title -> summary). Unknown
  * keys return a labelled 404. Never writes.
  */
-export default defineEventHandler((event) => {
+export default defineEventHandler(async (event) => {
   const key = getRouterParam(event, "key") ?? "";
-  const result = restIssue(key);
+  const result = await restIssue(key);
   if (!result.ok) {
     throw createError({
       statusCode: result.statusCode,

@@ -1,7 +1,10 @@
 import { appActorLabel, authorizeAppWrite } from "../../../utils/appAccounts";
 import { DEMO_ROLE_MATRIX_LABEL } from "../../../utils/demoAccounts";
 import { PASSPORT_TOKEN_HEADER } from "../../../utils/passportIdentity";
-import { addComment } from "../../../utils/issues";
+import {
+  addPersistentComment,
+  getIssuePersistenceInfo,
+} from "../../../utils/issuePersistence";
 
 /**
  * Demo-only per-issue comment creation through the shared
@@ -37,7 +40,7 @@ export default defineEventHandler(async (event) => {
     body?: unknown;
     fail?: unknown;
   }>(event);
-  const result = addComment(
+  const result = await addPersistentComment(
     key,
     { body: body?.body },
     { fail: body?.fail === true },
@@ -49,6 +52,7 @@ export default defineEventHandler(async (event) => {
     comment: result.comment,
     demoOnly: true,
     roleMatrix: DEMO_ROLE_MATRIX_LABEL,
+    persistence: getIssuePersistenceInfo(),
     actor: appActorLabel(actor.account),
   };
 });

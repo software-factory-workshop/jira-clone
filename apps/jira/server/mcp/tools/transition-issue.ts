@@ -38,7 +38,7 @@ export default defineMcpTool({
   },
   annotations: { readOnlyHint: false, openWorldHint: false },
   handler: async ({ issueKey, transitionId, demoUser, fail }) => {
-    const result = restTransitionIssue(mcpWriteIdentity(demoUser), issueKey, {
+    const result = await restTransitionIssue(mcpWriteIdentity(demoUser), issueKey, {
       transition: transitionId,
       fail,
     });

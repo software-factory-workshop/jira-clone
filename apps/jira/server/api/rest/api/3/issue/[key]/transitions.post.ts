@@ -2,6 +2,7 @@ import { appActorLabel, authorizeAppWrite } from "../../../../../../utils/appAcc
 import { DEMO_ROLE_MATRIX_LABEL } from "../../../../../../utils/demoAccounts";
 import { PASSPORT_TOKEN_HEADER } from "../../../../../../utils/passportIdentity";
 import { REST_BOUNDARY, restTransitionIssue, restBearerIdentity, authorizeBearerWrite } from "../../../../../../utils/jiraRest";
+import { getIssuePersistenceInfo } from "../../../../../../utils/issuePersistence";
 
 /**
  * Demo-only Jira-style POST /api/rest/api/3/issue/:key/transitions.
@@ -37,6 +38,7 @@ export default defineEventHandler(async (event) => {
         demoOnly: true,
         roleMatrix: DEMO_ROLE_MATRIX_LABEL,
         boundary: REST_BOUNDARY,
+        persistence: getIssuePersistenceInfo(),
         ...("account" in gate && gate.account
           ? { actor: appActorLabel(gate.account) }
           : {}),
@@ -48,7 +50,7 @@ export default defineEventHandler(async (event) => {
     transition?: unknown;
     fail?: unknown;
   }>(event);
-  const result = restTransitionIssue(
+  const result = await restTransitionIssue(
     identity,
     key,
     {
@@ -65,6 +67,7 @@ export default defineEventHandler(async (event) => {
         demoOnly: true,
         roleMatrix: DEMO_ROLE_MATRIX_LABEL,
         boundary: REST_BOUNDARY,
+        persistence: getIssuePersistenceInfo(),
         actor: appActorLabel("data" in gate ? gate.data : gate.account),
         ...(result.statusCode === 409 && result.allowedFrom
           ? { allowedFrom: [...result.allowedFrom] }
@@ -77,5 +80,6 @@ export default defineEventHandler(async (event) => {
     demoOnly: true,
     roleMatrix: DEMO_ROLE_MATRIX_LABEL,
     boundary: REST_BOUNDARY,
+    persistence: getIssuePersistenceInfo(),
   };
 });

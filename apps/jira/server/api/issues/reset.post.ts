@@ -1,16 +1,19 @@
 import { appActorLabel, authorizeAppWrite } from "../../utils/appAccounts";
 import { DEMO_ROLE_MATRIX_LABEL } from "../../utils/demoAccounts";
 import { PASSPORT_TOKEN_HEADER } from "../../utils/passportIdentity";
-import { resetIssues } from "../../utils/issues";
+import {
+  getIssuePersistenceInfo,
+  resetPersistentIssues,
+} from "../../utils/issuePersistence";
 
 /**
- * Demo-only reset of the labelled in-memory store through the shared
+ * Demo-only reset of the configured Jira persistence boundary through the shared
  * request-to-application-account resolver. Only admin accounts (Demo Admin
  * or a Passport-derived admin) may reset; other roles receive a structured
  * demoOnly 403 and nothing is cleared. Unknown/malformed identities fail
  * closed before any mutation.
  */
-export default defineEventHandler((event) => {
+export default defineEventHandler(async (event) => {
   const actor = authorizeAppWrite(
     {
       passportToken: getHeader(event, PASSPORT_TOKEN_HEADER),
@@ -33,9 +36,10 @@ export default defineEventHandler((event) => {
   }
   return {
     reset: true,
-    issues: resetIssues(),
+    issues: await resetPersistentIssues(),
     demoOnly: true,
     roleMatrix: DEMO_ROLE_MATRIX_LABEL,
+    persistence: getIssuePersistenceInfo(),
     actor: appActorLabel(actor.account),
   };
 });

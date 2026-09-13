@@ -5,13 +5,16 @@ Jira, so a later Vercel Connect service-provider registration has a real
 local contract to register against. Vercel Connect is **not** live: no
 external connector registration or callback is performed from this demo.
 
-> Demo boundary: everything here runs over an in-memory store (clients,
-> grant tickets, codes and tokens reset on redeploy or cold start). Tokens
+> Demo boundary: the OAuth provider state stays in an in-memory store (clients,
+> grant tickets, codes and tokens reset on redeploy or cold start). Issue and
+> comment data use the separate Jira persistence boundary described in the
+> [current-state contract](jira-current-state.md). Tokens
 > are opaque random bearer strings (no JWTs, no JWKS to operate). Signing
 > uses platform Web Crypto only (SHA-256 PKCE S256, salted client-secret
 > hashes, `getRandomValues` secrets); if Web Crypto is unavailable the
-> provider fails closed. This is not production auth, not SAML/SCIM, and
-> persistence is not durable. Every response carries `demoOnly: true` and
+> provider fails closed. This is not production auth, not SAML/SCIM, and does
+> not make the issue store a complete identity or authorization system. Every
+> response carries `demoOnly: true` and
 > the shared boundary note.
 
 ## Endpoints

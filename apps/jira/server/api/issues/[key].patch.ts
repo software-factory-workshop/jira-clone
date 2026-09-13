@@ -1,7 +1,10 @@
 import { appActorLabel, authorizeAppWrite } from "../../utils/appAccounts";
 import { DEMO_ROLE_MATRIX_LABEL } from "../../utils/demoAccounts";
 import { PASSPORT_TOKEN_HEADER } from "../../utils/passportIdentity";
-import { updateIssue } from "../../utils/issues";
+import {
+  getIssuePersistenceInfo,
+  updatePersistentIssue,
+} from "../../utils/issuePersistence";
 
 /**
  * Demo-only PATCH save path for one issue. Authorization runs first through
@@ -40,7 +43,7 @@ export default defineEventHandler(async (event) => {
     priority?: unknown;
     fail?: unknown;
   }>(event);
-  const result = updateIssue(
+  const result = await updatePersistentIssue(
     key,
     { status: body?.status, priority: body?.priority },
     { fail: body?.fail === true },
@@ -63,6 +66,7 @@ export default defineEventHandler(async (event) => {
     issue: result.issue,
     demoOnly: true,
     roleMatrix: DEMO_ROLE_MATRIX_LABEL,
+    persistence: getIssuePersistenceInfo(),
     actor: appActorLabel(actor.account),
   };
 });

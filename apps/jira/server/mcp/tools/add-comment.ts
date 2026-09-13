@@ -33,7 +33,7 @@ export default defineMcpTool({
   },
   annotations: { readOnlyHint: false, openWorldHint: false },
   handler: async ({ issueKey, body, demoUser, fail }) => {
-    const result = restAddComment(mcpWriteIdentity(demoUser), issueKey, {
+    const result = await restAddComment(mcpWriteIdentity(demoUser), issueKey, {
       body,
       fail,
     });

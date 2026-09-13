@@ -1,15 +1,16 @@
 # Demo-only Jira-style REST adapter
 
-A small, dependency-free, bounded Jira-shaped REST surface over the existing
-ADEO demo store, so the Jira MCP toolkit can wrap stable contracts 1:1.
+A small, bounded Jira-shaped REST surface over the ADEO demo persistence
+boundary, so the Jira MCP toolkit can wrap stable contracts 1:1.
 
-> Demo boundary: every response carries `demoOnly: true`, the shared
-> `roleMatrix` label, and an explicit `boundary` note. Reads plus the four
-> explicit write routes below run over the labelled in-memory demo store
-> (same boundary as the native routes: edits and created issues survive
-> reload against the same server, reset on redeploy or reset). This is not
-> full Jira parity, not a JQL engine, not production OAuth/Connect/SAML/SCIM,
-> and persistence remains the existing in-memory demo store.
+> Demo boundary: successful responses carry `demoOnly: true`, the shared
+> `roleMatrix` label, an explicit `boundary` note and a `persistence` object.
+> Error responses retain the demo and boundary labels in their error data.
+> Reads plus the four explicit write routes below use Neon Postgres when
+> `DATABASE_URL` is configured. They use the labelled in-memory fallback when
+> it is not. The reset route clears issue and comment rows in either mode. This
+> is not full Jira parity, not a JQL engine, and not production
+> OAuth/Connect/SAML/SCIM.
 >
 > Identity boundary: accounts derive from the platform-injected verified
 > `x-vercel-oidc-passport-token` header when present (stable
@@ -21,6 +22,16 @@ ADEO demo store, so the Jira MCP toolkit can wrap stable contracts 1:1.
 > runs. Vercel Passport deployment protection is an external prerequisite
 > managed outside this demo; this code never enables Passport on a project.
 
+## Persistence
+
+The adapter calls the shared async issue persistence boundary. Set
+`DATABASE_URL` to use Neon Postgres. The first issue or comment operation
+creates `jira_demo_issues` and `jira_demo_comments`, then seeds the four
+labelled issues. Set `JIRA_PERSISTENCE=memory` to force the in-memory fallback
+for a workshop or test run. Set `JIRA_PERSISTENCE=neon` to require Neon and
+fail clearly when `DATABASE_URL` is absent. The native routes and MCP tools use
+the same boundary.
+
 ## Endpoints (reads)
 
 | Adapter route | Contract |
@@ -29,7 +40,7 @@ ADEO demo store, so the Jira MCP toolkit can wrap stable contracts 1:1.
 | `GET /api/rest/api/3/project/KAN` | Observed reference project (id `10000`, `My Kanban Space`, simplified next-gen software). Other keys stay 404. |
 | `GET /api/rest/api/3/project/KAN/statuses` | Observed statuses per observed issue type (`Epic`, `Subtask`, `Task`, `Story`, `Feature`, `Bug` × `To Do`, `In Progress`, `In Review`, `Done`). An observed list, not a transition graph. |
 | `GET /api/rest/api/3/issue/:key` | Jira-like bean: `key`, `fields.summary` (= demo title), `issuetype`, `status`, `priority`, `assignee`, `description`, project ref. Unknown keys stay 404. |
-| `GET /api/rest/api/3/search` | List-lite slice of the whole demo store with `startAt` (default 0, integer ≥ 0) and `maxResults` (default 25, integer 1–50) plus `total`. |
+| `GET /api/rest/api/3/search` | List-lite slice of the whole persisted demo issue set with `startAt` (default 0, integer ≥ 0) and `maxResults` (default 25, integer 1–50) plus `total`. |
 | `GET /api/rest/api/3/issue/:key/comment` | Comment list for one issue with the same `startAt`/`maxResults` bounds. Unknown keys stay 404. |
 | `GET /api/rest/api/3/issue/:key/transitions` | Allowed targets derived from the same `DEMO_TRANSITIONS` matrix that guards `PATCH /api/issues/:key`, so adapter and save path agree. |
 
@@ -47,15 +58,17 @@ render `GET /api/rest/api/3/issue/:key/comment` with the same bounds.
 `apps/jira/app/utils/restIssues.ts` maps those Jira-shaped envelopes back to
 the existing board/comment display shapes (`summary` → `title`,
 `author.displayName`, `created`). Demo writes (`PATCH /api/issues/:key`,
-creation, reset, comment posts) are unchanged; successful status/priority
-saves refresh the affected issue through the canonical single-issue read.
+creation, reset, comment posts) use the same persistence boundary. Successful
+status/priority saves refresh the affected issue through the canonical
+single-issue read. The UI displays the server-reported persistence mode
+instead of implying that all writes are in memory.
 Loading and transport failures clear (or never populate) the affected data
 and report the error; the UI no longer seeds from fixtures or the demo
 list-store read.
 
 ## Bounded writes
 
-Four Jira-shaped write routes reuse the existing issue store and the shared
+Four Jira-shaped write routes reuse the shared issue persistence adapter and the shared
 resolver/`authorizeAppWrite` authority (same admin/member/viewer and
 malformed/unknown identity semantics as the native routes). Every HTTP write
 route reads only the trusted `x-vercel-oidc-passport-token` header plus the
@@ -78,6 +91,6 @@ behavior: `me` → myself, `getProject`/`getProjectStatuses` → project routes,
 `startAt`/`maxResults`, never `jql`), `listComments` → comment route,
 `getAllowedTransitions` → transitions route, plus `createIssue` → issue
 creation, `updateIssue` → issue update, `addComment` → comment creation,
-`transitionIssue` → transitions. JQL, project mutation, Passport/OAuth,
-SAML, SCIM, durable persistence, and full Jira compatibility stay out of
-scope.
+`transitionIssue` → transitions. JQL, project mutation, Passport/OAuth, SAML,
+SCIM and full Jira compatibility stay out of scope. OAuth clients, grants and
+tokens remain in their separate in-memory demo provider.

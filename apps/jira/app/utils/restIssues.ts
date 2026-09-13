@@ -21,6 +21,14 @@ import type { DemoComment } from "./issueComments";
 export const REST_BOARD_START_AT = 0;
 export const REST_BOARD_PAGE_SIZE = 50;
 
+/** Server-reported issue/comment persistence boundary. */
+export type RestPersistenceShape = {
+  mode?: "neon" | "memory";
+  durable?: boolean;
+  label?: string;
+  description?: string;
+};
+
 /** Client-side mirror of the server `RestIssue` bean (tolerant of partial shapes). */
 export type RestIssueShape = {
   id?: string;
@@ -36,6 +44,7 @@ export type RestIssueShape = {
     project?: { id?: string; key?: string; name?: string };
   };
   demoOnly?: boolean;
+  persistence?: RestPersistenceShape;
 };
 
 /** Client-side mirror of the server `RestSearchResponse` envelope. */
@@ -45,6 +54,7 @@ export type RestSearchShape = {
   total?: number;
   issues?: RestIssueShape[];
   demoOnly?: boolean;
+  persistence?: RestPersistenceShape;
 };
 
 /** Client-side mirror of one server `RestComment`. */
@@ -63,6 +73,7 @@ export type RestCommentListShape = {
   total?: number;
   comments?: RestCommentShape[];
   demoOnly?: boolean;
+  persistence?: RestPersistenceShape;
 };
 
 /** Canonical single-issue read URL for one demo key. */
@@ -141,6 +152,7 @@ export function restCommentsToDemoComments(
 export type BoardListResult = {
   issues: BoardIssue[];
   total: number;
+  persistence?: RestPersistenceShape;
 };
 
 /**
@@ -160,5 +172,6 @@ export async function fetchBoardIssues(
   return {
     issues: restSearchToBoardIssues(data),
     total: typeof data?.total === "number" ? data.total : 0,
+    persistence: data?.persistence,
   };
 }

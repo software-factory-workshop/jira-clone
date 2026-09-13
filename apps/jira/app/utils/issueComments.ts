@@ -3,6 +3,7 @@ import {
   restCommentToDemoComment,
   restCommentWriteUrl,
   type RestCommentShape,
+  type RestPersistenceShape,
 } from "./restIssues.ts";
 
 /** Prefer the server-provided demo message (Nuxt FetchError `data.message`) over the generic transport message. */
@@ -30,6 +31,7 @@ export type IssueCommentsResponse = {
   maxResults?: number;
   total?: number;
   demoOnly?: boolean;
+  persistence?: RestPersistenceShape;
 };
 
 export type IssueCommentsResult = {

@@ -7,9 +7,9 @@ import { REST_BOUNDARY, restTransitions } from "../../../../../../utils/jiraRest
  * the PATCH save path, so the adapter and the save path agree. Unknown keys
  * stay 404. Never writes.
  */
-export default defineEventHandler((event) => {
+export default defineEventHandler(async (event) => {
   const key = getRouterParam(event, "key") ?? "";
-  const result = restTransitions(key, getQuery(event) as Record<string, unknown>);
+  const result = await restTransitions(key, getQuery(event) as Record<string, unknown>);
   if (!result.ok) {
     throw createError({
       statusCode: result.statusCode,

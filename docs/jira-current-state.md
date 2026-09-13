@@ -1,8 +1,13 @@
 # Jira demo current state
 
-Checked 13 September 2026 against the Jira implementation at `cc0c67d7a10df4ae3e5170e4644094f3c896c4fc`; the documentation and implementation are now synchronized on `main`.
+Checked 13 September 2026 against the current Jira implementation on `main`.
 
-The ADEO Jira application is a bounded demo slice. It is no longer a fixture-only shell. It still uses synthetic seed data and a demo-only in-memory store. "Implemented" below means present in the source and covered by local tests. It does not mean hosted browser evidence or production Jira compatibility.
+The ADEO Jira application is a bounded demo slice. It uses synthetic seed data
+and a labelled persistence boundary. With `DATABASE_URL`, issue and comment
+writes go to Neon Postgres. Without it, the app reports and uses the explicit
+in-memory fallback. "Implemented" below means present in the source and
+covered by local tests. It does not mean hosted browser evidence or production
+Jira compatibility.
 
 ## Implemented locally
 
@@ -14,21 +19,22 @@ The ADEO Jira application is a bounded demo slice. It is no longer a fixture-onl
 | MCP Toolkit | Eleven tools wrap the REST contract 1:1: seven reads and four bounded writes. |
 | Identity and roles | A verified platform Passport token maps to a stable `passport:<external_sub>` account. Without Passport, the labelled `x-demo-user` fallback supports the demo role matrix. Viewer, member and admin writes are enforced by the shared authority and fail closed for malformed or unknown identities. |
 | OAuth | A fake, in-memory OAuth provider supports discovery, registration, authorization, consent, code exchange, refresh rotation and revocation for the demo API. |
-| Failure and drafts | `{fail:true}` produces a deterministic no-write failure. Client drafts stay available after a failed save. Same-server reloads retain demo edits and created issues. |
+| Persistence | Neon Postgres is selected when `DATABASE_URL` exists. The app creates `jira_demo_issues` and `jira_demo_comments` lazily, seeds the four labelled issues, and reports the active mode in native and Jira-shaped read envelopes. `JIRA_PERSISTENCE=memory` forces the fallback. |
+| Failure and drafts | `{fail:true}` produces a deterministic no-write failure. Client drafts stay available after a failed save. Neon retains issue/comment writes across reloads, cold starts and deploys until reset; the memory fallback retains them only on the same running server. |
 
 The detailed route and boundary contracts live in [the REST adapter guide](jira-rest-adapter.md), [the MCP guide](jira-mcp-tools.md) and [the OAuth provider guide](jira-oauth-provider.md).
 
 ## Boundaries that remain
 
-- Data is synthetic. The store is in memory, survives reload on the same running server, and resets on cold start, redeploy or explicit reset. It is not durable production persistence.
+- Data is synthetic. Neon is durable for this demo's issue/comment rows, while the explicit memory fallback resets on cold start or redeploy. The demo reset clears issue and comment rows in either mode.
 - The REST search route is a bounded list slice. It does not implement JQL, arbitrary Jira filters, project mutation or the complete Jira REST API.
 - MCP tools are demo tooling. They use the labelled demo fallback when no Passport identity is available, and `/mcp` is not bearer-protected by this application.
 - Passport identity depends on Vercel deployment protection injecting the verified header. The OAuth provider is a local demo contract. Vercel Connect registration is not live here.
-- SAML, SCIM or directory sync, durable accounts, complete Jira permissions and full workflow/API parity are not implemented.
+- OAuth clients, grants and tokens remain an intentionally separate in-memory demo provider. SAML, SCIM or directory sync, durable accounts, complete Jira permissions and full workflow/API parity are not implemented.
 
 ## Evidence status
 
-At this revision, `pnpm --filter @jira-clone/jira test` passes 141 tests covering the local UI helpers, native routes, REST adapter, MCP tools, Passport resolver and OAuth provider. A passing local suite proves the checked-in contract. It does not prove that the hosted aliases have been exercised in a browser or that external Passport and Connect configuration is enabled. Record those observations separately in [verification.md](verification.md).
+At this revision, `pnpm --filter @jira-clone/jira test` passes all 145 local tests covering the UI helpers, native routes, REST adapter, MCP tools, Passport resolver, OAuth provider and the Neon adapter with an injected SQL client. A passing local suite proves the checked-in contract. It does not prove that a hosted `DATABASE_URL` is provisioned, that a real Neon connection has been exercised, that the hosted aliases have been exercised in a browser, or that external Passport and Connect configuration is enabled. Record those observations separately in [verification.md](verification.md).
 
 ## Source map
 
@@ -37,3 +43,4 @@ At this revision, `pnpm --filter @jira-clone/jira test` passes 141 tests coverin
 - Shared issue, identity and authorization logic: `apps/jira/server/utils/`
 - MCP tools: `apps/jira/server/mcp/tools/`
 - Local contract tests: `apps/jira/tests/`
+- Neon bootstrap schema: `apps/jira/server/db/neon-schema.sql`

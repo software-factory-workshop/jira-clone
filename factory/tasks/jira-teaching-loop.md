@@ -20,7 +20,7 @@ Owner instruction: 12 September 2026. The development session builds the factory
 
 The original worker assignment turned the synthetic Jira shell into a small stateful teaching application using the existing ADEO Nuxt UI design system. It reused the seeded issues and added editable priority, assignee filtering, an asynchronous save path with deterministic failure testing, reset instructions and focused behavior tests. The resulting behavior is recorded in [the current Jira state](../../docs/jira-current-state.md).
 
-Do not claim full Jira API parity, real user permissions or production persistence. Comment permissions can be the next assignment once issues can be changed and saved. Keep the change small enough to inspect in the onsite workshop.
+Do not claim full Jira API parity, real user permissions or production persistence. Neon is the demo's issue/comment persistence option; the explicit memory fallback keeps tests and workshops isolated. Comment permissions can be the next assignment once issues can be changed and saved. Keep the change small enough to inspect in the onsite workshop.
 
 ## Completion evidence
 

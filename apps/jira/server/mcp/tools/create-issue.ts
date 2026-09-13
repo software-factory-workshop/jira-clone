@@ -15,7 +15,7 @@ import { mcpWriteIdentity, restCreateIssue } from "../../utils/jiraRest.ts";
 export default defineMcpTool({
   name: "createIssue",
   description:
-    "Demo-only write: create one demo issue (POST /api/rest/api/3/issue). Requires fields.summary; writes to the in-memory demo store only.",
+    "Demo-only write: create one demo issue (POST /api/rest/api/3/issue). Requires fields.summary; writes to the configured Jira demo persistence boundary.",
   inputSchema: {
     fields: z
       .record(z.string(), z.unknown())
@@ -37,7 +37,7 @@ export default defineMcpTool({
   },
   annotations: { readOnlyHint: false, openWorldHint: false },
   handler: async ({ fields, demoUser, fail }) => {
-    const result = restCreateIssue(mcpWriteIdentity(demoUser), {
+    const result = await restCreateIssue(mcpWriteIdentity(demoUser), {
       fields,
       fail,
     });

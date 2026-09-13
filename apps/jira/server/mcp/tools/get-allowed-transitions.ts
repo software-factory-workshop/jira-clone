@@ -25,7 +25,7 @@ export default defineMcpTool({
   handler: async ({ issueKey, jql }) => {
     const query: Record<string, unknown> = {};
     if (jql !== undefined) query["jql"] = jql;
-    const result = restTransitions(issueKey, query);
+    const result = await restTransitions(issueKey, query);
     if (!result.ok) {
       throw createError({ statusCode: result.statusCode, message: result.error });
     }

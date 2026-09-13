@@ -1,5 +1,32 @@
 # Factory verification
 
+## Jira Neon persistence — 13 September 2026
+
+The Jira issue/comment boundary now uses `@neondatabase/serverless` when
+`DATABASE_URL` is configured. The adapter creates `jira_demo_issues` and
+`jira_demo_comments` lazily, seeds the four synthetic issues, keeps the
+existing transition and failure contracts, and exposes the active mode in
+native and Jira-shaped read responses. `JIRA_PERSISTENCE=memory` remains the
+explicit test/workshop fallback; the OAuth provider keeps its separate
+in-memory client, grant and token state.
+
+Local source evidence for this change includes root typecheck, root tests,
+the Jira production build, the full production build after the standard
+`pnpm --filter @jira-clone/factory prepare` step, 145 Jira tests, and the
+injected-SQL Neon adapter test. A headed local browser check rendered the
+reported in-memory fallback and created an issue through the UI; a local HTTP
+round trip covered reset, REST search, issue creation/read, comment
+creation/read and reset again. The first clean root build attempt exposed the
+existing factory `build:agent` ordering requirement; it passed after Nuxt
+metadata was prepared.
+
+Read-only Vercel inspection found no environment variables on the Jira
+project, and the team's available Neon integration is attached to
+`pocket-id-software-factory`, not Jira. A real Neon connection and the hosted
+Jira route therefore still need a configured Vercel `DATABASE_URL` and a
+browser check. Do not read this entry as proof that the hosted database or
+deployment environment is configured.
+
 ## First worker PR — 12 September 2026
 
 Native Eve worker `wrun_41M2AVC0FK0GPK3KVJFW3B1QA3`, dispatched by cockpit session `wrun_41M2AVBS640GXB6E761Y5HCQTT`, published [draft PR #2](https://github.com/software-factory-workshop/jira-clone/pull/2). The host created branch `factory/work-014995639614c448c6e56d11`, head `a6d6e591207918a81bc4f8f2c9e4bc7d345d3b70`, from source `65ff1fb74af68344d8042a1b655e0c0c00e99d39`. This proves the app-scoped GitHub publication path on actual useful work. No merge occurred.

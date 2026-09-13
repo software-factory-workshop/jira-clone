@@ -208,8 +208,8 @@ export function moveTargets(
 
 /**
  * Bounded synthetic priority allowlist for the demo-only save path.
- * Covers the fixture values (High, Medium) and teaches the save path;
- * it does not claim Jira parity or durable persistence.
+ * Covers the fixture values (High, Medium) and teaches the save path; it does
+ * not claim Jira parity or a production Jira data model.
  */
 export const PRIORITIES = [
   "Highest",

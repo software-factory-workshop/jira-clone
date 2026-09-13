@@ -1,10 +1,14 @@
 import { appActorLabel, authorizeAppWrite } from "../utils/appAccounts";
 import { DEMO_ROLE_MATRIX_LABEL } from "../utils/demoAccounts";
 import { PASSPORT_TOKEN_HEADER } from "../utils/passportIdentity";
-import { createIssue } from "../utils/issues";
+import {
+  createPersistentIssue,
+  getIssuePersistenceInfo,
+} from "../utils/issuePersistence";
 
 /**
- * Demo-only issue creation on the labelled in-memory store. Rejects blank
+ * Demo-only issue creation on the configured Jira demo persistence boundary.
+ * Rejects blank
  * titles and unknown status/priority values before writing; the
  * deterministic `{fail:true}` path returns a 500 and writes nothing.
  * Actor-aware through the shared request-to-application-account resolver:
@@ -44,7 +48,7 @@ export default defineEventHandler(async (event) => {
     description?: unknown;
     fail?: unknown;
   }>(event);
-  const result = createIssue(
+  const result = await createPersistentIssue(
     {
       title: body?.title,
       type: body?.type,
@@ -62,6 +66,7 @@ export default defineEventHandler(async (event) => {
     issue: result.issue,
     demoOnly: true,
     roleMatrix: DEMO_ROLE_MATRIX_LABEL,
+    persistence: getIssuePersistenceInfo(),
     actor: appActorLabel(actor.account),
   };
 });
