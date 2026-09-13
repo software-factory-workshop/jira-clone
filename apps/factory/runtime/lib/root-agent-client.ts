@@ -16,14 +16,28 @@ export async function recordedRoot(id:string):Promise<RootAgent|undefined> {
  const value=(await readStationRegistry()).registry.sessions[id];
  return value==='task-miner'||value==='worker'||value==='reviewer'?value:undefined;
 }
+async function streamTailIndex(root:RootAgent,id:string) {
+ const response=await fetch(`${factoryOrigin()}/${root}/eve/v1/session/${encodeURIComponent(id)}/stream?includeTailIndex=1`,{cache:'no-store',headers:await serviceHeaders(),redirect:'error',signal:AbortSignal.timeout(15000)});
+ await response.body?.cancel();
+ if(!response.ok)throw new Error(`Eve stream tail unavailable (${response.status})`);
+ const value=response.headers.get('x-eve-stream-tail-index');
+ if(!value||!/^-?\d+$/.test(value))throw new Error('Eve stream did not return a valid tail index.');
+ const tail=Number(value);
+ if(!Number.isSafeInteger(tail)||tail<-1)throw new Error('Eve stream returned an invalid tail index.');
+ return tail;
+}
 export function rootSession(root:RootAgent,id:string) {
  const client=new Client({host:`${factoryOrigin()}/${root}`,headers:serviceHeaders,redirect:'error'});
  const session=client.sessions.attach(id);
- let snapshot:ReturnType<typeof session.snapshot>|undefined;
- const read=()=>snapshot??=session.snapshot({signal:AbortSignal.timeout(15000)});
  return {
-  getStreamTailIndex:async()=> (await read()).events.length-1,
-  getEventStream:async(_options?:unknown)=>new ReadableStream({async start(controller){try{for(const event of (await read()).events)controller.enqueue(event);controller.close();}catch(error){controller.error(error);}}}),
+  getStreamTailIndex:async()=>streamTailIndex(root,id),
+  getEventStream:async(options:{startIndex:number;signal?:AbortSignal})=>{
+   const iterator=session.stream({startIndex:options.startIndex,follow:false,signal:options.signal})[Symbol.asyncIterator]();
+   return new ReadableStream({
+    async pull(controller){try{const item=await iterator.next();if(item.done)controller.close();else controller.enqueue(item.value);}catch(error){controller.error(error);}},
+    async cancel(){await iterator.return?.();},
+   });
+  },
   cancel:async(options?:{tasks?:boolean})=>session.cancel(options),
   send:async(message:string,options?:{auth?:{attributes?:Readonly<Record<string,unknown>>}})=>rootRequest(root,`/factory/session/${encodeURIComponent(id)}/continue`,{message,revision:options?.auth?.attributes?.factoryRevision}),
  };

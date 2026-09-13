@@ -38,6 +38,21 @@ test('lockfile policy preserves existing blocks and accepts only the MCP importe
 });
 
 test('revision events use live Eve meta.deliveryIds and exclude the previous turn',()=>{const current={type:'turn.started',meta:{deliveryIds:['delivery-current']},data:{}};assert.deepEqual(eventsForDelivery([{type:'turn.completed',meta:{deliveryIds:['delivery-old']}},current],'delivery-current'),[current]);assert.deepEqual(eventsForDelivery([{type:'turn.started',deliveryIds:['delivery-current']}],'delivery-current'),[]);});
+test('observations read only the uncaptured suffix and retain the Eve event cursor',async()=>{
+ const events=[
+  {type:'turn.started',meta:{at:'2026-09-14T10:00:00.000Z'},data:{}},
+  {type:'step.started',meta:{at:'2026-09-14T10:00:01.000Z'},data:{modelId:'meta/example'}},
+  {type:'turn.completed',meta:{at:'2026-09-14T10:00:02.000Z'},data:{}},
+ ];
+ const starts:number[]=[];
+ const snapshot=await snapshotEvents({
+  getStreamTailIndex:async()=>events.length-1,
+  getEventStream:async({startIndex})=>{starts.push(startIndex);return new ReadableStream({start(controller){for(const event of events.slice(startIndex))controller.enqueue(event);controller.close();}});},
+ },{startIndex:2});
+ assert.deepEqual(starts,[2]);
+ assert.deepEqual(snapshot,[events[2]]);
+ assert.deepEqual(snapshot.observation,{lastEventIndex:2,lastEventAt:'2026-09-14T10:00:02.000Z'});
+});
 test('stale refs demand an explicit owner revision instead of a retry loop',()=>{const p=state().publication!;assert.equal(referenceState(p,{state:'open',headSha:p.headSha,targetBranch:p.targetBranch,targetHeadSha:'c'.repeat(40)}),'needs_revision');assert.equal(referenceState(p,{state:'closed',headSha:p.headSha,targetBranch:p.targetBranch,targetHeadSha:p.targetHeadSha}),'blocked');});
 test('partial stream observations are typed and cannot produce trusted terminal evidence',async()=>{
  let error: unknown;

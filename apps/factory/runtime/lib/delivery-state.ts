@@ -95,6 +95,11 @@ export interface DeliveryReceipt {
   failure?: ClassifiedDeliveryError;
 }
 
+const deliveryObservationSchema = z.object({
+  lastEventIndex: z.number().int().min(-1),
+  lastEventAt: z.string().datetime(),
+}).strict();
+
 export interface DeliveryAdmissionFailure {
   recordedAt: string;
 }
@@ -143,6 +148,10 @@ export interface Delivery {
   execution?: ExecutionRef;
   createdAt: string;
   updatedAt: string;
+  observation: {
+    lastEventIndex: number;
+    lastEventAt: string;
+  };
   leaseUntil?: number;
   driver?: Driver;
   sessionId?: string;
@@ -277,7 +286,7 @@ function receiptFor(state: Delivery, from: Phase | null, to: Phase, options: Req
   };
 }
 
-type LegacyDelivery = Omit<Delivery, 'schemaVersion' | 'kind' | 'state' | 'attempt'> & Partial<Pick<Delivery, 'schemaVersion' | 'kind' | 'state' | 'attempt'>>;
+type LegacyDelivery = Omit<Delivery, 'schemaVersion' | 'kind' | 'state' | 'attempt' | 'observation'> & Partial<Pick<Delivery, 'schemaVersion' | 'kind' | 'state' | 'attempt' | 'observation'>>;
 
 export function normalizeDelivery(raw: LegacyDelivery): Delivery {
   if (!/^[a-f0-9]{64}$/.test(raw.id)) throw new Error('Invalid delivery ID');
@@ -286,6 +295,7 @@ export function normalizeDelivery(raw: LegacyDelivery): Delivery {
   if (!Number.isInteger(raw.cycle) || raw.cycle < 0) throw new Error('Invalid delivery cycle');
   const request = deliveryRequest.parse(raw.request);
   const usage = raw.usage ? modelUsageSchema.parse(raw.usage) : undefined;
+  const observation = raw.observation ? deliveryObservationSchema.parse(raw.observation) : { lastEventIndex: -1, lastEventAt: new Date().toISOString() };
   const attempt = raw.attempt ?? raw.cycle + 1;
   if (!Number.isInteger(attempt) || attempt < 1) throw new Error('Invalid delivery attempt');
   const history = Array.isArray(raw.history) ? raw.history : [];
@@ -296,6 +306,7 @@ export function normalizeDelivery(raw: LegacyDelivery): Delivery {
     kind: 'code_change',
     state: workStateForPhase(raw.phase),
     attempt,
+    observation,
     ...(usage ? { usage } : {}),
     ...(raw.changeId || raw.publication ? { changeId: raw.changeId ?? raw.id } : {}),
     history: history.slice(-MAX_DELIVERY_HISTORY),
@@ -319,6 +330,7 @@ export function newDelivery(principalId: string, request: DeliveryRequest): Deli
     attempt: 1,
     createdAt: now,
     updatedAt: now,
+    observation: { lastEventIndex: -1, lastEventAt: now },
     operationId,
     history: [],
   };
