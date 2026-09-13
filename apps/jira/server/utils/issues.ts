@@ -13,9 +13,11 @@
  *
  * Priority is a bounded synthetic allowlist (Highest, High, Medium, Low,
  * Lowest) chosen to cover the fixture values. It teaches the save path; it
- * does not claim Jira parity or durable persistence. Comments are flat,
- * demo-only annotations without threading, edit/delete, permissions or
- * accounts.
+ * does not claim Jira parity or durable persistence. Title, assignee and
+ * description edits share the same single in-memory save boundary (used by
+ * the Jira-shaped REST update route); the native PATCH route still sends
+ * status and/or priority only. Comments are flat, demo-only annotations
+ * without threading, edit/delete, permissions or accounts.
  */
 import { demoIssues } from "@jira-clone/context";
 
@@ -97,6 +99,9 @@ const seeds: DemoIssue[] = demoIssues.map((issue) => ({ ...issue }));
 
 const statusOverrides = new Map<string, ObservedStatus>();
 const priorityOverrides = new Map<string, DemoPriority>();
+const titleOverrides = new Map<string, string>();
+const assigneeOverrides = new Map<string, string>();
+const descriptionOverrides = new Map<string, string>();
 
 /** Demo-only issues created via POST /api/issues on this running server. */
 const createdIssues: DemoIssue[] = [];
@@ -107,6 +112,9 @@ export function getIssues(): DemoIssue[] {
       ...issue,
       status: statusOverrides.get(issue.key) ?? issue.status,
       priority: priorityOverrides.get(issue.key) ?? issue.priority,
+      title: titleOverrides.get(issue.key) ?? issue.title,
+      assignee: assigneeOverrides.get(issue.key) ?? issue.assignee,
+      description: descriptionOverrides.get(issue.key) ?? issue.description,
     })),
     ...createdIssues.map((issue) => ({ ...issue })),
   ];
@@ -124,6 +132,9 @@ export function getIssue(key: string): DemoIssue | undefined {
       ...seed,
       status: statusOverrides.get(key) ?? seed.status,
       priority: priorityOverrides.get(key) ?? seed.priority,
+      title: titleOverrides.get(key) ?? seed.title,
+      assignee: assigneeOverrides.get(key) ?? seed.assignee,
+      description: descriptionOverrides.get(key) ?? seed.description,
     };
   }
   const created = createdIssues.find((issue) => issue.key === key);
@@ -143,19 +154,25 @@ export type UpdateResult =
 export type IssuePatch = {
   status?: unknown;
   priority?: unknown;
+  /** Demo title edit (Jira `fields.summary`). Nonblank string when present. */
+  title?: unknown;
+  /** Demo assignee edit. Nonblank string when present; send "Unassigned" to clear. */
+  assignee?: unknown;
+  /** Demo description edit. String when present; empty string clears it. */
+  description?: unknown;
 };
 
 /**
- * Demo-only update for status and/or priority on the single in-memory save
- * boundary. Seeded issues are stored as overrides; created demo issues are
- * updated in place on the same boundary. Unknown values are rejected with a
- * client error before any write; the deterministic `fail` path never writes
- * either. Status moves are further guarded by the demo-only
- * `DEMO_TRANSITIONS` matrix: a move to any other observed status is
- * rejected with a 409 carrying `allowedFrom`, and nothing is written.
- * Same-status saves are no-ops and priority-only saves bypass the matrix.
- * This guard is not verified Jira workflow parity or production
- * authorization; actor checks still run first in the API routes.
+ * Demo-only update for status, priority, title, assignee and/or description
+ * on the single in-memory save boundary. Seeded issues are stored as
+ * overrides; created demo issues are updated in place on the same boundary.
+ * Unknown values are rejected with a client error before any write; the
+ * deterministic `fail` path never writes either. Status moves are further
+ * guarded by the demo-only `DEMO_TRANSITIONS` matrix: a move to any other
+ * observed status is rejected with a 409 carrying `allowedFrom`, and
+ * nothing is written. Same-status saves are no-ops and non-status saves
+ * bypass the matrix. This guard is not verified Jira workflow parity or
+ * production authorization; actor checks still run first in the API routes.
  */
 export function updateIssue(
   key: string,
@@ -191,10 +208,41 @@ export function updateIssue(
       statusCode: 400,
     };
   }
-  if (patch.status === undefined && patch.priority === undefined) {
+  if (patch.title !== undefined) {
+    if (typeof patch.title !== "string" || patch.title.trim() === "") {
+      return {
+        ok: false,
+        error: "A nonblank demo title is required.",
+        statusCode: 400,
+      };
+    }
+  }
+  if (patch.assignee !== undefined) {
+    if (typeof patch.assignee !== "string" || patch.assignee.trim() === "") {
+      return {
+        ok: false,
+        error: "A nonblank demo assignee is required (send \"Unassigned\" to clear).",
+        statusCode: 400,
+      };
+    }
+  }
+  if (patch.description !== undefined && typeof patch.description !== "string") {
     return {
       ok: false,
-      error: "Nothing to save. Provide a demo status and/or priority.",
+      error: "Demo description must be a string (empty string clears it).",
+      statusCode: 400,
+    };
+  }
+  if (
+    patch.status === undefined &&
+    patch.priority === undefined &&
+    patch.title === undefined &&
+    patch.assignee === undefined &&
+    patch.description === undefined
+  ) {
+    return {
+      ok: false,
+      error: "Nothing to save. Provide a demo status, priority, title, assignee and/or description.",
       statusCode: 400,
     };
   }
@@ -224,12 +272,24 @@ export function updateIssue(
     if (patch.priority !== undefined) {
       priorityOverrides.set(key, patch.priority);
     }
+    if (patch.title !== undefined) {
+      titleOverrides.set(key, (patch.title as string).trim());
+    }
+    if (patch.assignee !== undefined) {
+      assigneeOverrides.set(key, (patch.assignee as string).trim());
+    }
+    if (patch.description !== undefined) {
+      descriptionOverrides.set(key, patch.description as string);
+    }
     return {
       ok: true,
       issue: {
         ...seed,
         status: statusOverrides.get(key) ?? seed.status,
         priority: priorityOverrides.get(key) ?? seed.priority,
+        title: titleOverrides.get(key) ?? seed.title,
+        assignee: assigneeOverrides.get(key) ?? seed.assignee,
+        description: descriptionOverrides.get(key) ?? seed.description,
       },
     };
   }
@@ -241,6 +301,15 @@ export function updateIssue(
   }
   if (patch.priority !== undefined) {
     created.priority = patch.priority;
+  }
+  if (patch.title !== undefined) {
+    created.title = (patch.title as string).trim();
+  }
+  if (patch.assignee !== undefined) {
+    created.assignee = (patch.assignee as string).trim();
+  }
+  if (patch.description !== undefined) {
+    created.description = patch.description as string;
   }
   return { ok: true, issue: { ...created } };
 }
@@ -419,6 +488,9 @@ export function addComment(
 export function resetIssues(): DemoIssue[] {
   statusOverrides.clear();
   priorityOverrides.clear();
+  titleOverrides.clear();
+  assigneeOverrides.clear();
+  descriptionOverrides.clear();
   createdIssues.length = 0;
   commentStore.clear();
   commentSeq = 0;

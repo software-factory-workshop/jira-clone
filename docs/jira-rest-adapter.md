@@ -1,14 +1,15 @@
 # Demo-only Jira-style REST adapter
 
-A small, dependency-free, GET-only Jira-shaped REST surface over the existing
-ADEO demo store, so a later Jira MCP toolkit can wrap stable contracts 1:1.
+A small, dependency-free, bounded Jira-shaped REST surface over the existing
+ADEO demo store, so the Jira MCP toolkit can wrap stable contracts 1:1.
 
 > Demo boundary: every response carries `demoOnly: true`, the shared
-> `roleMatrix` label, and an explicit `boundary` note. Reads run over the
-> labelled in-memory demo store (same boundary as the native routes: edits and
-> created issues survive reload against the same server, reset on redeploy or
-> reset). There is no full Jira parity, no JQL engine, no writes, and no
-> production auth.
+> `roleMatrix` label, and an explicit `boundary` note. Reads plus the four
+> explicit write routes below run over the labelled in-memory demo store
+> (same boundary as the native routes: edits and created issues survive
+> reload against the same server, reset on redeploy or reset). This is not
+> full Jira parity, not a JQL engine, not production OAuth/Connect/SAML/SCIM,
+> and persistence remains the existing in-memory demo store.
 >
 > Identity boundary: accounts derive from the platform-injected verified
 > `x-vercel-oidc-passport-token` header when present (stable
@@ -20,7 +21,7 @@ ADEO demo store, so a later Jira MCP toolkit can wrap stable contracts 1:1.
 > runs. Vercel Passport deployment protection is an external prerequisite
 > managed outside this demo; this code never enables Passport on a project.
 
-## Endpoints (all GET-only)
+## Endpoints (reads)
 
 | Adapter route | Contract |
 | --- | --- |
@@ -52,12 +53,31 @@ Loading and transport failures clear (or never populate) the affected data
 and report the error; the UI no longer seeds from fixtures or the demo
 list-store read.
 
-## Later MCP mapping
+## Bounded writes
 
-A future Jira MCP toolkit wraps these contracts 1:1 without new server
+Four Jira-shaped write routes reuse the existing issue store and the shared
+resolver/`authorizeAppWrite` authority (same admin/member/viewer and
+malformed/unknown identity semantics as the native routes). Every HTTP write
+route reads only the trusted `x-vercel-oidc-passport-token` header plus the
+existing explicit `x-demo-user` fallback, authorizes before mutation, returns
+`actor` and `identitySource` metadata, and preserves the deterministic
+`{fail:true}` no-write behavior.
+
+| Adapter route | Contract |
+| --- | --- |
+| `POST /api/rest/api/3/issue` | Bounded creation: `fields.summary` required; `priority`, `assignee`, `description`, `issuetype` and the fixture-defaulted `status` optional. Unknown fields, blank summaries, invalid values and unknown projects fail closed with labelled demoOnly errors that write nothing. |
+| `PUT /api/rest/api/3/issue/:key` | Bounded field update: `fields.summary`, `priority`, `assignee`, `description` map onto the demo model (the store now supports title/assignee/description edits on the same boundary; the native PATCH route still sends status and/or priority only). `fields.status` is rejected with a hint to use the transitions route; unknown fields, unknown keys and invalid values write nothing. |
+| `POST /api/rest/api/3/issue/:key/comment` | Bounded comment creation: a nonblank `body` string (doc-shaped bodies are best-effort text). Unknown keys, blank bodies and `{fail:true}` write nothing. |
+| `POST /api/rest/api/3/issue/:key/transitions` | One status move along the existing `DEMO_TRANSITIONS` matrix using the deterministic demo transition ids from the read transitions route (`transition.id`, also accepted as a bare string or `{name}`/`{to.name}`). Unknown keys, unknown ids, off-matrix moves (409 with `allowedFrom`) and `{fail:true}` write nothing. No permission or transition logic is duplicated: the target resolves through the shared read helpers and the move applies via the shared `updateIssue` store path. |
+
+## MCP mapping
+
+The Jira MCP toolkit wraps these contracts 1:1 without new server
 behavior: `me` → myself, `getProject`/`getProjectStatuses` → project routes,
 `getIssue` → issue route, `listIssues` → search-lite (exposing
 `startAt`/`maxResults`, never `jql`), `listComments` → comment route,
-`getAllowedTransitions` → transitions route. POST/PUT/DELETE parity, JQL,
-project mutation, Passport/OAuth, SAML, SCIM, durable persistence, and full
-Jira compatibility stay out of scope.
+`getAllowedTransitions` → transitions route, plus `createIssue` → issue
+creation, `updateIssue` → issue update, `addComment` → comment creation,
+`transitionIssue` → transitions. JQL, project mutation, Passport/OAuth,
+SAML, SCIM, durable persistence, and full Jira compatibility stay out of
+scope.

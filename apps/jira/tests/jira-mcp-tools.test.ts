@@ -6,28 +6,44 @@ import { fileURLToPath } from "node:url";
 import {
   REST_BOUNDARY,
   REST_MAX_MAX_RESULTS,
+  mcpWriteIdentity,
+  restAddComment,
   restComments,
+  restCreateIssue,
   restIssue,
   restMyself,
   restProject,
   restProjectStatuses,
   restSearch,
+  restTransitionIssue,
   restTransitions,
+  restUpdateIssue,
 } from "../server/utils/jiraRest.ts";
-import { getIssues, resetIssues } from "../server/utils/issues.ts";
+import {
+  getIssue,
+  getIssues,
+  listComments,
+  resetIssues,
+} from "../server/utils/issues.ts";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const toolsDir = join(here, "..", "server", "mcp", "tools");
 
 /**
- * Demo-only read-only MCP protocol tests.
+ * Demo-only MCP protocol tests: seven read tools plus four bounded write tools.
  *
  * Each file under `server/mcp/tools/*.ts` calls the Nuxt-injected
  * `defineMcpTool`/`createError` globals and imports the real `zod`. The
  * protocol harness stubs the two Nuxt globals, imports the tool files, and
  * drives every handler directly against the same REST contracts the
  * adapter serves (`restMyself`, `restProject`, `restProjectStatuses`,
- * `restIssue`, `restSearch`, `restComments`, `restTransitions`).
+ * `restIssue`, `restSearch`, `restComments`, `restTransitions` for reads;
+ * `restCreateIssue`, `restUpdateIssue`, `restAddComment`,
+ * `restTransitionIssue` for bounded writes).
+ *
+ * Write tools accept the explicit labelled `demoUser` fallback because the
+ * raw Passport header only exists on the HTTP request boundary; they never
+ * claim Passport auth and always report `demoFallback`.
  */
 
 type CapturedTool = {
@@ -39,6 +55,8 @@ type CapturedTool = {
 };
 
 const EXPECTED_FILES = [
+  "add-comment.ts",
+  "create-issue.ts",
   "get-allowed-transitions.ts",
   "get-issue.ts",
   "get-project-statuses.ts",
@@ -46,9 +64,11 @@ const EXPECTED_FILES = [
   "list-comments.ts",
   "list-issues.ts",
   "me.ts",
+  "transition-issue.ts",
+  "update-issue.ts",
 ];
 
-const EXPECTED_NAMES = [
+const READ_NAMES = [
   "getAllowedTransitions",
   "getIssue",
   "getProject",
@@ -57,6 +77,10 @@ const EXPECTED_NAMES = [
   "listIssues",
   "me",
 ];
+
+const WRITE_NAMES = ["addComment", "createIssue", "transitionIssue", "updateIssue"];
+
+const EXPECTED_NAMES = [...READ_NAMES, ...WRITE_NAMES];
 
 let cachedTools: Map<string, CapturedTool> | undefined;
 
@@ -103,30 +127,49 @@ function sourceFor(name: string): string {
   return readFileSync(join(toolsDir, file!), "utf8");
 }
 
-test("mcp tool surface is exactly the seven read-only demo tools", async () => {
+test("mcp tool surface is the seven reads plus four bounded writes", async () => {
   const files = readdirSync(toolsDir)
     .filter((file) => file.endsWith(".ts"))
     .sort();
-  assert.deepEqual(files, EXPECTED_FILES);
+  assert.deepEqual(files, [...EXPECTED_FILES].sort());
   const tools = await loadTools();
   assert.deepEqual([...tools.keys()].sort(), [...EXPECTED_NAMES].sort());
-  for (const name of EXPECTED_NAMES) {
+  for (const name of READ_NAMES) {
     const tool = tools.get(name)!;
     assert.ok(tool, `${name} is registered`);
     assert.equal(tool.annotations?.["readOnlyHint"], true);
     assert.match(String(tool.description), /Demo-only read/i);
     const source = sourceFor(name);
     assert.match(source, /from "zod"/);
-    assert.doesNotMatch(source, /updateIssue|createIssue|addComment|resetIssues/);
+    assert.doesNotMatch(source, /restCreateIssue|restUpdateIssue|restAddComment|restTransitionIssue/);
     assert.doesNotMatch(
       source,
       /defineMcpHandler|defineMcpResource|defineMcpPrompt/,
     );
     assert.doesNotMatch(source, /method:\s*["'](?:POST|PUT|DELETE)["']/);
   }
+  for (const name of WRITE_NAMES) {
+    const tool = tools.get(name)!;
+    assert.ok(tool, `${name} is registered`);
+    assert.equal(tool.annotations?.["readOnlyHint"], false);
+    assert.match(String(tool.description), /Demo-only write/i);
+    const source = sourceFor(name);
+    assert.match(source, /from "zod"/);
+    // Write tools share the REST write helpers and the demoUser fallback;
+    // they never touch the raw Passport header or claim Passport auth.
+    assert.match(source, /rest(CreateIssue|UpdateIssue|AddComment|TransitionIssue)/);
+    assert.match(source, /mcpWriteIdentity/);
+    assert.doesNotMatch(source, /passportToken|PASSPORT_TOKEN_HEADER/);
+    assert.match(source, /without Passport auth/);
+    assert.match(source, /demoUser/);
+    assert.doesNotMatch(
+      source,
+      /defineMcpHandler|defineMcpResource|defineMcpPrompt/,
+    );
+  }
 });
 
-test("mcp tools map the REST contracts 1:1 and stay read-only", async () => {
+test("mcp read tools map the REST contracts 1:1 and write nothing", async () => {
   resetIssues();
   const tools = await loadTools();
   const before = getIssues();
@@ -182,9 +225,9 @@ test("mcp tools map the REST contracts 1:1 and stay read-only", async () => {
     (restTransitions("ADEO-1", {}) as { ok: true; data: unknown }).data,
   );
 
-  // Driving every tool wrote nothing.
+  // Driving every read tool wrote nothing.
   assert.deepEqual(getIssues(), before);
-  assert.match(REST_BOUNDARY, /GET-only/);
+  assert.match(REST_BOUNDARY, /bounded writes/);
   resetIssues();
 });
 
@@ -249,5 +292,204 @@ test("mcp tools fail closed on unknown keys, bad pagination and jql", async () =
 
   // Failing tool calls change nothing.
   assert.deepEqual(getIssues(), before);
+  resetIssues();
+});
+
+test("mcp write tools wrap the REST write contracts 1:1", async () => {
+  resetIssues();
+  const tools = await loadTools();
+  const identity = mcpWriteIdentity("demo-member");
+
+  const createIssueTool = tools.get("createIssue")!;
+  const created = (await callTool(createIssueTool, {
+    fields: { summary: "MCP-created follow-up", priority: "Highest" },
+  })) as { issue: { key: string; fields: { summary: string } } };
+  assert.equal(created.issue.key, "ADEO-5");
+  assert.equal(created.issue.fields.summary, "MCP-created follow-up");
+  // Exact contract parity: the tool result equals the helper result for the
+  // same arguments (modulo the deterministic next key).
+  resetIssues();
+  const direct = restCreateIssue(identity, {
+    fields: { summary: "Parity check" },
+  });
+  assert.equal(direct.ok, true);
+  resetIssues();
+  const viaTool = (await callTool(createIssueTool, {
+    fields: { summary: "Parity check" },
+  })) as unknown;
+  assert.deepEqual(viaTool, direct.ok ? direct.data : undefined);
+
+  const updateIssueTool = tools.get("updateIssue")!;
+  resetIssues();
+  const directUpdate = restUpdateIssue(identity, "ADEO-1", {
+    fields: { summary: "Parity rename" },
+  });
+  assert.equal(directUpdate.ok, true);
+  resetIssues();
+  const viaUpdate = await callTool(updateIssueTool, {
+    issueKey: "ADEO-1",
+    fields: { summary: "Parity rename" },
+  });
+  assert.deepEqual(viaUpdate, directUpdate.ok ? directUpdate.data : undefined);
+
+  const addCommentTool = tools.get("addComment")!;
+  resetIssues();
+  const directComment = restAddComment(identity, "ADEO-1", { body: "Parity note" });
+  assert.equal(directComment.ok, true);
+  const directId = directComment.ok ? directComment.data.comment.id : "";
+  resetIssues();
+  const viaComment = (await callTool(addCommentTool, {
+    issueKey: "ADEO-1",
+    body: "Parity note",
+  })) as { comment: { id: string } };
+  // Comment ids are sequential on the shared store, so ids agree after reset.
+  assert.equal(viaComment.comment.id, directId);
+
+  const transitionTool = tools.get("transitionIssue")!;
+  resetIssues();
+  const directMove = restTransitionIssue(identity, "ADEO-1", {
+    transition: "demo-in-progress",
+  });
+  assert.equal(directMove.ok, true);
+  const directStatus = directMove.ok ? directMove.data.issue.fields.status.name : "";
+  resetIssues();
+  const viaMove = (await callTool(transitionTool, {
+    issueKey: "ADEO-1",
+    transitionId: "demo-in-progress",
+  })) as { issue: { fields: { status: { name: string } } } };
+  assert.equal(viaMove.issue.fields.status.name, directStatus);
+
+  // Every write result reports the demoFallback identity source: MCP inputs
+  // never carry the raw Passport header and never claim Passport auth.
+  for (const result of [viaTool, viaUpdate, viaComment, viaMove]) {
+    assert.equal(
+      (result as { identitySource: unknown }).identitySource,
+      "demoFallback",
+    );
+    assert.equal(
+      (result as { actor: { identitySource: unknown } }).actor.identitySource,
+      "demoFallback",
+    );
+  }
+  resetIssues();
+});
+
+test("mcp write tools enforce permissions and fail closed without writing", async () => {
+  resetIssues();
+  const tools = await loadTools();
+  const before = getIssues();
+  const beforeComments = listComments("ADEO-1");
+
+  const createIssueTool = tools.get("createIssue")!;
+  const updateIssueTool = tools.get("updateIssue")!;
+  const addCommentTool = tools.get("addComment")!;
+  const transitionTool = tools.get("transitionIssue")!;
+
+  // Viewer writes are denied on every write tool before any mutation.
+  for (const attempt of [
+    callTool(createIssueTool, {
+      fields: { summary: "Denied" },
+      demoUser: "demo-viewer",
+    }),
+    callTool(updateIssueTool, {
+      issueKey: "ADEO-1",
+      fields: { summary: "Denied" },
+      demoUser: "demo-viewer",
+    }),
+    callTool(addCommentTool, {
+      issueKey: "ADEO-1",
+      body: "Denied",
+      demoUser: "demo-viewer",
+    }),
+    callTool(transitionTool, {
+      issueKey: "ADEO-1",
+      transitionId: "demo-in-progress",
+      demoUser: "demo-viewer",
+    }),
+  ]) {
+    const denied = (await attempt) as Error & { statusCode: number };
+    assert.equal(denied.statusCode, 403);
+    assert.match(denied.message, /Demo-only permission denied/);
+    assert.match(denied.message, /Nothing was written/);
+  }
+
+  // Unknown/malformed identities fail closed per tool.
+  for (const demoUser of ["mallory", "", 42]) {
+    const denied = (await callTool(createIssueTool, {
+      fields: { summary: "Denied" },
+      demoUser,
+    })) as Error & { statusCode: number };
+    assert.ok([400, 401].includes(denied.statusCode), String(demoUser));
+  }
+
+  // Unknown keys, unsupported fields, unknown transitions and blank bodies
+  // fail closed on the matching tool.
+  const unknownKey = (await callTool(updateIssueTool, {
+    issueKey: "ADEO-9999",
+    fields: { summary: "Never" },
+  })) as Error & { statusCode: number };
+  assert.equal(unknownKey.statusCode, 404);
+
+  const unsupported = (await callTool(updateIssueTool, {
+    issueKey: "ADEO-1",
+    fields: { summary: "x", labels: ["a"] },
+  })) as Error & { statusCode: number };
+  assert.equal(unsupported.statusCode, 400);
+  assert.match(unsupported.message, /Unsupported demoOnly field/);
+
+  const badTransition = (await callTool(transitionTool, {
+    issueKey: "ADEO-1",
+    transitionId: "demo-archived",
+  })) as Error & { statusCode: number };
+  assert.equal(badTransition.statusCode, 400);
+
+  const offMatrix = (await callTool(transitionTool, {
+    issueKey: "ADEO-2",
+    transitionId: "Done",
+  })) as Error & { statusCode: number };
+  assert.equal(offMatrix.statusCode, 409);
+
+  const blankComment = (await callTool(addCommentTool, {
+    issueKey: "ADEO-1",
+    body: "   ",
+  })) as Error & { statusCode: number };
+  assert.equal(blankComment.statusCode, 400);
+
+  // Deterministic failed writes change nothing on every write tool.
+  const created = (await callTool(createIssueTool, {
+    fields: { summary: "Fail-path target" },
+  })) as { issue: { key: string } };
+  const targetKey = created.issue.key;
+  for (const attempt of [
+    callTool(createIssueTool, { fields: { summary: "Never" }, fail: true }),
+    callTool(updateIssueTool, {
+      issueKey: targetKey,
+      fields: { summary: "Never" },
+      fail: true,
+    }),
+    callTool(addCommentTool, {
+      issueKey: "ADEO-1",
+      body: "Never",
+      fail: true,
+    }),
+    callTool(transitionTool, {
+      issueKey: "ADEO-1",
+      transitionId: "demo-in-progress",
+      fail: true,
+    }),
+  ]) {
+    const failed = (await attempt) as Error & { statusCode: number };
+    assert.equal(failed.statusCode, 500);
+  }
+
+  // Only the one successful creation plus its target wrote; every denial
+  // and every fail path left the rest of the store untouched.
+  assert.deepEqual(
+    getIssues().map((issue) => issue.key),
+    [...before.map((issue) => issue.key), targetKey],
+  );
+  assert.equal(getIssue(targetKey)?.title, "Fail-path target");
+  assert.deepEqual(listComments("ADEO-1"), beforeComments);
+  assert.equal(getIssue("ADEO-1")?.status, "To Do");
   resetIssues();
 });
