@@ -14,6 +14,8 @@ import { deliveryRequest,newDelivery,operationFor,transition,terminal,applyRevie
 import { listDeliveryReceipts,readDelivery,updateDelivery } from '../lib/delivery-store';
 import { classifyDeliveryError,snapshotEvents,childIn,hostResult,stoppedWithoutResult,eventsForDelivery,resumeMessage,resumeReceipt,type ClassifiedDeliveryError } from '../lib/delivery-events';
 import { readPull,readBranch,WorkError,workBranch } from '../lib/work-github';
+import { repository } from '../lib/github.mjs';
+import { reconcileManuallyMergedDelivery } from '../lib/delivery-reconcile';
 import { visualReviewPacketSchema } from '../lib/visual-review';
 const publication=z.object({number:z.number().int().positive(),url:z.string().url(),headSha:z.string().regex(/^[a-f0-9]{40}$/),targetHeadSha:z.string().regex(/^[a-f0-9]{40}$/),targetBranch:z.string(),ownerSessionId:z.string(),branch:z.string()});
 const review=z.object({verdict:z.enum(['approve','changes_requested','incomplete']),summary:z.string(),headSha:z.string(),baseSha:z.string(),targetBranch:z.string(),findings:z.array(z.object({severity:z.string(),path:z.string(),message:z.string(),evidence:z.string()})),limitations:z.array(z.string()),visualReview:visualReviewPacketSchema.optional(),verification:z.object({prepared:z.boolean(),repositoryChecksPassed:z.boolean(),candidateUnchanged:z.boolean()}).optional()});
@@ -113,6 +115,13 @@ export default defineChannel({routes:[
   return Response.json(await existing(state.id),{status:202});
  })),
  GET('/factory/delivery/:id',protectedRoute(async(_,ctx)=>Response.json(await existing(ctx.params.id)))),
+ GET('/factory/delivery/:id/reconcile',protectedRoute(async(_,ctx)=>{
+  const state=await existing(ctx.params.id);
+  if(!state.publication)return Response.json({deliveryId:state.id,...reconcileManuallyMergedDelivery(state,undefined,repository)});
+  const token=await getToken('github/jira-clone',{subject:{type:'app'}});
+  const pull=await readPull(token,state.publication.number);
+  return Response.json({deliveryId:state.id,...reconcileManuallyMergedDelivery(state,{repository,number:pull.number,merged:pull.merged===true,state:pull.state,headSha:pull.head.sha,targetHeadSha:pull.base.sha,targetBranch:pull.base.ref,mergeCommitSha:pull.merge_commit_sha??undefined},repository)});
+ })),
  GET('/factory/delivery/:id/receipts',protectedRoute(async(_,ctx)=>{await existing(ctx.params.id);return Response.json(await listDeliveryReceipts(ctx.params.id));})),
  POST('/factory/delivery/:id/advance',protectedRoute(advance)),
  POST('/factory/delivery/:id/cancel',protectedRoute(async(request,ctx)=>{

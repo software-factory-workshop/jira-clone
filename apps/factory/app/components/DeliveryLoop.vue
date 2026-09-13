@@ -24,6 +24,7 @@ interface Delivery {
   request?: { title?: string };
   history: Array<{ phase: string; at?: string; sessionId?: string; headSha?: string }>;
 }
+interface ReconciliationResult { eligible: boolean; reason: string; commitSha?: string }
 
 const route = useRoute();
 const router = useRouter();
@@ -32,12 +33,15 @@ const error = ref("");
 const working = ref(false);
 const stopping = ref(false);
 const revision = ref("");
+const reconciliation = ref<ReconciliationResult>();
+const reconciling = ref(false);
 const copiedEvidence = ref<string>();
 let copyTimer: ReturnType<typeof setTimeout> | undefined;
 let operationId: string | undefined;
 let timer: ReturnType<typeof setTimeout> | undefined;
 let disposed = false;
 const stopped = new Set(["human_review", "ready", "blocked", "needs_revision", "cancelled", "merged"]);
+const reconcilable = new Set(["human_review", "ready", "blocked"]);
 const cockpit = useCockpit();
 
 const flowModel = computed(() => deliveryFlow({
@@ -112,6 +116,19 @@ async function refresh() {
   }
 }
 
+async function reconcile() {
+  if (!run.value?.publication || reconciling.value) return;
+  reconciling.value = true;
+  try {
+    reconciliation.value = await $fetch<ReconciliationResult>(`/factory/delivery/${encodeURIComponent(run.value.id)}/reconcile`, { retry: 0 });
+    error.value = "";
+  } catch {
+    error.value = "Could not verify GitHub merge evidence. No delivery state was changed.";
+  } finally {
+    reconciling.value = false;
+  }
+}
+
 async function resume() {
   if (!run.value || working.value) return;
   working.value = true;
@@ -174,6 +191,7 @@ async function copyEvidence(value: string) {
 watch(() => route.query.delivery, async (id) => {
   clearTimeout(timer);
   if (typeof id !== "string") return;
+  reconciliation.value = undefined;
   try {
     run.value = await $fetch<Delivery>(`/factory/delivery/${encodeURIComponent(id)}`);
     schedule();
@@ -228,10 +246,12 @@ onBeforeUnmount(() => {
     <div class="delivery-actions">
       <UButton :disabled="!title.trim() || !briefReady || working || stopping" :loading="working && !run" icon="i-lucide-play" @click="start">Start durable delivery</UButton>
       <UButton v-if="run?.publication" :to="run.publication.url" target="_blank" rel="noopener noreferrer" variant="outline" icon="i-lucide-git-pull-request">Open PR #{{ run.publication.number }}</UButton>
+      <UButton v-if="run?.publication && reconcilable.has(run.phase)" variant="outline" :loading="reconciling" :disabled="working || reconciling" icon="i-lucide-shield-check" @click="reconcile">Check manual merge</UButton>
       <UButton v-if="run && (run.phase === 'blocked' || (run.phase === 'human_review' && !run.publication))" variant="outline" :disabled="working" icon="i-lucide-rotate-ccw" @click="resume">Resume observation</UButton>
       <UButton v-else-if="run" variant="outline" :loading="working" icon="i-lucide-refresh-cw" @click="refresh">Refresh status</UButton>
       <UButton v-if="run && !stopped.has(run.phase)" variant="ghost" color="neutral" :loading="stopping" :disabled="working || stopping" @click="cancel">Stop delivery</UButton>
     </div>
+    <UAlert v-if="reconciliation" :color="reconciliation.eligible ? 'success' : 'warning'" variant="soft" title="Manual merge evidence" :description="reconciliation.reason" />
     <p class="delivery-requirement" :class="{ ready: briefReady }" role="status">A durable delivery needs at least {{ MIN_WORK_REQUEST_LENGTH }} characters in the brief ({{ briefLength }}/{{ MIN_WORK_REQUEST_LENGTH }}).</p>
     <p v-if="error" class="delivery-error" role="alert">{{ error }}</p>
 
