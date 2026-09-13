@@ -8,7 +8,7 @@ import {
   type Draft,
 } from "@jira-clone/context";
 import { stationLinkSchema } from "./utils/work-station";
-import { describeStarter } from "./utils/starters";
+import { describeStarter, starterDraft, type StarterCard } from "./utils/starters";
 const {data:manifest}=useFetch<{repository:typeof initialRepository;references:typeof initialReferences;stages:typeof initialStages;starterRequests:typeof initialStarters}>("/factory/cockpit",{server:false});
 const repository=computed(()=>manifest.value?.repository??initialRepository);
 const references=computed(()=>manifest.value?.references??initialReferences);
@@ -51,8 +51,16 @@ onMounted(async () => {
     await refreshDrafts();
   } catch { notice.value="Shared drafts are unavailable. Keep your work and retry; browser drafts remain untouched."; }
 });
-async function chooseStarter(starter: { title: string; body: string }) {
-  await compose(starter);
+async function chooseStarter(card: StarterCard) {
+  const draft = starterDraft(card);
+  activeStarterTitle.value = card.starter.title;
+  activeId.value = null;
+  activeVersion.value = 0;
+  title.value = draft.title;
+  request.value = draft.body;
+  section.value = "work";
+  notice.value = "";
+  await focusEditor();
 }
 async function compose(starter?: { title: string; body: string;id?:string;version?:number }) {
   activeStarterTitle.value = starter && !starter.id ? starter.title : null;
@@ -81,6 +89,7 @@ async function focusEditor() {
 async function goToWorkActions() {
   await nextTick();
   workActionsAnchor.value?.scrollIntoView({ block: "start", behavior: "smooth" });
+  workActionsAnchor.value?.focus({ preventScroll: true });
 }
 async function save() {
   if (saving.value || !title.value.trim() || !request.value.trim()) return;
@@ -333,7 +342,7 @@ watch([title,request],async()=>{const sequence=++issueSequence;issueUrl.value=""
             <section class="starters" aria-label="Starting points">
               <h2>Start with a concrete problem</h2>
               <p class="muted">
-                Shipped slices are labelled so new drafts extend them instead of proposing them again. Choosing a card fills the draft editor above.
+                Shipped slices are labelled. Using a shipped card drafts an extension in the editor above, including its next step — it does not reload the already-shipped work.
               </p>
               <div class="starter-grid">
                 <article
@@ -347,7 +356,7 @@ watch([title,request],async()=>{const sequence=++issueSequence;issueUrl.value=""
                     <UBadge :color="card.meta.state === 'shipped' ? 'success' : 'primary'" variant="soft">{{ card.meta.badge }}</UBadge>
                   </div>
                   <h3>{{ card.starter.title }}</h3>
-                  <p>{{ card.starter.body }}</p>
+                  <p class="starter-body">{{ card.starter.body }}</p>
                   <p class="starter-note">{{ card.meta.note }}</p>
                   <p class="starter-next small muted">Next: {{ card.meta.next }}</p>
                   <div class="starter-actions">
@@ -356,16 +365,16 @@ watch([title,request],async()=>{const sequence=++issueSequence;issueUrl.value=""
                       :variant="activeStarterTitle === card.starter.title ? 'soft' : 'solid'"
                       :aria-pressed="activeStarterTitle === card.starter.title"
                       icon="i-lucide-arrow-right"
-                      @click="chooseStarter(card.starter)"
+                      @click="chooseStarter(card)"
                       >{{ activeStarterTitle === card.starter.title ? "In the editor" : "Use this starting point" }}</UButton
-                    ><UButton size="xs" variant="ghost" icon="i-lucide-pencil" @click="focusEditor()">Edit draft</UButton
+                    ><UButton size="xs" variant="ghost" icon="i-lucide-pencil" title="Edits the draft currently in the editor above, not this card." @click="focusEditor()">Edit active draft</UButton
                     ><UButton size="xs" variant="ghost" icon="i-lucide-git-pull-request" @click="goToWorkActions()">Work actions</UButton>
                   </div>
                   <span v-if="activeStarterTitle === card.starter.title" class="starter-active" role="status">Active in the draft editor</span>
                 </article>
               </div>
             </section>
-            <section ref="workActionsAnchor" aria-label="Work actions" class="work-actions-anchor">
+            <section ref="workActionsAnchor" aria-label="Work actions" class="work-actions-anchor" tabindex="-1">
               <WorkActions :title="title" :brief="request" /><DeliveryLoop :title="title" :brief="request" />
             </section>
             <WorkHistory />

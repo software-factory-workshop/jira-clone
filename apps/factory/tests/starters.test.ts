@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { starterRequests } from "@jira-clone/context";
-import { describeStarter } from "../app/utils/starters.ts";
+import { describeStarter, starterDraft } from "../app/utils/starters.ts";
 
 test("the shipped starters are labelled shipped with a truthful handoff", () => {
   assert.equal(starterRequests.length, 3);
@@ -29,4 +29,22 @@ test("unknown starters remain open without a shipped badge", () => {
 test("starter matching ignores case and surrounding whitespace", () => {
   const card = describeStarter({ title: "  AN ADEO ISSUE LIST  ", body: "Duplicate invitation." });
   assert.equal(card.meta.state, "shipped");
+});
+
+test("shipped Use action drafts an extension carrying the displayed next step", () => {
+  for (const starter of starterRequests) {
+    const card = describeStarter(starter);
+    const draft = starterDraft(card);
+    assert.notEqual(draft.body, starter.body);
+    assert.ok(draft.body.includes(card.meta.note));
+    assert.ok(draft.body.includes(card.meta.next));
+    assert.match(draft.body, /do not propose the shipped work again/i);
+  }
+});
+
+test("open starters keep their original body in the draft", () => {
+  const card = describeStarter({ title: "OAuth-era prompt", body: "Try the OAuth demo flow." });
+  const draft = starterDraft(card);
+  assert.equal(draft.title, "OAuth-era prompt");
+  assert.equal(draft.body, "Try the OAuth demo flow.");
 });
