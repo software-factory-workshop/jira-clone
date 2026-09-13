@@ -3,6 +3,7 @@ import { deliveryFlow } from "../utils/observability-flow";
 import { describeDeliveryPhase, formatDeliveryUpdatedAt } from "../utils/delivery-summary";
 import { MIN_WORK_REQUEST_LENGTH } from "../utils/work-station";
 import { copyText, shortIdentifier } from "../utils/technical-details";
+import type { VisualReviewBinding, VisualReviewPacket } from "../../runtime/lib/visual-review";
 
 const props = defineProps<{ title: string; brief: string }>();
 
@@ -16,8 +17,8 @@ interface Delivery {
   childSessionId?: string;
   reviewerSessionId?: string;
   failedPhase?: string;
-  publication?: { number: number; url: string; targetBranch?: string };
-  review?: { verdict: string; summary: string };
+  publication?: { number: number; url: string; targetBranch?: string; headSha?: string; targetHeadSha?: string };
+  review?: { verdict: string; summary: string; baseSha?: string; headSha?: string; targetBranch?: string; visualReview?: VisualReviewPacket };
   mergeDecision?: { status: string; reason: string };
   error?: string;
   request?: { title?: string };
@@ -57,6 +58,14 @@ const phaseDetail = computed(() => run.value?.error || run.value?.mergeDecision?
 const updatedLabel = computed(() => formatDeliveryUpdatedAt(run.value?.updatedAt));
 const briefLength = computed(() => props.brief.trim().length);
 const briefReady = computed(() => briefLength.value >= MIN_WORK_REQUEST_LENGTH);
+const visualReviewBinding = computed<VisualReviewBinding | undefined>(() => {
+  const delivery = run.value;
+  const review = delivery?.review;
+  const baseSha = review?.baseSha || delivery?.publication?.targetHeadSha;
+  const headSha = review?.headSha || delivery?.publication?.headSha;
+  const targetBranch = review?.targetBranch || delivery?.publication?.targetBranch;
+  return baseSha && headSha && targetBranch ? { baseSha, headSha, targetBranch } : undefined;
+});
 
 async function remember(value: Delivery) {
   try {
@@ -214,6 +223,7 @@ onBeforeUnmount(() => {
     <p v-if="run?.mergeDecision" class="delivery-note">{{ run.mergeDecision.reason }}</p>
     <p v-if="run?.error" class="delivery-error" role="alert">{{ run.error }}</p>
     <p v-if="run?.review" class="delivery-note">{{ run.review.summary }}</p>
+    <VisualReviewPanel v-if="run?.review" :packet="run.review.visualReview" :binding="visualReviewBinding" />
 
     <div class="delivery-actions">
       <UButton :disabled="!title.trim() || !briefReady || working || stopping" :loading="working && !run" icon="i-lucide-play" @click="start">Start durable delivery</UButton>
