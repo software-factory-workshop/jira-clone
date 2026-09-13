@@ -1,3 +1,10 @@
+// Cedar is a trusted authorization kernel around consequential operations
+// (run_check, record_verification, record_review, publish_change,
+// merge_change). It is not the workflow engine, code verifier or sandbox.
+// Principal and resource entities are built by the host from session auth and
+// stored state; a model- or body-supplied principal ID is never accepted. Every
+// decision records the policy and schema revision so a policy edit between
+// admission and execution is visible in the audit.
 import { requireStation, type Station } from "../station-access.ts";
 import type { FactoryPrincipal } from "./model.ts";
 import { runFactoryOperation, type FactoryDecisionAudit, type RunFactoryOperationInput } from "./operation-runner.ts";

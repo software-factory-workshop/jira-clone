@@ -6,6 +6,8 @@ import { workerRequest } from './station-access.ts';
 import type { VisualReviewPacket } from './visual-review.ts';
 
 export const deliveryRequest = workerRequest.extend({
+  // Bounds same-owner repair rounds after blocking review findings. It is not a
+  // token or cost budget; model limits are disabled per session.
   maxRevisions: z.number().int().min(0).max(10).default(3),
 });
 export type DeliveryRequest = z.infer<typeof deliveryRequest>;

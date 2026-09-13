@@ -8,7 +8,7 @@ import { OAUTH_BOUNDARY, oauthAuthorizationServerMetadata, resolveOAuthIssuer } 
  * Root `/.well-known/*` is owned by the fixed `@nuxtjs/mcp-toolkit`
  * not-configured stub and routing configuration is outside the worker
  * boundary, so a deployment that wants root discovery needs the external
- * proxy step documented in `docs/jira-oauth-provider.md`. Standard fields
+ * proxy step documented in the `jiraOAuth.ts` header. Standard fields
  * only: redirect-URI support is behavioral (exact-match registration and
  * authorize/token checks) and `expires_in` is asserted on token responses.
  */

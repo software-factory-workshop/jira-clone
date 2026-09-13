@@ -7,6 +7,7 @@ import { getToken } from "@vercel/connect";
 import { getVercelOidcToken } from "@vercel/oidc";
 import { verifyScope } from "../lib/github.mjs";
 import { prepareRepository } from "../lib/prepare-context";
+import { activeWork } from "../lib/active-work";
 import { miningState } from "../lib/mining-state";
 const tool = defineTool({
   description:"Prepare the pinned repository and dependency-complete native Eve sandbox. Call this first, once per investigation.",
@@ -23,7 +24,7 @@ const tool = defineTool({
     const token=await getToken("github/jira-clone",{subject:{type:"app"}});
     const sandbox=await ctx.getSandbox();
     miningState.update(s=>({...s,sandboxStarted:true}));
-    const result=await prepareRepository(sandbox,token,ctx.abortSignal);
+    const result=await prepareRepository(sandbox,token,ctx.abortSignal,undefined,await activeWork(token,ctx.abortSignal));
     miningState.update(s=>({...s,...result}));
     log.set({factory:{stage:"prepare_context",outcome:result.prepared?"prepared":"incomplete",revision:result.revision,fileCount:result.files.length,commandCount:result.commands.length}});
     yield {phase:result.prepared?"Context prepared":"Context incomplete",...result};

@@ -15,6 +15,10 @@ interface ApprovalState {
 
 const browserSourceRoots = ["apps/factory/app/", "apps/jira/app/"];
 
+// Required evidence is derived by the host from the changed-file inventory. A
+// reviewer once obtained approval by moving its missing browser checks from
+// limitations to "optional" (PR #2 review, 12 Sep 2026); PR #5 made this list
+// host-owned so model wording cannot remove a requirement.
 export function hostReviewLimitations(files: ReviewFile[], browserEvidenceComplete = false): string[] {
   if (browserEvidenceComplete) return [];
   const touchesBrowserSource = files.some(({ filename, previous_filename }) =>

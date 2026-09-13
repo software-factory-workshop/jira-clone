@@ -23,8 +23,8 @@
  * and comment list endpoints.
  *
  * The Jira MCP toolkit wraps these contracts 1:1; see
- * `docs/jira-rest-adapter.md` for the route mapping and
- * `docs/jira-mcp-tools.md` for the tool mapping.
+ * the route table in this file and the tool headers under `server/mcp/tools/`
+ * for the mapping.
  */
 
 import {

@@ -27,11 +27,11 @@ async function mergeText(base:string,ours:string,theirs:string){
  }finally{await rm(dir,{recursive:true,force:true});}
 }
 test("real three-way conflict preserves both edits, inherited protected updates and deletion",async()=>{
- const path="docs/demo.md";
- const result=await mergeSources(snapshot({[path]:"heading\nbase\n","docs/delete.md":"old", "package.json":"old"}),snapshot({[path]:"heading\nowner\n","docs/delete.md":"old","package.json":"old"}),snapshot({[path]:"heading\ntarget\n","package.json":"new"}),[],mergeText);
+ const path="apps/jira/app/demo.vue";
+ const result=await mergeSources(snapshot({[path]:"heading\nbase\n","apps/jira/app/delete.vue":"old", "package.json":"old"}),snapshot({[path]:"heading\nowner\n","apps/jira/app/delete.vue":"old","package.json":"old"}),snapshot({[path]:"heading\ntarget\n","package.json":"new"}),[],mergeText);
  assert.deepEqual(result.conflicts,[path]);const content=result.entries.find(e=>e.file===path)!.content.toString();assert.match(content,/owner/);assert.match(content,/target/);assert.match(content,/<<<<<<</);
  assert.throws(()=>validateCollectedChanges([{path,content}]),/Unresolved/);
- assert.equal(result.entries.find(e=>e.file==="package.json")!.content.toString(),"new");assert(!result.entries.some(e=>e.file==="docs/delete.md"));
+ assert.equal(result.entries.find(e=>e.file==="package.json")!.content.toString(),"new");assert(!result.entries.some(e=>e.file==="apps/jira/app/delete.vue"));
  assert.deepEqual(validateCollectedChanges([{path,content:"heading\nowner and target\n"}]),[{path,content:"heading\nowner and target\n"}]);
 });
 test("protected conflicts reject before workspace replacement",async()=>{
@@ -59,7 +59,7 @@ test("revision writes only owned ref, uses expected-head nonforce update and ret
   if(path==="pulls/4")return Response.json(pr());if(path==="pulls")return Response.json([pr()]);
   throw Error(`Unexpected ${init.method} ${path}`);
  });
- const request={sessionId:owner,baseSha:h,title:"revision",body:"useful change",operationId:"operation-one",targetBranch:"factory/parent",targetHeadSha:a,parentPrNumber:2,previous:{number:4,headSha:h},changes:[{path:"docs/revision.md",content:"revised"}]};
+ const request={sessionId:owner,baseSha:h,title:"revision",body:"useful change",operationId:"operation-one",targetBranch:"factory/parent",targetHeadSha:a,parentPrNumber:2,previous:{number:4,headSha:h},changes:[{path:"apps/jira/app/revision.vue",content:"revised"}]};
  const result=await publishWork("test",request);const retry=await publishWork("test",request);assert.deepEqual(result,retry);assert.equal(result.number,4);assert.equal(result.targetBranch,"factory/parent");
  assert.equal(writes.filter(w=>w.path===`git/refs/heads/${branch}`).length,1);assert(!writes.some(w=>w.path.includes("refs/heads/factory/parent")));assert.deepEqual(parents,[h]);
  await assert.rejects(publishWork("test",{...request,operationId:"different-operation"}),/changed/);
@@ -73,14 +73,14 @@ test("last stream chunk supplies owner proof, including one-event streams",async
  assert.equal((await verifyOwnerStream(session,owner,4,branch)).number,4);
 });
 test("two target refreshes retain unpublished changes and add/add or delete/edit conflicts",async()=>{
- const base=snapshot({"docs/demo.md":"one\ntwo\nthree\n"});
- const firstTarget=snapshot({"docs/demo.md":"ONE\ntwo\nthree\n"});
- const first=await mergeSources(base,base,firstTarget,[{path:"docs/extra.md",content:"unpublished"}],mergeText);
- const secondTarget=snapshot({"docs/demo.md":"ONE\ntwo\nTHREE\n"});
- const second=await mergeSources(firstTarget,firstTarget,secondTarget,[{path:"docs/extra.md",content:first.entries.find(e=>e.file==="docs/extra.md")!.content.toString()}],mergeText);
- assert.equal(second.entries.find(e=>e.file==="docs/extra.md")!.content.toString(),"unpublished");assert.equal(second.entries.find(e=>e.file==="docs/demo.md")!.content.toString(),"ONE\ntwo\nTHREE\n");
- const additions=await mergeSources(snapshot({}),snapshot({"docs/new.md":"owner\n"}),snapshot({"docs/new.md":"target\n"}),[],mergeText);assert.deepEqual(additions.conflicts,["docs/new.md"]);
- const deletion=await mergeSources(snapshot({"docs/demo.md":"base"}),snapshot({}),snapshot({"docs/demo.md":"edited"}),[],mergeText);assert.deepEqual(deletion.conflicts,["docs/demo.md"]);assert.match(deletion.entries[0]!.content.toString(),/deleted/);
+ const base=snapshot({"apps/jira/app/demo.vue":"one\ntwo\nthree\n"});
+ const firstTarget=snapshot({"apps/jira/app/demo.vue":"ONE\ntwo\nthree\n"});
+ const first=await mergeSources(base,base,firstTarget,[{path:"apps/jira/app/extra.vue",content:"unpublished"}],mergeText);
+ const secondTarget=snapshot({"apps/jira/app/demo.vue":"ONE\ntwo\nTHREE\n"});
+ const second=await mergeSources(firstTarget,firstTarget,secondTarget,[{path:"apps/jira/app/extra.vue",content:first.entries.find(e=>e.file==="apps/jira/app/extra.vue")!.content.toString()}],mergeText);
+ assert.equal(second.entries.find(e=>e.file==="apps/jira/app/extra.vue")!.content.toString(),"unpublished");assert.equal(second.entries.find(e=>e.file==="apps/jira/app/demo.vue")!.content.toString(),"ONE\ntwo\nTHREE\n");
+ const additions=await mergeSources(snapshot({}),snapshot({"apps/jira/app/new.vue":"owner\n"}),snapshot({"apps/jira/app/new.vue":"target\n"}),[],mergeText);assert.deepEqual(additions.conflicts,["apps/jira/app/new.vue"]);
+ const deletion=await mergeSources(snapshot({"apps/jira/app/demo.vue":"base"}),snapshot({}),snapshot({"apps/jira/app/demo.vue":"edited"}),[],mergeText);assert.deepEqual(deletion.conflicts,["apps/jira/app/demo.vue"]);assert.match(deletion.entries[0]!.content.toString(),/deleted/);
 });
 test("refresh refuses inherited excluded or executable-mode changes without dropping them",async t=>{
  const {assertRefreshCoverage}=await import("../runtime/lib/work-github.ts");
@@ -91,7 +91,7 @@ test("refresh refuses inherited excluded or executable-mode changes without drop
   const revision=p.split("/")[2];return Response.json({truncated:false,tree:[{path,type:"blob",mode:revision===h?mode:"100644",sha:revision===h?next:a,size:10}]});
  });
  await assert.rejects(assertRefreshCoverage("test",a,h,b),/excluded/);
- path="docs/demo.md";mode="100755";await assert.rejects(assertRefreshCoverage("test",a,h,b),/mode-changing/);
+ path="apps/jira/app/demo.vue";mode="100755";await assert.rejects(assertRefreshCoverage("test",a,h,b),/mode-changing/);
  mode="100644";await assertRefreshCoverage("test",a,h,b);
 });
 test("review invalidates a retarget even when both branch tips have the same SHA",async t=>{

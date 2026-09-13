@@ -2,10 +2,7 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 import assert from "node:assert/strict";
 
-const documents = [
-  new URL("../../../factory/context/work-in-progress.md", import.meta.url),
-  new URL("../../../factory/README.md", import.meta.url),
-];
+const documents = [new URL("../../../factory/CONTRACT.md", import.meta.url)];
 
 test("factory context keeps station and host merge authority distinct", async () => {
   const text = (await Promise.all(documents.map((document) => readFile(document, "utf8")))).join("\n");

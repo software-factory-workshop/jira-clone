@@ -1,3 +1,5 @@
+// Restart the whole `pnpm dev` command after changing this file or installing
+// dependencies: this Eve/Nuxt version can keep proxying to its stopped child.
 export default defineNuxtConfig({
   modules: ["evlog/nuxt", "workflow/nuxt", "./modules/station-routes"],
   vite: { optimizeDeps: { include: ["eve/vue"] } },

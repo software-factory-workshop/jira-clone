@@ -37,7 +37,7 @@ export async function readGithub(input, token, signal) {
 }
 
 export function includeSource(file) {
-  return !file.startsWith('factory/mining/') && !file.includes('.env') && !file.endsWith('.tgz') && file !== 'pnpm-lock.yaml' && /\.(md|ts|mts|mjs|json|vue|css|yaml|yml)$/.test(file);
+  return !file.startsWith('factory/mining/') && !file.startsWith('factory/evidence/') && !file.includes('.env') && !file.endsWith('.tgz') && file !== 'pnpm-lock.yaml' && /\.(md|ts|mts|mjs|json|vue|css|yaml|yml)$/.test(file);
 }
 
 export function manifestFor(entries) {

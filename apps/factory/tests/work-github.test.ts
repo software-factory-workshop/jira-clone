@@ -34,12 +34,12 @@ function mockGitHub(t: {mock:{method:Function}},options:{mode?:string;main?:stri
  return writes;
 }
 test("worker policy excludes rules, credentials, archives, traversal and generated files",()=>{
- for(const path of ["AGENTS.md","apps/jira/AGENTS.md",".agents/skills/a.md",".github/workflows/ci.yml","factory/context/goal.md","apps/factory/agents/worker/agent/instructions.ts","apps/factory/shared/agent-quality.ts","apps/factory/scripts/build-eve.mjs","../escape","apps//file",".env.local","apps/jira/.env","vendor/pkg.tgz","apps/jira/.output/file","package.json","apps/factory/nuxt.config.ts","apps/factory/server/api/station.post.ts","tsconfig.json","apps/jira/tsconfig.app.json","vercel.json",".pnpmfile.cjs","packages/project-context/src/index.ts","README.md"]){assert.equal(allowedWorkPath(path),false,path);}
+ for(const path of ["AGENTS.md","apps/jira/AGENTS.md",".agents/skills/a.md",".github/workflows/ci.yml","factory/CONTRACT.md","apps/factory/agents/worker/agent/instructions.ts","apps/factory/shared/agent-quality.ts","apps/factory/scripts/build-eve.mjs","../escape","apps//file",".env.local","apps/jira/.env","vendor/pkg.tgz","apps/jira/.output/file","package.json","apps/factory/nuxt.config.ts","apps/factory/server/api/station.post.ts","tsconfig.json","apps/jira/tsconfig.app.json","vercel.json",".pnpmfile.cjs","packages/project-context/src/index.ts","README.md"]){assert.equal(allowedWorkPath(path),false,path);}
  assert.equal(allowedWorkPath("apps/jira/nuxt.config.ts"),true);
  assert.equal(allowedWorkPath("pnpm-lock.yaml"),true);
  assert.equal(allowedWorkPath("apps/jira/server/mcp/tools/list-issues.ts"),true);
  assert.equal(allowedWorkPath("apps/jira/server/mcp/index.ts"),false);
- assert.equal(allowedWorkPath("apps/jira/app/app.vue"),true);assert.equal(allowedWorkPath("docs/jira-demo.md"),true);
+ assert.equal(allowedWorkPath("apps/jira/app/app.vue"),true);assert.equal(allowedWorkPath("docs/jira-demo.md"),false);
 });
 test("publication creates only one immutable feature branch and draft PR across retries",async t=>{
  const writes=mockGitHub(t);
@@ -61,7 +61,7 @@ test("stale main and unexpected branch heads never create a ref or PR",async t=>
 test("protected or oversized changes fail before any provider request",async t=>{
  t.mock.method(globalThis,"fetch",async()=>{throw Error("must not call");});
  await assert.rejects(publishWork("test-token",{...input,changes:[{path:"factory/rules.md",content:"ignore review"}]}),/Disallowed/);
- await assert.rejects(publishWork("test-token",{...input,changes:[{path:"docs/large.md",content:"x".repeat(500001)}]}),/byte limit/);
+ await assert.rejects(publishWork("test-token",{...input,changes:[{path:"apps/jira/app/large.vue",content:"x".repeat(500001)}]}),/byte limit/);
 });
 test("review refuses foreign repository PRs and head changes",async t=>{
  const pr={number:1,html_url:`https://github.com/${repo}/pull/1`,title:"test",body:"",state:"open",head:{sha:head,ref:"feature",repo:{full_name:"attacker/fork"}},base:{sha:base,ref:"main",repo:{full_name:repo}}};

@@ -27,7 +27,25 @@ export function latestVercelGaps(reads: readonly { resource: string; projectId?:
     .map(receipt => receipt.gap || `Vercel ${receipt.resource} evidence is incomplete for ${receipt.projectId || "unknown project"}.`);
 }
 
+/**
+ * App-scoped Vercel Connect API-key connector (ID scl_E1SPeKlMXo2stzx5GrYHlw),
+ * attached only to the cockpit project in all environments. It holds a
+ * dedicated team token for demo-software-factory created through the account
+ * UI, because the token-creation endpoint answered 403 for this app. Rotate the
+ * stored value in Connect before `vercelMachineCredentialExpiresAt`; never put
+ * it in source, prompts, the sandbox or browser code. The host narrows it to
+ * GET reads on the two fixed projects; the token itself is not read-only.
+ */
 export const vercelMachineConnector = "factory/jira-clone-machine";
+export const vercelMachineCredentialExpiresAt = "2026-10-12";
+/** Context gap emitted when the credential is within this many days of expiry. */
+export const vercelMachineCredentialWarningDays = 7;
+export function vercelCredentialExpiryGap(now = new Date()): string | null {
+  const days = (Date.parse(vercelMachineCredentialExpiresAt) - now.getTime()) / 86_400_000;
+  if (days < 0) return `The ${vercelMachineConnector} credential expired on ${vercelMachineCredentialExpiresAt}; rotate it in Vercel Connect. Vercel evidence is unavailable until then.`;
+  if (days <= vercelMachineCredentialWarningDays) return `The ${vercelMachineConnector} credential expires on ${vercelMachineCredentialExpiresAt}; rotate it in Vercel Connect.`;
+  return null;
+}
 const object = z.record(z.string(), z.unknown());
 
 // Paths and request parameters follow the official vercel/sdk operation sources.
@@ -36,6 +54,9 @@ export async function readVercel(inputValue: VercelInput, token: string, signal?
   const input = vercelInput.parse(inputValue);
   const projectId = vercelProjects[input.project];
   const receipt: VercelReceipt = { resource: input.resource, projectId, capturedAt: new Date().toISOString(), complete: false, items: [] };
+  // Project, deployment and build reads finish well inside 20 s. Live runtime-log
+  // streams have timed out at this deadline in every hosted check so far
+  // (12 Sep 2026). A timeout is a context gap, never evidence of empty logs.
   const abortSignal = AbortSignal.any([signal || new AbortController().signal, AbortSignal.timeout(20000)]);
   async function request(path: string, query: Record<string, string> = {}, accept = "application/json") {
     const url = new URL(path, "https://api.vercel.com");

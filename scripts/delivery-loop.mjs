@@ -1,5 +1,18 @@
 #!/usr/bin/env node
 // API-only driver. The same loop can be resumed by the cockpit or another invocation.
+//
+// FACTORY_TOKEN must be a Vercel OIDC machine bearer for the factory, not a
+// Vercel REST personal token. FACTORY_PROTECTION_BYPASS, when the deployment
+// needs it, is sent as a header and never written to the checkpoint. For a
+// Vercel-protected deployment prefer --vercel-cwd <linked project dir>: the
+// authenticated Vercel CLI supplies its own bypass and the bearer goes through
+// stdin, never argv. The checkpoint stores IDs only.
+//
+// Recovery: worker stopped before publishing (baseline failure) -> fix the
+// baseline, then --continue (same owner, same publication operation).
+// Worker published -> --revision <brief.md>. Reviewer stopped -> start a new
+// review from the cockpit or API. "Resume acceptance is unconfirmed" -> inspect
+// the owner session by hand; nothing was resent.
 import { readFile,writeFile } from 'node:fs/promises';
 import { randomUUID } from 'node:crypto';
 import { parseArgs } from 'node:util';

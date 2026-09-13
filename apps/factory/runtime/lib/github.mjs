@@ -42,7 +42,7 @@ export async function readGithub(input, token, signal) {
 }
 
 export function includeSource(file) {
-  return !file.startsWith('factory/mining/') && !file.startsWith('packages/fx-sandbox-experiment/') && !file.split('/').some(part => part === '.git' || part === '.eve' || part === '.vercel' || part === 'evals' || part === 'node_modules' || part.startsWith('.env')) && !file.endsWith('.pem') && !file.endsWith('.key');
+  return !file.startsWith('factory/mining/') && !file.startsWith('factory/evidence/') && !file.startsWith('packages/fx-sandbox-experiment/') && !file.split('/').some(part => part === '.git' || part === '.eve' || part === '.vercel' || part === 'evals' || part === 'node_modules' || part.startsWith('.env')) && !file.endsWith('.pem') && !file.endsWith('.key');
 }
 
 export function manifestFor(entries) {

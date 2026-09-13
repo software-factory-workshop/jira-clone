@@ -11,6 +11,10 @@ import { readRun,readStationRun } from '../lib/cockpit-run';
 import { proposalDraft } from '../../app/utils/mining-output';
 import { readVisualFrame } from '../lib/visual-review-store';
 const collectionSchema=z.enum(collections);
+// Shared records (drafts, feedback, run references) are versioned. Every write
+// carries expectedVersion; a stale writer gets 409 and must reload. Import
+// never replaces an existing record and remembers imported IDs, so deleted
+// browser-era items cannot reappear.
 const mutation=z.object({value:z.unknown(),expectedVersion:z.number().int().nonnegative()}).strict();
 async function authorized(request:Request,work:()=>Promise<unknown>) {
  const auth=await routeAuth(request,factoryAuth);if(auth instanceof Response)return auth;

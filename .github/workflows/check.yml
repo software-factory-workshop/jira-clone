@@ -20,6 +20,11 @@ jobs:
       - run: pnpm typecheck
       - run: pnpm test
       - run: pnpm build
+      # VERCEL=1 selects the Vercel backend but a GitHub runner has no project
+      # OIDC identity, and Eve 0.52.5 needs it to prepare sandbox templates. So
+      # CI never runs the real agent build or deploys. Do not store a pulled
+      # VERCEL_OIDC_TOKEN as a secret to make it pass. Deployment success is
+      # verified below by reading the exact head commit's Vercel statuses.
       - name: Verify Nuxt station route layout
         working-directory: apps/factory
         env:
