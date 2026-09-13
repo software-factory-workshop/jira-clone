@@ -1,3 +1,15 @@
+
+/** Prefer the server-provided demo message (Nuxt FetchError `data.message`) over the generic transport message. */
+function serverMessage(error: unknown, fallback: string): string {
+  if (error && typeof error === "object" && "data" in error) {
+    const message = (error as { data?: { message?: unknown } }).data?.message;
+    if (typeof message === "string" && message.trim() !== "") {
+      return message;
+    }
+  }
+  return error instanceof Error && error.message ? error.message : fallback;
+}
+
 export type DemoComment = {
   id: string;
   body: string;
@@ -77,10 +89,10 @@ export async function submitIssueComment(
       ok: false,
       comments,
       draft,
-      error:
-        error instanceof Error
-          ? error.message
-          : "Demo-only comment save failed. Your draft is kept for retry.",
+      error: serverMessage(
+        error,
+        "Demo-only comment save failed. Your draft is kept for retry.",
+      ),
     };
   }
 }

@@ -38,6 +38,17 @@ export function loadedDetail(result: IssueDetailResult): IssueDetailState {
   return { issue: result.issue, demoOnly: result.demoOnly, error: null };
 }
 
+/** Prefer the server-provided demo message (Nuxt FetchError `data.message`) over the generic transport message. */
+function serverMessage(error: unknown, fallback: string): string {
+  if (error && typeof error === "object" && "data" in error) {
+    const message = (error as { data?: { message?: unknown } }).data?.message;
+    if (typeof message === "string" && message.trim() !== "") {
+      return message;
+    }
+  }
+  return error instanceof Error && error.message ? error.message : fallback;
+}
+
 /**
  * Detail state for a failed single-issue read. Stale detail is cleared so an
  * unknown key never renders list data as detail; callers keep the selected
@@ -47,7 +58,6 @@ export function failedDetail(error: unknown): IssueDetailState {
   return {
     issue: null,
     demoOnly: false,
-    error:
-      error instanceof Error ? error.message : "Could not load issue detail.",
+    error: serverMessage(error, "Could not load issue detail."),
   };
 }
