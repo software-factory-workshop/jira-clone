@@ -7,6 +7,7 @@ export const stationLinkSchema = z.object({ station: z.enum(["worker", "reviewer
 export type StationLink = z.infer<typeof stationLinkSchema>;
 export type StationKind = z.infer<typeof stationLinkSchema>["station"];
 export const MIN_WORK_REQUEST_LENGTH = 20;
+export const MAX_STATION_TAIL_EVENTS = 256;
 
 export function parsePullRequest(value: string): number | undefined {
   const text = value.trim();
@@ -45,16 +46,27 @@ export function pendingStationRequests(data: EveMessageData, hasRecordedResult =
   return data.messages.flatMap(message => message.parts).flatMap(part => part.type === "dynamic-tool" && part.state === "approval-requested" && part.toolMetadata?.eve?.inputRequest ? [part.toolMetadata.eve.inputRequest] : []);
 }
 
+export type StationTurn = "cancelled" | "failed" | "completed" | "running" | "unknown";
+
 // The last turn boundary wins: cancellation of an earlier turn is not a stopped
 // session after a steer or continuation starts a new turn.
-export function latestStationTurn(events: readonly { type: string }[]) {
-  for (const event of [...events].reverse()) {
-    if (event.type === "turn.cancelled") return "cancelled";
-    if (["turn.failed", "session.failed"].includes(event.type)) return "failed";
-    if (event.type === "turn.completed") return "completed";
-    if (["turn.started", "step.started", "message.received"].includes(event.type)) return "running";
-  }
-  return "unknown";
+export function advanceStationTurn(current: StationTurn, event: { type: string }): StationTurn {
+  if (event.type === "turn.cancelled") return "cancelled";
+  if (["turn.failed", "session.failed"].includes(event.type)) return "failed";
+  if (event.type === "turn.completed") return "completed";
+  if (["turn.started", "step.started", "message.received"].includes(event.type)) return "running";
+  return current;
+}
+
+export function latestStationTurn(events: readonly { type: string }[]): StationTurn {
+  return events.reduce(advanceStationTurn, "unknown");
+}
+
+// WorkRun still needs a recent event tail for the station projection, but it
+// must not copy the complete durable session history on every streamed event.
+export function appendStationTail(tail: MessageStreamEvent[], event: MessageStreamEvent) {
+  tail.push(event);
+  if (tail.length > MAX_STATION_TAIL_EVENTS) tail.splice(0, tail.length - MAX_STATION_TAIL_EVENTS);
 }
 
 // Eve's Vue entry is browser-bundled; its generic client entry contains Node

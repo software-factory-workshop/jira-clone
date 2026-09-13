@@ -1,7 +1,7 @@
 import test from "node:test";
 import { defaultMessageReducer } from "eve/client";
 import assert from "node:assert/strict";
-import { dispatchedTask, parsePullRequest, parseStationResult, pendingStationRequests, stationLinkSchema, latestStationTurn, readStationStream, workerRequest, stationLaunchError, matchesStationDelivery, parseStationToolResult } from "../app/utils/work-station.ts";
+import { dispatchedTask, parsePullRequest, parseStationResult, pendingStationRequests, stationLinkSchema, latestStationTurn, readStationStream, workerRequest, stationLaunchError, matchesStationDelivery, parseStationToolResult, appendStationTail, advanceStationTurn, MAX_STATION_TAIL_EVENTS } from "../app/utils/work-station.ts";
 const sha = "a".repeat(40);
 test("review input only accepts PRs in the configured repository", () => {
   assert.equal(parsePullRequest("2"), 2);
@@ -63,6 +63,20 @@ test("a resumed child is not stopped by an earlier cancellation", () => {
   assert.equal(latestStationTurn(history), "running");
   history.push({ type: "turn.completed" });
   assert.equal(latestStationTurn(history), "completed");
+});
+
+test("station event tails stay bounded while turn state remains incremental", () => {
+  const tail = [] as Parameters<typeof appendStationTail>[0];
+  const event = (sequence: number) => ({ type: "step.started", data: { sequence } }) as Parameters<typeof appendStationTail>[1];
+  let turn = advanceStationTurn("unknown", { type: "turn.started" });
+  for (let sequence = 0; sequence < MAX_STATION_TAIL_EVENTS + 2; sequence++) {
+    appendStationTail(tail, event(sequence));
+    turn = advanceStationTurn(turn, event(sequence));
+  }
+  assert.equal(tail.length, MAX_STATION_TAIL_EVENTS);
+  assert.equal((tail[0]?.data as { sequence: number }).sequence, 2);
+  assert.equal((tail.at(-1)?.data as { sequence: number }).sequence, MAX_STATION_TAIL_EVENTS + 1);
+  assert.equal(turn, "running");
 });
 
 test("durable station tail reads late dispatch and child decisions beyond a turn boundary", async (t) => {

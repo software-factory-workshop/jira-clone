@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { useEveAgent, defaultMessageReducer, type EveMessageData } from "eve/vue";
 import type { MessageStreamEvent } from "eve/client";
-import { dispatchedTask, parseStationToolResult, pendingStationRequests, matchesStationDelivery, latestStationTurn, readStationStream, type StationKind } from "../utils/work-station";
+import { triggerRef } from "vue";
+import { dispatchedTask, parseStationToolResult, pendingStationRequests, matchesStationDelivery, advanceStationTurn, appendStationTail, readStationStream, type StationKind, type StationTurn } from "../utils/work-station";
 import { authorizationLink } from "../utils/mining-output";
 import { stationFlow } from "../utils/observability-flow";
 import { copyText, shortIdentifier } from "../utils/technical-details";
@@ -24,7 +25,7 @@ const discoveryError = ref(false);
 let discovery: AbortController | undefined;
 const tailData = shallowRef<EveMessageData>();
 const tailEvents = shallowRef<MessageStreamEvent[]>([]);
-const runEvents = computed(() => tailData.value ? tailEvents.value : events.value);
+const tailTurn = ref<StationTurn>("unknown");
 const answering = ref<string>();
 const parts = computed(() => (tailData.value || data.value).messages.flatMap(message => message.parts));
 const pendingRequests = computed(() => pendingStationRequests(tailData.value || data.value, !!result.value || childRecorded.value));
@@ -48,6 +49,7 @@ async function followChild() {
     const reducer = defaultMessageReducer();
     tailData.value = reducer.initial();
     tailEvents.value = [];
+    tailTurn.value = "unknown";
     deliveryStarted.value = false;
     // A background task may emit subagent.called after the dispatcher's turn ends.
     // The chat composable stops at that boundary; follow the durable tail directly.
@@ -56,7 +58,9 @@ async function followChild() {
         if (!matchesStationDelivery(event, props.deliveryId, deliveryStarted.value)) continue;
         deliveryStarted.value = true;
       }
-      tailEvents.value = [...tailEvents.value, event];
+      appendStationTail(tailEvents.value, event);
+      triggerRef(tailEvents);
+      tailTurn.value = advanceStationTurn(tailTurn.value, event);
       tailData.value = reducer.reduce(tailData.value, event);
       if (event.type === "subagent.called" && event.data.name === props.station) {
         discoveredChild.value = event.data.childSessionId;
@@ -76,7 +80,7 @@ const result = computed(() => {
   }
   return undefined;
 });
-const turn = computed(() => latestStationTurn(runEvents.value));
+const turn = computed(() => tailData.value ? tailTurn.value : events.value.reduce(advanceStationTurn, "unknown"));
 const active = computed(() => turn.value === "running" || (!tailData.value && ["submitted", "streaming", "resuming"].includes(status.value)));
 const stopped = computed(() => turn.value === "cancelled");
 const ended = computed(() => ["completed", "failed"].includes(turn.value));
