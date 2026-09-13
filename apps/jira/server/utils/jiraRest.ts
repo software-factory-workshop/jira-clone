@@ -20,7 +20,7 @@
  * writing. Any `jql`/`JQL` query parameter is rejected with a labelled
  * demoOnly 400 naming unsupported; it is never silently ignored.
  * `startAt`/`maxResults` are bounded (documented below) for the search-lite
- * and comment list endpoints.
+ * and comment list endpoints and are applied inside the persistence adapter.
  *
  * The Jira MCP toolkit wraps these contracts 1:1; see
  * the route table in this file and the tool headers under `server/mcp/tools/`
@@ -43,8 +43,8 @@ import {
   createPersistentIssue,
   getIssuePersistenceInfo,
   getPersistentIssue,
-  getPersistentIssues,
-  listPersistentComments,
+  getPersistentIssuesPage,
+  listPersistentCommentsPage,
   updatePersistentIssue,
   type IssuePersistenceInfo,
 } from "./issuePersistence.ts";
@@ -445,9 +445,12 @@ export async function restIssue(key: string): Promise<RestResult<RestIssue>> {
 }
 
 /**
- * Search-lite over the persistence boundary: the full list-lite slice with bounded
- * `startAt`/`maxResults`. There is no JQL engine, so any jql/JQL parameter
- * is a labelled 400, never silently ignored. Pure; never writes.
+ * Search-lite over the persistence boundary: a bounded page read with
+ * `startAt`/`maxResults` applied inside the persistence adapter (SQL
+ * LIMIT/OFFSET on Neon, a single bounded slice in memory). The adapter never
+ * loads the full list to page it afterwards. There is no JQL engine, so any
+ * jql/JQL parameter is a labelled 400, never silently ignored. Pure; never
+ * writes.
  */
 export async function restSearch(
   query: Record<string, unknown> = {},
@@ -460,15 +463,15 @@ export async function restSearch(
   if (!page.ok) {
     return page;
   }
-  const all = (await getPersistentIssues()).map(toRestIssue);
   const { startAt, maxResults } = page.data;
+  const stored = await getPersistentIssuesPage(startAt, maxResults);
   return {
     ok: true,
     data: {
       startAt,
       maxResults,
-      total: all.length,
-      issues: all.slice(startAt, startAt + maxResults),
+      total: stored.total,
+      issues: stored.issues.map(toRestIssue),
       ...demoEnvelope(),
     },
   };
@@ -487,34 +490,32 @@ export async function restComments(
   if (jql) {
     return jql;
   }
-  const comments = await listPersistentComments(key);
-  if (!comments) {
+  const page = parseRestPagination(query);
+  if (!page.ok) {
+    return page;
+  }
+  const { startAt, maxResults } = page.data;
+  const stored = await listPersistentCommentsPage(key, startAt, maxResults);
+  if (!stored) {
     return {
       ok: false,
       statusCode: 404,
       error: `Unknown issue key: ${key}. Demo-only REST read; nothing was written.`,
     };
   }
-  const page = parseRestPagination(query);
-  if (!page.ok) {
-    return page;
-  }
-  const { startAt, maxResults } = page.data;
   return {
     ok: true,
     data: {
       startAt,
       maxResults,
-      total: comments.length,
-      comments: comments
-        .map((comment) => ({
-          id: comment.id,
-          body: comment.body,
-          author: { displayName: comment.author },
-          created: comment.createdAt,
-          demoOnly: true as const,
-        }))
-        .slice(startAt, startAt + maxResults),
+      total: stored.total,
+      comments: stored.comments.map((comment) => ({
+        id: comment.id,
+        body: comment.body,
+        author: { displayName: comment.author },
+        created: comment.createdAt,
+        demoOnly: true as const,
+      })),
       ...demoEnvelope(),
     },
   };

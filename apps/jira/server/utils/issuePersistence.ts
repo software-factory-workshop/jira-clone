@@ -19,7 +19,9 @@ import {
   DEMO_COMMENT_AUTHOR,
   getIssue as getMemoryIssue,
   getIssues as getMemoryIssues,
+  getIssuesPage as getMemoryIssuesPage,
   listComments as listMemoryComments,
+  listCommentsPage as listMemoryCommentsPage,
   normalizeCommentBody,
   normalizeIssueCreateInput,
   resetIssues as resetMemoryIssues,
@@ -43,10 +45,21 @@ export type IssuePersistenceInfo = {
   description: string;
 };
 
+export type IssuePage = {
+  total: number;
+  issues: DemoIssue[];
+};
+
+export type CommentPage = {
+  total: number;
+  comments: DemoComment[];
+};
+
 export type IssuePersistence = {
   mode: PersistenceMode;
   durable: boolean;
   getIssues(): Promise<DemoIssue[]>;
+  getIssuesPage(startAt: number, maxResults: number): Promise<IssuePage>;
   getIssue(key: string): Promise<DemoIssue | undefined>;
   updateIssue(
     key: string,
@@ -58,6 +71,11 @@ export type IssuePersistence = {
     options?: { fail?: boolean },
   ): Promise<UpdateResult>;
   listComments(key: string): Promise<DemoComment[] | undefined>;
+  listCommentsPage(
+    key: string,
+    startAt: number,
+    maxResults: number,
+  ): Promise<CommentPage | undefined>;
   addComment(
     key: string,
     input: CommentCreateInput,
@@ -118,6 +136,9 @@ const memoryPersistence: IssuePersistence = {
   async getIssues() {
     return getMemoryIssues();
   },
+  async getIssuesPage(startAt, maxResults) {
+    return getMemoryIssuesPage(startAt, maxResults);
+  },
   async getIssue(key) {
     return getMemoryIssue(key);
   },
@@ -129,6 +150,9 @@ const memoryPersistence: IssuePersistence = {
   },
   async listComments(key) {
     return listMemoryComments(key);
+  },
+  async listCommentsPage(key, startAt, maxResults) {
+    return listMemoryCommentsPage(key, startAt, maxResults);
   },
   async addComment(key, input, options) {
     return addMemoryComment(key, input, options);
@@ -327,6 +351,27 @@ export function createNeonIssuePersistence(
       await ensureReady();
       return readIssues();
     },
+    async getIssuesPage(startAt, maxResults) {
+      await ensureReady();
+      const offset = Math.max(0, Math.floor(startAt));
+      const limit = Math.max(1, Math.floor(maxResults));
+      const totalRows = await sql`
+        SELECT COUNT(*)::bigint AS count
+        FROM jira_demo_issues
+      `;
+      const totalRaw = (totalRows[0] as { count?: number | string } | undefined)?.count ?? 0;
+      const total = typeof totalRaw === "string" ? Number(totalRaw) : Number(totalRaw);
+      const rows = await sql`
+        SELECT ${sql.unsafe(issueColumns)}
+        FROM jira_demo_issues
+        ORDER BY issue_number
+        LIMIT ${limit} OFFSET ${offset}
+      `;
+      return {
+        total: Number.isFinite(total) ? total : 0,
+        issues: (rows as unknown as IssueRow[]).map(rowToIssue),
+      };
+    },
     async getIssue(key) {
       await ensureReady();
       return findIssue(key);
@@ -379,6 +424,33 @@ export function createNeonIssuePersistence(
       await ensureReady();
       const issue = await findIssue(key);
       return issue ? readComments(key) : undefined;
+    },
+    async listCommentsPage(key, startAt, maxResults) {
+      await ensureReady();
+      const issue = await findIssue(key);
+      if (!issue) {
+        return undefined;
+      }
+      const offset = Math.max(0, Math.floor(startAt));
+      const limit = Math.max(1, Math.floor(maxResults));
+      const totalRows = await sql`
+        SELECT COUNT(*)::bigint AS count
+        FROM jira_demo_comments
+        WHERE issue_key = ${key}
+      `;
+      const totalRaw = (totalRows[0] as { count?: number | string } | undefined)?.count ?? 0;
+      const total = typeof totalRaw === "string" ? Number(totalRaw) : Number(totalRaw);
+      const rows = await sql`
+        SELECT comment_number, issue_key, body, author, created_at
+        FROM jira_demo_comments
+        WHERE issue_key = ${key}
+        ORDER BY comment_number
+        LIMIT ${limit} OFFSET ${offset}
+      `;
+      return {
+        total: Number.isFinite(total) ? total : 0,
+        comments: (rows as unknown as CommentRow[]).map(rowToComment),
+      };
     },
     async addComment(key, input, options) {
       const normalized = normalizeCommentBody(input, options);
@@ -438,6 +510,13 @@ export async function getPersistentIssues(): Promise<DemoIssue[]> {
   return getIssuePersistence().getIssues();
 }
 
+export async function getPersistentIssuesPage(
+  startAt: number,
+  maxResults: number,
+): Promise<IssuePage> {
+  return getIssuePersistence().getIssuesPage(startAt, maxResults);
+}
+
 export async function getPersistentIssue(
   key: string,
 ): Promise<DemoIssue | undefined> {
@@ -463,6 +542,14 @@ export async function listPersistentComments(
   key: string,
 ): Promise<DemoComment[] | undefined> {
   return getIssuePersistence().listComments(key);
+}
+
+export async function listPersistentCommentsPage(
+  key: string,
+  startAt: number,
+  maxResults: number,
+): Promise<CommentPage | undefined> {
+  return getIssuePersistence().listCommentsPage(key, startAt, maxResults);
 }
 
 export async function addPersistentComment(
