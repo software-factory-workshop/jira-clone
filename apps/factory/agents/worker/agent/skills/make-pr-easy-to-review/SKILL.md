@@ -7,21 +7,21 @@ Prepare a PR so a reviewer can quickly understand the intent, important files, a
 
 ## Workflow
 
-1. Resolve the target PR from the user-provided URL or current branch.
+1. Resolve the target change from the user-provided publication record or current workspace.
 2. Inspect commits, diff size, changed paths, generated files, and PR description.
 3. Identify reviewability issues: noisy commits, stale description, unrelated changes, mixed mechanical and logic changes, missing tests, or unclear reviewer entry points.
-4. Propose a plan before rewriting history or force-pushing.
+4. Propose a plan before replacing published state or rewriting local history.
 5. Apply safe improvements, then verify the tree or diff still matches the intended code.
 
 ## History Cleanup
 
-Only rewrite history when the user asks for it or agrees to the plan. Before rewriting:
+Only rewrite history when the user asks for it or agrees to the plan. This skill
+does not perform remote operations from an exported agent workspace. Before a
+history rewrite outside that workspace:
 
-```bash
-gh pr view <PR> --json title,headRefName,baseRefName,state,commits
-git fetch origin <headRefName> <baseRefName>
-ORIGINAL_TREE=$(git rev-parse origin/<headRefName>^{tree})
-```
+Record the published head, target revision and file tree with the repository's
+approved publication tooling, then compare the resulting tree before updating
+the published change.
 
 Good commit groupings usually follow dependency order:
 
@@ -33,11 +33,7 @@ Good commit groupings usually follow dependency order:
 
 After rewriting, verify content identity:
 
-```bash
-echo "Original tree: $ORIGINAL_TREE"
-echo "Current tree:  $(git rev-parse HEAD^{tree})"
-git diff origin/<headRefName> --stat
-```
+Compare the original and resulting tree, then inspect the changed-file summary.
 
 Do not push if the tree changed unintentionally.
 
