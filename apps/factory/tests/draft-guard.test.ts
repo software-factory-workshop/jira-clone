@@ -7,8 +7,6 @@ import {
   emptySnapshot,
   isDraftDirty,
 } from "../app/utils/draft-guard.ts";
-import { describeStarter } from "../app/utils/starters.ts";
-import { starterRequests } from "@jira-clone/context";
 
 test("whitespace alone never marks the editor dirty", () => {
   const snapshot = cleanSnapshot("one", 1, { title: "Title", request: "Body" });
@@ -25,9 +23,7 @@ test("title or request edits mark the editor unsaved until saved", () => {
 });
 
 test("switching destinations keeps exact text until the choice resolves", () => {
-  const card = describeStarter(starterRequests[0]!);
   assert.equal(destinationLabel({ kind: "new" }), "a new draft");
-  assert.match(destinationLabel({ kind: "starter", card }), /starting point/);
   assert.match(
     destinationLabel({ kind: "draft", draft: { id: "one", title: "Saved", request: "Body" } }),
     /Saved/,

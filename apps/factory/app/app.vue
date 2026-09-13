@@ -1,23 +1,15 @@
 <script setup lang="ts">
 import {
   repository as initialRepository,
-  references as initialReferences,
-  stages as initialStages,
-  starterRequests as initialStarters,
   parseDrafts,
   type Draft,
 } from "@jira-clone/context";
 import { MIN_WORK_REQUEST_LENGTH, stationLinkSchema } from "./utils/work-station";
-import { describeStarter, starterDraft, type StarterCard } from "./utils/starters";
 import { applySaveReceipt, cleanSnapshot, destinationLabel, isDraftDirty, type DraftDestination, type ProposalPayload } from "./utils/draft-guard";
 import { cockpitFailureKind, cockpitFailureMessage, type CockpitFailureKind } from "./utils/cockpit-errors";
-const {data:manifest}=useFetch<{repository:typeof initialRepository;references:typeof initialReferences;stages:typeof initialStages;starterRequests:typeof initialStarters}>("/factory/cockpit",{server:false});
+const {data:manifest}=useFetch<{repository:typeof initialRepository}>("/factory/cockpit",{server:false});
 const repository=computed(()=>manifest.value?.repository??initialRepository);
-const references=computed(()=>manifest.value?.references??initialReferences);
-const stages=computed(()=>manifest.value?.stages??initialStages);
-const starterRequests=computed(()=>manifest.value?.starterRequests??initialStarters);
-const starterCards=computed(()=>starterRequests.value.map((starter)=>describeStarter(starter)));
-const sectionValues = ["mining", "work", "knowledge", "growth"] as const;
+const sectionValues = ["mining", "work"] as const;
 type CockpitSection = (typeof sectionValues)[number];
 function queryValue(value: unknown): string | undefined {
   return Array.isArray(value) ? value[0] : typeof value === "string" ? value : undefined;
@@ -26,11 +18,6 @@ function sectionValue(value: unknown): CockpitSection | undefined {
   const candidate = queryValue(value);
   return sectionValues.includes(candidate as CockpitSection) ? candidate as CockpitSection : undefined;
 }
-function referenceValue(value: unknown) {
-  const candidate = queryValue(value);
-  return references.value.find((reference) => reference.id === candidate) ?? references.value[0]!;
-}
-const activeStarterTitle=ref<string|null>(null);
 const workActionsAnchor=ref<HTMLElement|null>(null);
 const config = useRuntimeConfig();
 const route = useRoute();
@@ -54,12 +41,6 @@ const draftsError = ref("");
 const draftsErrorKind = ref<CockpitFailureKind>();
 const unsaved = computed(() => isDraftDirty({ title: title.value, request: request.value }, savedSnapshot.value));
 const draftConflict = ref<{ latest: Draft; local: { title: string; request: string } }>();
-const selectedReference = ref(referenceValue(route.query.reference));
-const {
-  data: github,
-  status: githubStatus,
-  refresh: refreshGithub,
-} = useFetch("/api/github", { server: false, immediate: false });
 const storageKey = "adeo-factory-drafts-v1";
 const cockpit = useCockpit();
 const draftVersions = ref<Record<string,number>>({});
@@ -104,7 +85,6 @@ async function reloadLatestDraft() {
   await focusEditor();
 }
 onMounted(async () => {
-  void refreshGithub();
   let legacy: Draft[]=[];
   try { legacy=parseDrafts(JSON.parse(localStorage.getItem(storageKey)||"[]")); } catch { /* Retain inaccessible legacy data. */ }
   try { await cockpit.migrate("drafts",legacy.map(d=>({id:d.id,value:{title:d.title,request:d.request}}))); }
@@ -116,7 +96,7 @@ onMounted(async () => {
   savedSnapshot.value=cleanSnapshot(activeId.value,activeVersion.value,editorText());
 });
 function editorText() { return { title: title.value, request: request.value }; }
-const sectionLabel = computed(() => ({ mining: "Task mining", work: "Work", knowledge: "Project knowledge", growth: "Factory growth" })[section.value]);
+const sectionLabel = computed(() => ({ mining: "Task mining", work: "Work" })[section.value]);
 const workCountLabel = computed(() => draftsLoaded.value ? `${drafts.value.length} saved drafts` : "Saved drafts unavailable");
 function guardNavigation(event?: Event) {
   if (!unsaved.value) return true;
@@ -126,10 +106,6 @@ function guardNavigation(event?: Event) {
 }
 function navigateSection(next: CockpitSection, event?: Event) {
   if (next === section.value || guardNavigation(event)) section.value = next;
-}
-function selectReference(reference: (typeof initialReferences)[number]) {
-  selectedReference.value = reference;
-  section.value = "knowledge";
 }
 function beforeUnload(event: BeforeUnloadEvent) {
   if (!unsaved.value) return;
@@ -149,42 +125,20 @@ watch(() => route.query.section, value => {
 watch(() => [route.query.station, route.query.run, route.query.delivery], () => {
   if ((stationLinkSchema.safeParse(route.query).success || queryValue(route.query.delivery)) && section.value !== "work") section.value = "work";
 });
-watch(() => route.query.reference, value => {
-  const next = referenceValue(value);
-  if (next.id !== selectedReference.value.id) selectedReference.value = next;
-});
-watch(() => selectedReference.value.id, value => {
-  if (section.value !== "knowledge" || queryValue(route.query.reference) === value) return;
-  void router.replace({ query: { ...route.query, reference: value } });
-});
-watch(references, () => {
-  const next = referenceValue(route.query.reference);
-  if (next.id !== selectedReference.value.id) selectedReference.value = next;
-});
 async function applyDestination(destination: DraftDestination) {
   pendingDestination.value = null;
   draftSwitchError.value = "";
-  if (destination.kind === "starter") {
-    const draft = starterDraft(destination.card);
-    activeStarterTitle.value = destination.card.starter.title;
-    activeId.value = null;
-    activeVersion.value = 0;
-    title.value = draft.title;
-    request.value = draft.body;
-  } else if (destination.kind === "proposal") {
-    activeStarterTitle.value = destination.value.id ? null : destination.value.title;
+  if (destination.kind === "proposal") {
     activeId.value = destination.value.id ?? null;
     activeVersion.value = destination.value.version ?? 0;
     title.value = destination.value.title;
     request.value = destination.value.body;
   } else if (destination.kind === "draft") {
-    activeStarterTitle.value = null;
     activeId.value = destination.draft.id;
     activeVersion.value = draftVersions.value[destination.draft.id] ?? 0;
     title.value = destination.draft.title;
     request.value = destination.draft.request;
   } else {
-    activeStarterTitle.value = null;
     activeId.value = null;
     activeVersion.value = 0;
     title.value = "";
@@ -202,11 +156,8 @@ function maybeLeave(destination: DraftDestination) {
   if (isDraftDirty(editorText(), savedSnapshot.value)) { pendingDestination.value = destination; return; }
   void applyDestination(destination);
 }
-async function chooseStarter(card: StarterCard) {
-  maybeLeave({ kind: "starter", card });
-}
-async function compose(starter?: ProposalPayload) {
-  maybeLeave(starter ? { kind: "proposal", value: starter } : { kind: "new" });
+async function compose(proposal?: ProposalPayload) {
+  maybeLeave(proposal ? { kind: "proposal", value: proposal } : { kind: "new" });
 }
 async function openDraft(draft: Draft) {
   maybeLeave({ kind: "draft", draft });
@@ -318,26 +269,8 @@ watch([title,request],async()=>{const sequence=++issueSequence;issueUrl.value=""
           >
             <UIcon name="i-lucide-inbox" aria-hidden="true" />Work <span aria-hidden="true">{{ draftsLoaded ? `${drafts.length} drafts` : "—" }}</span>
           </button>
-          <button
-            :class="{ active: section === 'knowledge' }"
-            :aria-current="section === 'knowledge' ? 'page' : undefined"
-            @click="navigateSection('knowledge', $event)"
-          >
-            <UIcon name="i-lucide-book-open" aria-hidden="true" />Project knowledge
-          </button>
-          <button
-            :class="{ active: section === 'growth' }"
-            :aria-current="section === 'growth' ? 'page' : undefined"
-            @click="navigateSection('growth', $event)"
-          >
-            <UIcon name="i-lucide-sprout" aria-hidden="true" />Factory growth
-          </button>
         </nav>
         <div class="sidebar-bottom">
-          <div class="stage-marker">
-            <span class="status-dot" />Station 01 · Task mining
-          </div>
-          <p>Build the factory.<br />Learn by making something useful.</p>
           <UButton
             :to="config.public.jiraUrl"
             @click="guardNavigation"
@@ -420,7 +353,7 @@ watch([title,request],async()=>{const sequence=++issueSequence;issueUrl.value=""
                   </h2>
                   <UBadge :color="unsaved ? 'warning' : 'secondary'" variant="soft">{{ unsaved ? "Unsaved changes" : "Draft" }}</UBadge>
                 </div>
-                <p v-if="unsaved" role="status" class="small unsaved-hint">You have unsaved changes. Choosing another starter or draft will ask before replacing this text.</p>
+                <p v-if="unsaved" role="status" class="small unsaved-hint">You have unsaved changes. Choosing another draft or request will ask before replacing this text.</p>
                 <UFormField label="Title" name="title" required
                   ><UInput
                     v-model="title"
@@ -505,190 +438,14 @@ watch([title,request],async()=>{const sequence=++issueSequence;issueUrl.value=""
                 </div>
                 <div class="mobile-work-jump">
                   <UButton icon="i-lucide-arrow-down" variant="outline" @click="goToWorkActions">Continue to work actions</UButton>
-                  <span class="small muted">Skip the context cards and jump to the worker, reviewer, or durable delivery.</span>
+                  <span class="small muted">Jump to the worker, reviewer, or durable delivery.</span>
                 </div>
               </section>
-              <aside class="context-panel">
-                <div class="panel-heading">
-                  <h2>Context to start from</h2>
-                  <UIcon name="i-lucide-book-open" />
-                </div>
-                <button
-                  v-for="reference in references.slice(0, 3)"
-                  :key="reference.id"
-                  class="reference-link"
-                  :aria-pressed="selectedReference.id === reference.id"
-                  @click="selectReference(reference)"
-                >
-                  <UIcon :name="reference.icon" />
-                  <div>
-                    <strong>{{ reference.title }}</strong
-                    ><small>{{ reference.kind }}</small>
-                  </div>
-                  <UIcon name="i-lucide-chevron-right" />
-                </button>
-                <div class="connection-card">
-                  <UIcon name="i-lucide-github" /><strong
-                    >GitHub connection</strong
-                  ><UBadge
-                    :color="
-                      github?.state === 'connected' ? 'success' : 'neutral'
-                    "
-                    variant="soft"
-                    >{{
-                      (githubStatus === "pending" || githubStatus === "idle")
-                        ? "Checking…"
-                        : github?.state === "connected"
-                          ? "Connected"
-                          : "Unavailable"
-                    }}</UBadge
-                  >
-                  <p v-if="github?.state === 'connected'">
-                    Private repository · {{ github.branch }}<br />{{
-                      github.openItems
-                    }}
-                    open issues and pull requests<br />Read through Vercel
-                    Connect
-                  </p>
-                  <p v-else-if="githubStatus === 'pending' || githubStatus === 'idle'">Checking repository access through Vercel Connect.</p>
-                  <p v-else>
-                    Repository access is not available in this session. Check
-                    the connection installation and project access.
-                  </p>
-                  <UButton
-                    size="xs"
-                    variant="ghost"
-                    :loading="githubStatus === 'pending'"
-                    icon="i-lucide-refresh-cw"
-                    @click="refreshGithub()"
-                    >Refresh connection</UButton
-                  ><a
-                    :href="repository.url"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    @click="guardNavigation"
-                    >View jira-clone ↗</a
-                  >
-                </div>
-              </aside>
             </div>
-            <section class="starters" aria-label="Starting points">
-              <h2>Start with a concrete problem</h2>
-              <p class="muted">
-                Shipped slices are labelled. Using a shipped card drafts an extension in the editor above, including its next step — it does not reload the already-shipped work.
-              </p>
-              <div class="starter-grid">
-                <article
-                  v-for="card in starterCards"
-                  :key="card.starter.title"
-                  class="starter-card"
-                  :class="{ active: activeStarterTitle === card.starter.title, shipped: card.meta.state === 'shipped' }"
-                >
-                  <div class="starter-top">
-                    <UIcon :name="card.starter.icon || 'i-lucide-sparkles'" />
-                    <UBadge :color="card.meta.state === 'shipped' ? 'success' : 'primary'" variant="soft">{{ card.meta.badge }}</UBadge>
-                  </div>
-                  <h3>{{ card.starter.title }}</h3>
-                  <p class="starter-body">{{ card.starter.body }}</p>
-                  <p class="starter-note">{{ card.meta.note }}</p>
-                  <p class="starter-next small muted">Next: {{ card.meta.next }}</p>
-                  <div class="starter-actions">
-                    <UButton
-                      size="xs"
-                      :variant="activeStarterTitle === card.starter.title ? 'soft' : 'solid'"
-                      :aria-pressed="activeStarterTitle === card.starter.title"
-                      icon="i-lucide-arrow-right"
-                      @click="chooseStarter(card)"
-                      >{{ activeStarterTitle === card.starter.title ? "In the editor" : "Use this starting point" }}</UButton
-                    ><UButton size="xs" variant="ghost" icon="i-lucide-git-pull-request" @click="goToWorkActions()">Work actions</UButton>
-                  </div>
-                  <span v-if="activeStarterTitle === card.starter.title" class="starter-active" role="status">Active in the draft editor</span>
-                </article>
-              </div>
-            </section>
             <section ref="workActionsAnchor" aria-label="Work actions" class="work-actions-anchor" tabindex="-1">
               <WorkActions :title="title" :brief="request" /><DeliveryLoop :title="title" :brief="request" />
             </section>
             <WorkHistory />
-          </template>
-          <template v-else-if="section === 'knowledge'">
-            <AdeoPageHeader
-              eyebrow="SHARED STARTING POINT"
-              title="Project knowledge"
-              description="The brief, design guidance and observations that should inform the work."
-            />
-            <div class="knowledge-grid">
-              <div class="panel reference-list">
-                <button
-                  v-for="reference in references"
-                  :key="reference.id"
-                  class="reference-link"
-                  :class="{ selected: selectedReference.id === reference.id }"
-                  :aria-pressed="selectedReference.id === reference.id"
-                  @click="selectReference(reference)"
-                >
-                  <UIcon :name="reference.icon" />
-                  <div>
-                    <strong>{{ reference.title }}</strong
-                    ><small>{{ reference.kind }}</small>
-                  </div>
-                </button>
-              </div>
-              <article class="panel knowledge-article">
-                <UBadge color="primary" variant="soft">{{
-                  selectedReference.kind
-                }}</UBadge>
-                <h2>{{ selectedReference.title }}</h2>
-                <p>{{ selectedReference.content }}</p>
-                <div class="stage-note">
-                  <UIcon name="i-lucide-git-branch" />
-                  <p>
-                    This context lives in the repository. Changes to factory
-                    instructions and skills should be reviewed alongside the
-                    code.
-                  </p>
-                </div>
-                <UButton
-                  :to="`${repository.url}/tree/main/packages/project-context`"
-                  target="_blank"
-                  @click="guardNavigation"
-                  variant="outline"
-                  color="neutral"
-                  icon="i-lucide-github"
-                  >View source</UButton
-                >
-              </article>
-            </div>
-          </template>
-          <template v-else>
-            <AdeoPageHeader
-              eyebrow="THE WORKSHOP EXPERIMENT"
-              title="Grow one capability at a time"
-              description="Each stage should make the factory measurably better at the next piece of work."
-            />
-            <div class="growth-list">
-              <article
-                v-for="stage in stages"
-                :key="stage.number"
-                class="panel growth-card"
-                :class="{ current: stage.number === '01' }"
-              >
-                <span class="stage-number">{{ stage.number }}</span>
-                <div>
-                  <h2>{{ stage.title }}</h2>
-                  <p>{{ stage.description }}</p>
-                </div>
-                <UBadge
-                  :color="stage.number === '01' ? 'primary' : 'neutral'"
-                  variant="soft"
-                  >{{ stage.status }}</UBadge
-                >
-              </article>
-            </div>
-            <p class="muted">
-              The Jira demo is our test subject. The factory is what we are
-              learning to build.
-            </p>
           </template>
         </div>
       </main>

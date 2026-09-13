@@ -1,5 +1,4 @@
 import type { Draft } from "@jira-clone/context";
-import type { StarterCard } from "./starters";
 
 export interface EditorText {
   title: string;
@@ -34,7 +33,6 @@ export interface ProposalPayload {
 
 export type DraftDestination =
   | { kind: "new" }
-  | { kind: "starter"; card: StarterCard }
   | { kind: "draft"; draft: Pick<Draft, "id" | "title" | "request"> }
   | { kind: "proposal"; value: ProposalPayload };
 
@@ -42,8 +40,6 @@ export function destinationLabel(destination: DraftDestination): string {
   switch (destination.kind) {
     case "new":
       return "a new draft";
-    case "starter":
-      return `the "${destination.card.starter.title}" starting point`;
     case "draft":
       return `the "${destination.draft.title}" saved draft`;
     case "proposal":
