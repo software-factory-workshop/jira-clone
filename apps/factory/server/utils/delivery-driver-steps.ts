@@ -45,7 +45,7 @@ export async function failDriver(id: string, generation: string, runId: string) 
     if (ownsDriver(state, generation, runId) && !terminal(state.phase)) {
       state.failedPhase = state.phase;
       state.error = 'The durable driver exhausted its transport retries. Resume this delivery to continue the same station; no worker was replaced.';
-      transition(state, 'blocked');
+      transition(state, 'blocked', { actor: 'reconciler', reason: state.error });
     }
     return { state, result: undefined };
   });

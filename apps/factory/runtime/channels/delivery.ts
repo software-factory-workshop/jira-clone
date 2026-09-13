@@ -10,8 +10,8 @@ import { updateCockpit } from '../lib/cockpit-store';
 import { changeRecord } from '../../shared/cockpit';
 import { factoryAuth } from '../lib/route-auth';
 import { stationOperation } from './stations';
-import { deliveryRequest,newDelivery,operationFor,transition,terminal,applyReview,referenceState,claimAdvance,commitAdvance,requestResume,type Delivery } from '../lib/delivery-state';
-import { readDelivery,updateDelivery } from '../lib/delivery-store';
+import { deliveryRequest,newDelivery,operationFor,transition,terminal,applyReview,referenceState,claimAdvance,commitAdvance,requestResume,beginRevision,type Delivery } from '../lib/delivery-state';
+import { listDeliveryReceipts,readDelivery,updateDelivery } from '../lib/delivery-store';
 import { snapshotEvents,childIn,hostResult,stoppedWithoutResult,eventsForDelivery,resumeMessage,resumeReceipt } from '../lib/delivery-events';
 import { readPull,readBranch,WorkError,workBranch } from '../lib/work-github';
 const publication=z.object({number:z.number().int().positive(),url:z.string().url(),headSha:z.string().regex(/^[a-f0-9]{40}$/),targetHeadSha:z.string().regex(/^[a-f0-9]{40}$/),targetBranch:z.string(),ownerSessionId:z.string(),branch:z.string()});
@@ -34,7 +34,7 @@ async function advance(request:Request,ctx:RouteHandlerArgs){
   if(state.phase==='merging'){
    if(!state.publication||!state.mergeReview||!state.reviewerSessionId)throw new Error('Missing bound review for merge decision');
    state.mergeDecision=await mergeReviewed({publication:state.publication,review:state.mergeReview,reviewerSessionId:state.reviewerSessionId});
-   if(state.mergeDecision.status!=='waiting')transition(state,state.mergeDecision.status==='merged'?'merged':'human_review');
+   if(state.mergeDecision.status!=='waiting')transition(state,state.mergeDecision.status==='merged'?'merged':'human_review',{reason:state.mergeDecision.reason});
   }else if(state.phase==='owner_resuming'){
    if(!state.childSessionId||state.publication||!state.resumeOperationId)throw new Error('Recovery requires the original unpublished worker.');
    let deliveryId:string|undefined;
@@ -44,21 +44,21 @@ async function advance(request:Request,ctx:RouteHandlerArgs){
    }else{
     const marked=await updateDelivery(id,current=>{if(!current)throw new Error('Delivery missing');if(current.version!==claimedVersion)return{state:current,result:null};current.resumeAttemptedAt=Date.now();current.version++;return{state:current,result:structuredClone(current)};});
     if(!marked)return Response.json(await existing(id));
-    state.resumeAttemptedAt=marked.resumeAttemptedAt;claimedVersion=marked.version;
+    state.resumeAttemptedAt=marked.resumeAttemptedAt;state.version=marked.version;claimedVersion=marked.version;
     const auth=await routeAuth(request,factoryAuth);if(auth instanceof Response)throw new Error('Recovery identity unavailable');
     const accepted=await (await factorySession(state.childSessionId,ctx.attachSession)).send(resumeMessage(state.resumeOperationId),{turnPolicy:'queue',auth:{...auth,attributes:{...auth.attributes,factoryResumeOperationId:state.resumeOperationId}}});
     if(accepted.status!=='accepted'||!accepted.deliveryId)throw new Error('Original worker acceptance is unconfirmed; this owner will not be replaced.');
     deliveryId=accepted.deliveryId;
    }
-   if(deliveryId){state.sessionId=state.childSessionId;state.deliveryId=deliveryId;transition(state,'working');}
+   if(deliveryId){state.sessionId=state.childSessionId;state.deliveryId=deliveryId;state.execution={attempt:state.attempt,station:'worker',operationId:state.operationId,sessionId:state.childSessionId,deliveryId};transition(state,'working',{reason:'The original owner accepted the queued continuation.'});}
   }else if(state.phase.endsWith('_starting')){
    const station=state.phase==='worker_starting'?'worker':state.phase==='review_starting'?'reviewer':'revisions';
    if(station==='reviewer')await checkCurrent(state.publication!);
    const body=station==='worker'?{operationId:state.operationId,title:state.request.title,brief:state.request.brief,...(state.request.parentPrNumber?{parentPrNumber:state.request.parentPrNumber}:{})}:station==='reviewer'?{operationId:state.operationId,prNumber:state.publication!.number}:{operationId:state.operationId,prNumber:state.publication!.number,brief:state.revisionBrief};
    const response=await stationOperation(new Request(request.url,{method:'POST',headers:request.headers,body:JSON.stringify(body)}),{...ctx,params:{station}},state.id);
    const result=await response.json();if(!response.ok)throw new Error(typeof result.error==='string'?result.error:result.error?.message||'Station start failed');
-   state.sessionId=z.string().parse(result.sessionId);state.childSessionId=station==='revisions'||result.execution==='direct'||result.execution==='owner'?state.sessionId:undefined;state.deliveryId=result.deliveryId;
-   transition(state,station==='worker'?'working':station==='reviewer'?'reviewing':'revising');
+   state.sessionId=z.string().parse(result.sessionId);state.childSessionId=station==='revisions'||result.execution==='direct'||result.execution==='owner'?state.sessionId:undefined;state.deliveryId=result.deliveryId;state.execution={attempt:state.attempt,station,operationId:state.operationId,sessionId:state.sessionId,deliveryId:state.deliveryId};
+   transition(state,station==='worker'?'working':station==='reviewer'?'reviewing':'revising',{reason:`${station} execution accepted by the host.`});
   }else{
    if(!state.sessionId)throw new Error('Delivery session receipt missing');
    let events=await snapshotEvents((await factorySession(state.sessionId,ctx.attachSession)));
@@ -72,12 +72,12 @@ async function advance(request:Request,ctx:RouteHandlerArgs){
     if(['ready','human_review'].includes(state.phase)){state.mergeReview=observed;state.reviewerSessionId=owner;transition(state,'merging');}
    }else if(result){
     const p=publication.parse(result.publication);if(result.revisionProtocol!==1||p.branch!==workBranch(owner)||p.ownerSessionId!==owner)throw new Error('Publication owner does not match the executing worker');
-    state.publication=p;await checkCurrent(p);state.operationId=operationFor(state.id,'review',state.cycle);transition(state,'review_starting');
+    state.publication=p;state.changeId??=state.id;await checkCurrent(p);state.operationId=operationFor(state.id,'review',state.cycle);transition(state,'review_starting',{reason:'The worker publication is recorded; independent verification is next.'});
    }else if(state.childSessionId&&stoppedWithoutResult(events)){
-    state.failedPhase=state.phase;state.error='Agent stopped without a trusted result. Inspect its run; source and ownership are preserved.';transition(state,'human_review');
+    state.failedPhase=state.phase;state.error='Agent stopped without a trusted result. Inspect its run; source and ownership are preserved.';transition(state,'human_review',{reason:'The owner session stopped without a trusted host result.'});
    }
   }
- }catch(error){state.failedPhase=startedPhase;state.error=error instanceof Error?error.message:'Delivery advance failed';transition(state,error instanceof WorkError&&error.code==='needs_revision'?'needs_revision':'blocked');}
+ }catch(error){state.failedPhase=startedPhase;state.error=error instanceof Error?error.message:'Delivery advance failed';transition(state,error instanceof WorkError&&error.code==='needs_revision'?'needs_revision':'blocked',{reason:state.error});}
  const committed=await updateDelivery(id,current=>{if(!current)throw new Error('Delivery missing');const next=commitAdvance(current,state,claimedVersion);return{state:next,result:next};});
  if(committed.phase==='cancelled'&&state.sessionId)await (await factorySession(state.sessionId,ctx.attachSession)).cancel({tasks:true});
  return Response.json(committed);
@@ -89,9 +89,10 @@ export default defineChannel({routes:[
   const state=await updateDelivery(fresh.id,current=>{if(current&&JSON.stringify(current.request)!==JSON.stringify(input))throw new Error('Operation ID reused with a different task');return{state:current||fresh,result:current||fresh};});await updateCockpit(doc=>doc.runs[state.id]||changeRecord(doc,'runs',state.id,{label:state.request.title,station:'loop',operationId:state.request.operationId},0));await ensureDeliveryDriver(state.id,request);return Response.json(await existing(state.id),{status:202});
  })),
  GET('/factory/delivery/:id',protectedRoute(async(_,ctx)=>Response.json(await existing(ctx.params.id)))),
+ GET('/factory/delivery/:id/receipts',protectedRoute(async(_,ctx)=>{await existing(ctx.params.id);return Response.json(await listDeliveryReceipts(ctx.params.id));})),
  POST('/factory/delivery/:id/advance',protectedRoute(advance)),
  POST('/factory/delivery/:id/cancel',protectedRoute(async(request,ctx)=>{
-  const state=await updateDelivery(ctx.params.id,current=>{if(!current)throw new Error('Delivery not found');transition(current,'cancelled');return{state:current,result:current};});
+  const state=await updateDelivery(ctx.params.id,current=>{if(!current)throw new Error('Delivery not found');transition(current,'cancelled',{actor:'operator',reason:'Operator cancelled the delivery.'});return{state:current,result:current};});
   const cancellations=await Promise.allSettled([cancelDeliveryDriver(state.id,request),...Array.from(new Set([state.sessionId,state.childSessionId].filter((id):id is string=>!!id))).map(async id=>(await factorySession(id,ctx.attachSession)).cancel({tasks:true}))]);
   if(cancellations.some(result=>result.status==='rejected'))throw new Error('Cancellation was recorded; retry to confirm all sessions and the outer driver have stopped.');return Response.json(state);
  })),
@@ -104,7 +105,6 @@ export default defineChannel({routes:[
   const state=await updateDelivery(ctx.params.id,current=>{if(!current)throw new Error('Delivery not found');
    if(current.revisionRequests?.[input.operationId]){if(current.revisionRequests[input.operationId]!==input.brief)throw new Error('Revision ID reused with different instructions');return{state:current,result:current};}
    if(!['human_review','ready','blocked','needs_revision'].includes(current.phase)||!current.publication)throw new Error('Wait for a published candidate before requesting a revision');
-   current.revisionRequests={...current.revisionRequests,[input.operationId]:input.brief};current.cycle++;current.operationId=input.operationId;current.revisionBrief=input.brief;delete current.error;transition(current,'revision_starting');return{state:current,result:current};});await ensureDeliveryDriver(state.id,request);return Response.json(await existing(state.id),{status:202});
+   current.revisionRequests={...current.revisionRequests,[input.operationId]:input.brief};beginRevision(current,input.operationId,input.brief,{actor:'operator',reason:'Operator requested a new same-owner revision attempt.'});return{state:current,result:current};});await ensureDeliveryDriver(state.id,request);return Response.json(await existing(state.id),{status:202});
  }))
 ]});
-
