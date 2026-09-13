@@ -20,12 +20,20 @@ creation/read and reset again. The first clean root build attempt exposed the
 existing factory `build:agent` ordering requirement; it passed after Nuxt
 metadata was prepared.
 
-Read-only Vercel inspection found no environment variables on the Jira
-project, and the team's available Neon integration is attached to
-`pocket-id-software-factory`, not Jira. A real Neon connection and the hosted
-Jira route therefore still need a configured Vercel `DATABASE_URL` and a
-browser check. Do not read this entry as proof that the hosted database or
-deployment environment is configured.
+Vercel provisioning then created the dedicated free Neon resource
+`jira-clone-db` in `lhr1` and connected it to `adeo-jira-clone` for Production.
+The connection added `DATABASE_URL` and Neon metadata variables to the project;
+their values are not recorded here. Redeployment
+`dpl_GLjg6Zd42jkNse7VU3TNrcgD8B2W` reached `READY` and was aliased to
+`adeo-jira-clone.vercel.app`. An authenticated `vercel curl` read
+`/api/issues` with four seeded rows and `persistence.mode: "neon"`,
+`durable: true`, created `ADEO-5`, read it back, and an admin reset restored
+the four seeds. The REST search route then returned `total: 4` with the same
+persistence metadata.
+
+The alias still redirects unauthenticated requests to Vercel SSO, so this
+proves hosted API behavior through the authenticated deployment-protection
+bypass, not an end-user browser or Passport sign-in flow.
 
 ## First worker PR — 12 September 2026
 
