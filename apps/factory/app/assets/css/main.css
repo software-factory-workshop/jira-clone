@@ -3,6 +3,10 @@ body {
   background: #f8f9fa;
   color: #23313b;
 }
+:where(a, button, [role="button"]):focus-visible {
+  outline: 2px solid #007f8c;
+  outline-offset: 3px;
+}
 .factory-layout {
   display: grid;
   grid-template-columns: 232px minmax(0, 1fr);
@@ -74,6 +78,7 @@ nav button {
   font-size: 13px;
   color: #56656d;
   cursor: pointer;
+  touch-action: manipulation;
 }
 nav button.active {
   background: #e7f3f4;
@@ -120,6 +125,11 @@ nav button span:last-child:not(:first-child) {
 .topbar strong {
   color: #43525c;
   font-weight: 500;
+}
+.topbar-actions {
+  display: none;
+  align-items: center;
+  gap: 2px;
 }
 .page-content {
   padding: 36px;
@@ -462,6 +472,15 @@ nav button span:last-child:not(:first-child) {
   }
   .topbar {
     padding: 0 20px;
+  }
+  .topbar-actions {
+    display: flex;
+  }
+  .topbar > span {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
   .work-grid,
   .starter-grid,

@@ -10,17 +10,32 @@ import {
 import { stationLinkSchema } from "./utils/work-station";
 import { describeStarter, starterDraft, type StarterCard } from "./utils/starters";
 import { applySaveReceipt, cleanSnapshot, destinationLabel, isDraftDirty, type DraftDestination, type ProposalPayload } from "./utils/draft-guard";
+import { cockpitFailureKind, cockpitFailureMessage, type CockpitFailureKind } from "./utils/cockpit-errors";
 const {data:manifest}=useFetch<{repository:typeof initialRepository;references:typeof initialReferences;stages:typeof initialStages;starterRequests:typeof initialStarters}>("/factory/cockpit",{server:false});
 const repository=computed(()=>manifest.value?.repository??initialRepository);
 const references=computed(()=>manifest.value?.references??initialReferences);
 const stages=computed(()=>manifest.value?.stages??initialStages);
 const starterRequests=computed(()=>manifest.value?.starterRequests??initialStarters);
 const starterCards=computed(()=>starterRequests.value.map((starter)=>describeStarter(starter)));
+const sectionValues = ["mining", "work", "knowledge", "growth"] as const;
+type CockpitSection = (typeof sectionValues)[number];
+function queryValue(value: unknown): string | undefined {
+  return Array.isArray(value) ? value[0] : typeof value === "string" ? value : undefined;
+}
+function sectionValue(value: unknown): CockpitSection | undefined {
+  const candidate = queryValue(value);
+  return sectionValues.includes(candidate as CockpitSection) ? candidate as CockpitSection : undefined;
+}
+function referenceValue(value: unknown) {
+  const candidate = queryValue(value);
+  return references.value.find((reference) => reference.id === candidate) ?? references.value[0]!;
+}
 const activeStarterTitle=ref<string|null>(null);
 const workActionsAnchor=ref<HTMLElement|null>(null);
 const config = useRuntimeConfig();
 const route = useRoute();
-const section = ref((stationLinkSchema.safeParse(route.query).success || route.query.delivery) ? "work" : "mining");
+const router = useRouter();
+const section = ref<CockpitSection>((stationLinkSchema.safeParse(route.query).success || route.query.delivery) ? "work" : sectionValue(route.query.section) ?? "mining");
 const drafts = ref<Draft[]>([]);
 const activeId = ref<string | null>(null);
 const activeVersion=ref(0);
@@ -33,8 +48,12 @@ const editor = ref<HTMLElement | null>(null);
 const savedSnapshot = ref(cleanSnapshot(null, 0, { title: "", request: "" }));
 const pendingDestination = ref<DraftDestination | null>(null);
 const draftSwitchError = ref("");
+const draftsLoading = ref(false);
+const draftsLoaded = ref(false);
+const draftsError = ref("");
+const draftsErrorKind = ref<CockpitFailureKind>();
 const unsaved = computed(() => isDraftDirty({ title: title.value, request: request.value }, savedSnapshot.value));
-const selectedReference = ref(initialReferences[0]!);
+const selectedReference = ref(referenceValue(route.query.reference));
 const {
   data: github,
   status: githubStatus,
@@ -44,21 +63,82 @@ const storageKey = "adeo-factory-drafts-v1";
 const cockpit = useCockpit();
 const draftVersions = ref<Record<string,number>>({});
 async function refreshDrafts() {
- const rows=await cockpit.refresh("drafts");
- drafts.value=rows.map(row=>({id:row.id,title:String(row.value.title),request:String(row.value.request),updatedAt:row.updatedAt}));
- draftVersions.value=Object.fromEntries(rows.map(row=>[row.id,row.version]));
+ if (draftsLoading.value) return false;
+ draftsLoading.value = true;
+ draftsError.value = "";
+ draftsErrorKind.value = undefined;
+ try {
+   const rows=await cockpit.refresh("drafts");
+   drafts.value=rows.map(row=>({id:row.id,title:String(row.value.title),request:String(row.value.request),updatedAt:row.updatedAt}));
+   draftVersions.value=Object.fromEntries(rows.map(row=>[row.id,row.version]));
+   draftsLoaded.value = true;
+   return true;
+ } catch (cause) {
+   draftsErrorKind.value = cockpitFailureKind(cause);
+   draftsError.value = cockpitFailureMessage(cause, "Shared drafts");
+   return false;
+ } finally {
+   draftsLoading.value = false;
+ }
 }
 onMounted(async () => {
   void refreshGithub();
-  try {
-    let legacy: Draft[]=[];
-    try { legacy=parseDrafts(JSON.parse(localStorage.getItem(storageKey)||"[]")); } catch { /* Retain inaccessible legacy data. */ }
-    await cockpit.migrate("drafts",legacy.map(d=>({id:d.id,value:{title:d.title,request:d.request}})));
-    await refreshDrafts();
-    savedSnapshot.value=cleanSnapshot(activeId.value,activeVersion.value,editorText());
-  } catch { notice.value="Shared drafts are unavailable. Keep your work and retry; browser drafts remain untouched."; }
+  let legacy: Draft[]=[];
+  try { legacy=parseDrafts(JSON.parse(localStorage.getItem(storageKey)||"[]")); } catch { /* Retain inaccessible legacy data. */ }
+  try { await cockpit.migrate("drafts",legacy.map(d=>({id:d.id,value:{title:d.title,request:d.request}}))); }
+  catch (cause) {
+    draftsErrorKind.value = cockpitFailureKind(cause);
+    draftsError.value = cockpitFailureMessage(cause, "Shared drafts");
+  }
+  await refreshDrafts();
+  savedSnapshot.value=cleanSnapshot(activeId.value,activeVersion.value,editorText());
 });
 function editorText() { return { title: title.value, request: request.value }; }
+const sectionLabel = computed(() => ({ mining: "Task mining", work: "Work", knowledge: "Project knowledge", growth: "Factory growth" })[section.value]);
+const workCountLabel = computed(() => draftsLoaded.value ? `${drafts.value.length} saved drafts` : "Saved drafts unavailable");
+function guardNavigation(event?: Event) {
+  if (!unsaved.value) return true;
+  const allowed = window.confirm("You have unsaved draft text. Leave this editor without saving?");
+  if (!allowed) event?.preventDefault();
+  return allowed;
+}
+function navigateSection(next: CockpitSection, event?: Event) {
+  if (next === section.value || guardNavigation(event)) section.value = next;
+}
+function selectReference(reference: (typeof initialReferences)[number]) {
+  selectedReference.value = reference;
+  section.value = "knowledge";
+}
+function beforeUnload(event: BeforeUnloadEvent) {
+  if (!unsaved.value) return;
+  event.preventDefault();
+  event.returnValue = "";
+}
+onMounted(() => window.addEventListener("beforeunload", beforeUnload));
+onBeforeUnmount(() => window.removeEventListener("beforeunload", beforeUnload));
+watch(section, value => {
+  if (queryValue(route.query.section) === value) return;
+  void router.replace({ query: { ...route.query, section: value } });
+});
+watch(() => route.query.section, value => {
+  const next = sectionValue(value);
+  if (next && next !== section.value) section.value = next;
+});
+watch(() => [route.query.station, route.query.run, route.query.delivery], () => {
+  if ((stationLinkSchema.safeParse(route.query).success || queryValue(route.query.delivery)) && section.value !== "work") section.value = "work";
+});
+watch(() => route.query.reference, value => {
+  const next = referenceValue(value);
+  if (next.id !== selectedReference.value.id) selectedReference.value = next;
+});
+watch(() => selectedReference.value.id, value => {
+  if (section.value !== "knowledge" || queryValue(route.query.reference) === value) return;
+  void router.replace({ query: { ...route.query, reference: value } });
+});
+watch(references, () => {
+  const next = referenceValue(route.query.reference);
+  if (next.id !== selectedReference.value.id) selectedReference.value = next;
+});
 async function applyDestination(destination: DraftDestination) {
   pendingDestination.value = null;
   draftSwitchError.value = "";
@@ -156,8 +236,8 @@ async function saveAndContinue() {
     await refreshDrafts();
     notice.value = "Draft saved in the shared cockpit.";
     await applyDestination(destination);
-  } catch {
-    draftSwitchError.value = "Could not save. This draft may have changed elsewhere. Your text is retained; reload shared drafts before retrying.";
+  } catch (cause) {
+    draftSwitchError.value = cockpitFailureMessage(cause, "This draft");
   } finally { confirmSaving.value = false; }
 }
 async function focusEditor() {
@@ -184,7 +264,10 @@ async function save() {
     activeId.value=applied.activeId;activeVersion.value=applied.activeVersion;
     savedSnapshot.value=cleanSnapshot(activeId.value,activeVersion.value,editorText());
     await refreshDrafts();notice.value="Draft saved in the shared cockpit.";
-  } catch { notice.value="Could not save. This draft may have changed elsewhere. Your text is retained; reload shared drafts before retrying."; }finally{saving.value=false;}
+  } catch (cause) {
+    notice.value = cockpitFailureMessage(cause, "This draft");
+    if (cockpitFailureKind(cause) === "unavailable") draftsError.value = cockpitFailureMessage(cause, "Shared drafts");
+  }finally{saving.value=false;}
 }
 const issueUrl=ref("");let issueSequence=0;
 watch([title,request],async()=>{const sequence=++issueSequence;issueUrl.value="";try{const result=await $fetch<{url:string}>("/factory/cockpit/issue-link",{method:"POST",body:{title:title.value,request:request.value}});if(sequence===issueSequence)issueUrl.value=result.url;}catch{if(sequence===issueSequence)issueUrl.value="";}});
@@ -194,31 +277,35 @@ watch([title,request],async()=>{const sequence=++issueSequence;issueUrl.value=""
   <UApp>
     <div class="factory-layout">
       <aside class="sidebar">
-        <a class="brand" href="/">ADEO<span>factory</span></a>
+        <a class="brand" href="/" @click="guardNavigation">ADEO<span>factory</span></a>
         <div class="workspace-name">
           <span class="workspace-icon">J</span>
           <div>Jira clone<small>Software factory workshop</small></div>
         </div>
         <div class="nav-label">WORKSPACE</div>
         <nav aria-label="Cockpit navigation">
-          <button :class="{ active: section === 'mining' }" @click="section = 'mining'"><UIcon name="i-lucide-search" />Task mining</button>
+          <button :class="{ active: section === 'mining' }" :aria-current="section === 'mining' ? 'page' : undefined" @click="navigateSection('mining', $event)"><UIcon name="i-lucide-search" aria-hidden="true" />Task mining</button>
           <button
             :class="{ active: section === 'work' }"
-            @click="section = 'work'"
+            :aria-current="section === 'work' ? 'page' : undefined"
+            :aria-label="`Work, ${workCountLabel}`"
+            @click="navigateSection('work', $event)"
           >
-            <UIcon name="i-lucide-inbox" />Work <span>{{ drafts.length }}</span>
+            <UIcon name="i-lucide-inbox" aria-hidden="true" />Work <span aria-hidden="true">{{ draftsLoaded ? drafts.length : "—" }}</span>
           </button>
           <button
             :class="{ active: section === 'knowledge' }"
-            @click="section = 'knowledge'"
+            :aria-current="section === 'knowledge' ? 'page' : undefined"
+            @click="navigateSection('knowledge', $event)"
           >
-            <UIcon name="i-lucide-book-open" />Project knowledge
+            <UIcon name="i-lucide-book-open" aria-hidden="true" />Project knowledge
           </button>
           <button
             :class="{ active: section === 'growth' }"
-            @click="section = 'growth'"
+            :aria-current="section === 'growth' ? 'page' : undefined"
+            @click="navigateSection('growth', $event)"
           >
-            <UIcon name="i-lucide-sprout" />Factory growth
+            <UIcon name="i-lucide-sprout" aria-hidden="true" />Factory growth
           </button>
         </nav>
         <div class="sidebar-bottom">
@@ -228,12 +315,14 @@ watch([title,request],async()=>{const sequence=++issueSequence;issueUrl.value=""
           <p>Build the factory.<br />Learn by making something useful.</p>
           <UButton
             :to="config.public.jiraUrl"
+            @click="guardNavigation"
             color="neutral"
             variant="ghost"
             icon="i-lucide-arrow-up-right"
             >Open Jira workspace</UButton
           ><UButton
             :to="repository.url"
+            @click="guardNavigation"
             target="_blank"
             color="neutral"
             variant="ghost"
@@ -244,17 +333,12 @@ watch([title,request],async()=>{const sequence=++issueSequence;issueUrl.value=""
       </aside>
       <main>
         <header class="topbar">
-          <span
-            >Workshop /
-            <strong>{{
-              section === "mining"
-                ? "Task mining"
-                : section === "work" ? "Work"
-                : section === "knowledge"
-                  ? "Project knowledge"
-                  : "Factory growth"
-            }}</strong></span
-          ><UBadge color="neutral" variant="subtle">Task mining</UBadge>
+          <span>Workshop / <strong>{{ sectionLabel }}</strong></span>
+          <div class="topbar-actions">
+            <UButton :to="config.public.jiraUrl" @click="guardNavigation" color="neutral" variant="ghost" size="xs" icon="i-lucide-arrow-up-right">Jira</UButton>
+            <UButton :to="repository.url" @click="guardNavigation" target="_blank" color="neutral" variant="ghost" size="xs" icon="i-lucide-github">Repo</UButton>
+          </div>
+          <UBadge color="neutral" variant="subtle">{{ sectionLabel }}</UBadge>
         </header>
         <div class="page-content">
           <MiningStation v-if="section === 'mining'" @draft="compose" />
@@ -273,12 +357,14 @@ watch([title,request],async()=>{const sequence=++issueSequence;issueUrl.value=""
               <section class="drafts-panel panel">
                 <div class="panel-heading">
                   <h2>Draft requests</h2>
-                  <UBadge color="neutral" variant="soft">{{
-                    drafts.length
-                  }}</UBadge>
+                  <UBadge color="neutral" variant="soft">{{ draftsLoaded ? drafts.length : "—" }}</UBadge>
                 </div>
-                <p class="muted small">Saved in the shared cockpit</p><UButton variant="ghost" size="xs" @click="refreshDrafts">Refresh drafts</UButton>
-                <div v-if="!drafts.length" class="empty-drafts">
+                <p class="muted small">Saved in the shared cockpit</p><UButton variant="ghost" size="xs" :loading="draftsLoading" :disabled="draftsLoading" @click="refreshDrafts">Refresh drafts</UButton>
+                <UAlert v-if="draftsError" color="warning" variant="soft" title="Drafts need attention" :description="draftsError">
+                  <template #actions><UButton size="xs" variant="outline" :loading="draftsLoading" @click="refreshDrafts">Retry</UButton></template>
+                </UAlert>
+                <p v-if="!draftsLoaded && !draftsError" role="status" class="muted small">Loading saved drafts…</p>
+                <div v-if="draftsLoaded && !drafts.length" class="empty-drafts">
                   <UIcon name="i-lucide-file-pen-line" />
                   <h3>A little context goes a long way</h3>
                   <p>
@@ -337,6 +423,7 @@ watch([title,request],async()=>{const sequence=++issueSequence;issueUrl.value=""
                     :disabled="!title.trim() || !request.trim() || !issueUrl"
                     :to="issueUrl"
                     target="_blank"
+                    @click="guardNavigation"
                     color="neutral"
                     variant="outline"
                     icon="i-lucide-github"
@@ -385,10 +472,7 @@ watch([title,request],async()=>{const sequence=++issueSequence;issueUrl.value=""
                   v-for="reference in references.slice(0, 3)"
                   :key="reference.id"
                   class="reference-link"
-                  @click="
-                    selectedReference = reference;
-                    section = 'knowledge';
-                  "
+                  @click="selectReference(reference)"
                 >
                   <UIcon :name="reference.icon" />
                   <div>
@@ -436,6 +520,7 @@ watch([title,request],async()=>{const sequence=++issueSequence;issueUrl.value=""
                     :href="repository.url"
                     target="_blank"
                     rel="noopener noreferrer"
+                    @click="guardNavigation"
                     >View jira-clone ↗</a
                   >
                 </div>
@@ -494,7 +579,7 @@ watch([title,request],async()=>{const sequence=++issueSequence;issueUrl.value=""
                   :key="reference.id"
                   class="reference-link"
                   :class="{ selected: selectedReference.id === reference.id }"
-                  @click="selectedReference = reference"
+                  @click="selectReference(reference)"
                 >
                   <UIcon :name="reference.icon" />
                   <div>
@@ -520,6 +605,7 @@ watch([title,request],async()=>{const sequence=++issueSequence;issueUrl.value=""
                 <UButton
                   :to="`${repository.url}/tree/main/packages/project-context`"
                   target="_blank"
+                  @click="guardNavigation"
                   variant="outline"
                   color="neutral"
                   icon="i-lucide-github"
