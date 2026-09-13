@@ -34,6 +34,11 @@ body {
 .demo-account-select {
   min-width: 240px;
 }
+.demo-account-passport {
+  font-size: 13px;
+  font-weight: 600;
+  color: #273943;
+}
 .jira-body {
   display: grid;
   grid-template-columns: 220px minmax(0, 1fr);

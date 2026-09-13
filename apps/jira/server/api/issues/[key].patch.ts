@@ -1,9 +1,12 @@
-import { DEMO_ROLE_MATRIX_LABEL, actorLabel, authorizeDemoWrite } from "../../utils/demoAccounts";
+import { appActorLabel, authorizeAppWrite } from "../../utils/appAccounts";
+import { DEMO_ROLE_MATRIX_LABEL } from "../../utils/demoAccounts";
+import { PASSPORT_TOKEN_HEADER } from "../../utils/passportIdentity";
 import { updateIssue } from "../../utils/issues";
 
 /**
- * Demo-only PATCH save path for one issue. Authorization runs first, so
- * viewer writes stay 403 without touching state. Status moves are then
+ * Demo-only PATCH save path for one issue. Authorization runs first through
+ * the shared request-to-application-account resolver, so viewer writes stay
+ * 403 (and malformed Passport identities stay 401) without touching state. Status moves are then
  * guarded by the explicit demo-only `DEMO_TRANSITIONS` matrix: illegal
  * moves return a structured demoOnly 409 with `actor` and `allowedFrom`
  * and write nothing. Unknown keys stay 404, unknown statuses stay 400.
@@ -11,7 +14,15 @@ import { updateIssue } from "../../utils/issues";
  * production authorization.
  */
 export default defineEventHandler(async (event) => {
-  const actor = authorizeDemoWrite(getHeader(event, "x-demo-user"), "update");
+  const actor = authorizeAppWrite(
+    {
+      passportToken: getHeader(event, PASSPORT_TOKEN_HEADER),
+      demoUser: getHeader(event, "x-demo-user"),
+      devUser: process.env.PASSPORT_DEV_USER,
+      nodeEnv: process.env.NODE_ENV,
+    },
+    "update",
+  );
   if (!actor.ok) {
     throw createError({
       statusCode: actor.statusCode,
@@ -19,7 +30,7 @@ export default defineEventHandler(async (event) => {
       data: {
         demoOnly: true,
         roleMatrix: DEMO_ROLE_MATRIX_LABEL,
-        ...(actor.account ? { actor: actorLabel(actor.account) } : {}),
+        ...(actor.account ? { actor: appActorLabel(actor.account) } : {}),
       },
     });
   }
@@ -41,7 +52,7 @@ export default defineEventHandler(async (event) => {
       data: {
         demoOnly: true,
         roleMatrix: DEMO_ROLE_MATRIX_LABEL,
-        actor: actorLabel(actor.account),
+        actor: appActorLabel(actor.account),
         ...(result.statusCode === 409 && result.allowedFrom
           ? { allowedFrom: [...result.allowedFrom] }
           : {}),
@@ -52,6 +63,6 @@ export default defineEventHandler(async (event) => {
     issue: result.issue,
     demoOnly: true,
     roleMatrix: DEMO_ROLE_MATRIX_LABEL,
-    actor: actorLabel(actor.account),
+    actor: appActorLabel(actor.account),
   };
 });

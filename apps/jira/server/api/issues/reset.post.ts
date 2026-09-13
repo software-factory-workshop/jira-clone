@@ -1,14 +1,25 @@
-import { DEMO_ROLE_MATRIX_LABEL, actorLabel, authorizeDemoWrite } from "../../utils/demoAccounts";
+import { appActorLabel, authorizeAppWrite } from "../../utils/appAccounts";
+import { DEMO_ROLE_MATRIX_LABEL } from "../../utils/demoAccounts";
+import { PASSPORT_TOKEN_HEADER } from "../../utils/passportIdentity";
 import { resetIssues } from "../../utils/issues";
 
 /**
- * Demo-only reset of the labelled in-memory store. Only Demo Admin may
- * reset; Demo Member and Demo Viewer receive a structured demoOnly 403 and
- * nothing is cleared. Unknown or malformed `x-demo-user` values are
- * rejected before any mutation.
+ * Demo-only reset of the labelled in-memory store through the shared
+ * request-to-application-account resolver. Only admin accounts (Demo Admin
+ * or a Passport-derived admin) may reset; other roles receive a structured
+ * demoOnly 403 and nothing is cleared. Unknown/malformed identities fail
+ * closed before any mutation.
  */
 export default defineEventHandler((event) => {
-  const actor = authorizeDemoWrite(getHeader(event, "x-demo-user"), "reset");
+  const actor = authorizeAppWrite(
+    {
+      passportToken: getHeader(event, PASSPORT_TOKEN_HEADER),
+      demoUser: getHeader(event, "x-demo-user"),
+      devUser: process.env.PASSPORT_DEV_USER,
+      nodeEnv: process.env.NODE_ENV,
+    },
+    "reset",
+  );
   if (!actor.ok) {
     throw createError({
       statusCode: actor.statusCode,
@@ -16,7 +27,7 @@ export default defineEventHandler((event) => {
       data: {
         demoOnly: true,
         roleMatrix: DEMO_ROLE_MATRIX_LABEL,
-        ...(actor.account ? { actor: actorLabel(actor.account) } : {}),
+        ...(actor.account ? { actor: appActorLabel(actor.account) } : {}),
       },
     });
   }
@@ -25,6 +36,6 @@ export default defineEventHandler((event) => {
     issues: resetIssues(),
     demoOnly: true,
     roleMatrix: DEMO_ROLE_MATRIX_LABEL,
-    actor: actorLabel(actor.account),
+    actor: appActorLabel(actor.account),
   };
 });
