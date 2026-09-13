@@ -7,12 +7,12 @@ Grow a software factory with Eve, using an ADEO-branded Jira demo as its test su
 ## Review the starting point
 
 - Factory cockpit: https://adeo-factory-cockpit.vercel.app
-- Jira shell: https://adeo-jira-clone.vercel.app
+- Jira demo: https://adeo-jira-clone.vercel.app
 - Both applications use the ADEO Nuxt UI layer v0.1.1.
 
 The cockpit starts and resumes durable Eve investigations. It also has browser-local request drafts, starter prompts, project knowledge and the factory growth path. “Review in GitHub” opens a prefilled issue; the user decides whether to submit it. Draft storage is local to a browser, not shared team state. GitHub repository context uses Vercel Connect when installed.
 
-The Jira shell has searchable fixture issues, status filtering, list/board views and issue details. Its rows are synthetic. It has no issue mutations, accounts, permissions, Jira-compatible API or integration endpoints yet.
+The Jira demo has searchable synthetic issues, status and assignee filtering, list/board views, issue details, bounded creation, edits, comments, transitions and reset. Its demo-only in-memory store supports deterministic failed-save checks and same-server reloads. Passport-derived accounts, a labelled fallback role matrix, bounded Jira-shaped REST routes, eleven MCP tools and a fake OAuth provider are implemented locally. See [the current-state contract](docs/jira-current-state.md) for exact boundaries. This is not full Jira parity and does not provide durable persistence, production Connect or OAuth registration, SAML, SCIM or complete Jira permissions.
 
 ## Run locally
 
@@ -65,4 +65,4 @@ Stage zero consumes the existing v0.1.1 package tarball, checked into this **pri
 
 ## Next review
 
-Read [the cockpit scope](docs/cockpit.md) and [the growth experiment](docs/factory-growth-experiment.md). Review an investigation in the cockpit, then improve its context or select one bounded task.
+Read [the cockpit scope](docs/cockpit.md), [the Jira current state](docs/jira-current-state.md) and [the growth experiment](docs/factory-growth-experiment.md). Review an investigation in the cockpit, then improve its context or select one bounded task.

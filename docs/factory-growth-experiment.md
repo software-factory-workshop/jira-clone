@@ -36,7 +36,7 @@ Replay the original request and a different one, such as issue details. Evidence
 
 Add isolated implementation and a fixed set of check commands. A single worker is enough initially. Feed it the supported work order, repository revision and relevant skills. It returns a diff or candidate commit, actual command outcomes and unresolved items. The implementation checkout does not receive publication authority or permission to activate changed factory rules.
 
-Use a very small issue list or create-issue action as the first task. The initial application may use explicitly labeled fixtures. Persisted behavior becomes a later request when needed to test a new capability. Keep fixture rendering and functional integration claims distinct.
+The issue list, create-issue action and bounded save path are now a small shipped demo slice. Fixtures remain explicitly labelled, and durable persistence remains a later request when a new capability needs it. Keep fixture data, demo behavior and production integration claims distinct.
 
 4. The factory can reject its own bad work.
 

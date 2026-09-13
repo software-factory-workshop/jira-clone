@@ -11,7 +11,7 @@ The cockpit supports on-demand task mining, editable work requests, inspection o
 | GitHub connection | Work and factory changes should have a shared repository home | Connect for read-only repository context; issue composition opens GitHub for human submission |
 | Project knowledge | We must inspect what the factory knows before judging its output | Brief, ADEO guidance, observed Jira metadata, research rationale |
 | Factory growth | Make the workshop's learning progression explicit | Stage zero established; station 01 task mining current; later capabilities planned |
-| Product link | Keep domain feedback close to factory work | Open the ADEO Jira shell and inspect synthetic issues |
+| Product link | Keep domain feedback close to factory work | Open the bounded ADEO Jira demo and inspect synthetic seed issues |
 
 Do not show run counts, traces, spend, approvals, evaluation scores or verified badges until those capabilities exist. A browser-local draft is not a shared work order. An issue's existence is not evidence that an agent ran.
 

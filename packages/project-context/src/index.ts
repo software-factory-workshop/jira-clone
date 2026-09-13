@@ -126,7 +126,7 @@ export const demoIssues = [
     priority: "Medium",
     assignee: "Unassigned",
     description:
-      "This is a synthetic issue used to review the stage-zero layout. The factory will grow the application from here.",
+      "This is a synthetic seeded issue used to review the ADEO demo. The factory grows the application from this labelled data.",
   },
   {
     key: "ADEO-2",
@@ -136,7 +136,7 @@ export const demoIssues = [
     priority: "High",
     assignee: "Demo member",
     description:
-      "Review information density, column order and the ADEO component choices. This row is a fixture, not a live task or factory result.",
+      "Review information density, column order and the ADEO component choices. This row is a seeded fixture; edits use the demo-only write boundary, not a live Jira workspace.",
   },
   {
     key: "ADEO-3",
@@ -146,7 +146,7 @@ export const demoIssues = [
     priority: "High",
     assignee: "Demo member",
     description:
-      "Future behavior must check application permissions on both UI and API paths. Authentication is not implemented in this shell.",
+      "Write affordances use the shared demo role matrix on both UI and API paths. Passport-derived identity is available when the platform injects a verified token; otherwise the labelled demo fallback applies. Full Jira permissions remain out of scope.",
   },
   {
     key: "ADEO-4",

@@ -3,45 +3,53 @@
 Derived from `factory/tasks/jira-teaching-loop.md`. Delivery mechanics follow
 `docs/delivery-loop.md` (factory API, CLI reconnect, same-owner revision handoff).
 
-> Status notice: every Jira behavior below is a **required future acceptance
-> check, not a currently implemented or verified capability**. The Jira app is
-> still a fixture shell. Do not present any checklist item as passing until it
-> is demonstrated against a reviewed worker PR with executed Jira tests and
-> browser evidence.
+> Current status, 13 September 2026: reset, priority editing, assignee
+> filtering, save/reload, deterministic failed saves and per-issue draft
+> retention are implemented in the demo-only Jira store and covered by local
+> tests. The checks below record the onsite and browser evidence still to
+> collect. They do not claim that the hosted aliases or external identity
+> configuration have been verified.
 
 ## 1. Reset
 
-- [ ] Seeded issues restore to their labelled fixture identities.
-- [ ] Reset instructions are visible in the app or its tests.
-- [ ] Reset does not destroy unrelated saved drafts outside the declared
-  persistence boundary.
+- Implemented locally: reset restores labelled fixtures and clears demo-created
+  and overridden issue state.
+- [ ] Rehearsal: demonstrate reset and record the declared persistence boundary.
+- [ ] Rehearsal: confirm reset does not destroy unrelated browser-local drafts.
 
 ## 2. Edit priority
 
-- [ ] Issue priority is editable in the UI (ADEO Nuxt UI components).
-- [ ] Displayed state and saved state agree after the edit.
+- Implemented locally: priority is editable through the ADEO Nuxt UI and the
+  native save path.
+- [ ] Rehearsal: show the displayed value and the canonical read agreeing after
+  an edit and reload.
 
 ## 3. Assignee filtering
 
-- [ ] Issue list filters by assignee.
-- [ ] Filtering does not alter saved state.
+- Implemented locally: the issue list filters by assignee and composes with
+  search and status.
+- [ ] Rehearsal: show filtering without changing saved issue state.
 
 ## 4. Save and reload
 
-- [ ] Asynchronous save path persists edits within the declared persistence
-  boundary (labelled demo-only where applicable).
-- [ ] After reload, displayed state matches saved state.
+- Implemented locally: the asynchronous demo-only save path persists edits on
+  the same running server.
+- [ ] Rehearsal: reload the page and show the displayed state matches the
+  canonical saved state.
 
 ## 5. Deterministic failed save
 
-- [ ] A deterministic failure mode exists for testing (not a random outage).
-- [ ] Failed saves never show false success.
-- [ ] The user's draft is retained after a failed save.
+- Implemented locally: `{fail:true}` produces a deterministic no-write failure,
+  leaves the original value in place and retains the draft.
+- [ ] Rehearsal: trigger the failure and record the error, unchanged value and
+  retained draft.
 
 ## 6. Draft retention
 
-- [ ] Existing drafts survive migration-format changes (no silent overwrite).
-- [ ] A retry does not duplicate execution or clobber a concurrent edit.
+- Implemented locally: per-issue drafts survive close/reopen and storage
+  failures without being silently cleared.
+- [ ] Rehearsal: exercise migration-format compatibility and concurrent retry
+  behavior before treating those cases as accepted.
 
 ## 7. Delivery loop (per `docs/delivery-loop.md`)
 
@@ -52,8 +60,9 @@ Derived from `factory/tasks/jira-teaching-loop.md`. Delivery mechanics follow
 - [ ] CLI reconnect demonstrated: close the process, reconnect with the saved
   state file to advance the same durable delivery (no duplicate task).
 - [ ] At least one revision round demonstrated onsite.
-- [ ] Missing evidence stops the loop (`human_review`); `ready` is never
-  presented as merge authorization. Nobody merges from the workshop.
+- [ ] Required evidence or checks stop the loop at `human_review`; low-risk
+  documentation or cosmetic changes may be host-merged only after independent
+  checks. `ready` is never merge authorization for an agent.
 
 ## 8. Evidence to record
 
@@ -77,6 +86,8 @@ Derived from `factory/tasks/jira-teaching-loop.md`. Delivery mechanics follow
 > structured demoOnly 409 naming the allowed target(s), and nothing is
 > written. Authorization still runs first, so viewer writes stay 403. The
 > matrix is a small explicit teaching default: it is **not verified Jira
-> workflow parity and not production authorization**. No REST/MCP parity,
-> Passport/OAuth, SAML, SCIM, durable accounts or full Jira permissions are
-> claimed here.
+> workflow parity and not production authorization**. The demo does expose
+> bounded REST and MCP contracts, Passport-derived identity and a fake OAuth
+> provider. Those contracts are demo-only. Full Jira compatibility, production
+> Connect or OAuth registration, SAML, SCIM, durable accounts and complete Jira
+> permissions remain out of scope.

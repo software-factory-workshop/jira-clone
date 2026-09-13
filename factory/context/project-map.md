@@ -15,7 +15,7 @@ Source review: 12 September 2026, updated during the Eve station delivery. Reche
 | How is a PR independently reviewed? | `apps/factory/agents/reviewer/` | Separate base/head snapshots, baseline policy, independent required checks and a recorded exact-revision verdict; deterministic workflow evaluates merge policy |
 | Where are worker and reviewer controls? | `apps/factory/app/components/WorkActions.vue`, `WorkRun.vue` | Start the selected draft or PR explicitly, follow the selected root agent, inspect results and cancel work |
 | Who drives delivery? | `apps/factory/server/workflows/delivery.ts`, `docs/delivery-loop.md` | Durable Workflow calls independent root agents, returns findings to the same worker, and applies a conservative merge policy |
-| What Jira behavior exists? | `apps/jira/app/app.vue` | Search, status filter, list, board and details over synthetic fixtures; no issue mutation or application API |
+| What Jira behavior exists? | `apps/jira/app/app.vue`, `docs/jira-current-state.md` | Bounded issue, list, board and detail behavior over synthetic data, with native and Jira-shaped REST writes, comments, reset, transitions and role-aware identity |
 | Which context is shared with the UI? | `packages/project-context/src/index.ts` | Stage copy, reference summaries, starter examples, draft parser and fixture issues |
 | What was observed in real Jira? | `packages/project-context/src/jira-reference.json` | Dated sandbox capture; distinguish observed statuses from an unobserved transition graph |
 | Which design system applies? | `.agents/skills/adeo-nuxt-ui/SKILL.md`, app Nuxt configs, `vendor/README.md` | Existing private ADEO Nuxt UI layer 0.1.1; both applications use it |

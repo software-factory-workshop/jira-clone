@@ -558,7 +558,7 @@ await refresh();
       <header class="jira-header">
         <a class="brand" href="/">ADEO</a
         ><span class="product-name">Jira workspace</span
-        ><UBadge color="neutral" variant="subtle">Stage-zero shell</UBadge>
+        ><UBadge color="neutral" variant="subtle">Demo-only Jira slice</UBadge>
         <div class="demo-account-switcher">
           <UBadge v-if="meIdentitySource === 'passport'" color="primary" variant="soft">Passport identity</UBadge>
           <UBadge v-else color="warning" variant="soft">Demo-only identity</UBadge>

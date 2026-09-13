@@ -1,5 +1,11 @@
 # Build Jira through the factory
 
+> Status at `main` on 13 September 2026: the bounded teaching slice described
+> here is implemented. Use [the current Jira state](../../docs/jira-current-state.md)
+> for shipped behavior and remaining boundaries. This file remains the focused
+> assignment source for a future extension, not evidence that the original
+> slice is still unimplemented.
+
 Owner instruction: 12 September 2026. The development session builds the factory; native Eve workers build Jira. Do not implement the Jira slice manually to make the demonstration pass.
 
 ## Factory prerequisites
@@ -10,9 +16,9 @@ Owner instruction: 12 September 2026. The development session builds the factory
 - Narrow host policy allowing Jira API/utility files and the Jira test command, while preserving factory rules, credentials, dependency manifests and deployment configuration as protected boundaries. The worker must author any Jira manifest edit; the host validates the allowed semantic delta.
 - Verification must actually execute Jira tests. A green root test command that omits them is insufficient.
 
-## First useful worker assignment
+## Original useful worker assignment
 
-Turn the synthetic Jira shell into a small stateful teaching application using the existing ADEO Nuxt UI design system. Reuse its seeded issues. Add editable issue priority, assignee filtering and an asynchronous save path with deterministic failure testing. Saved state and displayed state must agree after reload within the declared persistence boundary. Failed saves must not show false success or lose the user's draft. Label fixture identities and demo-only persistence accurately. Include reset instructions and focused behavior tests.
+The original worker assignment turned the synthetic Jira shell into a small stateful teaching application using the existing ADEO Nuxt UI design system. It reused the seeded issues and added editable priority, assignee filtering, an asynchronous save path with deterministic failure testing, reset instructions and focused behavior tests. The resulting behavior is recorded in [the current Jira state](../../docs/jira-current-state.md).
 
 Do not claim full Jira API parity, real user permissions or production persistence. Comment permissions can be the next assignment once issues can be changed and saved. Keep the change small enough to inspect in the onsite workshop.
 

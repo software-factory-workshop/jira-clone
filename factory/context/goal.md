@@ -18,7 +18,7 @@ Start with a task-mining station focused on understanding the goal, codebase, ex
 
 The initial AI SDK Harness/fx experiment tested whether the agent received useful context. It remains an experimental runner, separate from the deployed station. Remi clarified that shipping means a native Eve investigator: Eve runs the model and its sandbox tools directly. There is no nested fx model loop.
 
-Context means more than documentation. The investigator needs the goal and active work, current GitHub evidence, a runnable pinned codebase and access to the relevant Vercel project evidence. We must distinguish having access from using it correctly, and a completed run from a proposal Remi would actually consider. See `factory/task-mining-station.md` for the execution contract and `docs/verification.md` for dated evidence. The Jira application remains a fixture shell. Mining itself does not implement proposals or publish issues.
+Context means more than documentation. The investigator needs the goal and active work, current GitHub evidence, a runnable pinned codebase and access to the relevant Vercel project evidence. We must distinguish having access from using it correctly, and a completed run from a proposal Remi would actually consider. See `factory/task-mining-station.md` for the execution contract, `docs/jira-current-state.md` for the product contract and `docs/verification.md` for dated evidence. The Jira application is a bounded demo slice over synthetic in-memory data. Mining itself does not implement proposals or publish issues.
 
 A useful proposal connects a present gap to the goal, checks what already exists, names a small outcome and explains how we would tell whether it helped. It can be a context improvement, an investigation or a bounded factory capability. A Jira task is justified when it tests or teaches something relevant to the factory now. There is no required proposal count, and no task is preferable to invented work.
 
@@ -34,7 +34,7 @@ A missing source is worth proposing work on only when it prevents a relevant dec
 
 ## Product direction and open choices
 
-The demo should have recognizable Jira issue, list and board behavior using the ADEO Nuxt UI design system. Eventual targets include the Jira API operations needed by demos, Vercel Connect, Jira MCP using MCP Toolkit, accounts derived from verified Passport identity, SAML and directory sync. The exact compatibility subset and identity behavior need concrete demo scenarios before implementation. The earlier phrase "feature parity" is not evidence of a complete, agreed endpoint specification.
+The demo has recognizable Jira issue, list and board behavior using the ADEO Nuxt UI design system. The current bounded slice includes the Jira REST operations and MCP tools needed by the demo, Passport-derived accounts, a labelled fallback role matrix and a fake OAuth provider. Eventual targets include a concrete compatibility subset, durable persistence, production Connect and OAuth registration, SAML and directory sync. The earlier phrase "feature parity" is not evidence of a complete, agreed endpoint specification.
 
 The first station uses on-demand investigations, a pinned main-branch working tree, live GitHub and Vercel reads, sandbox reproduction and a durable Eve result. Recent session links and editable request drafts are browser-local. Scheduled mining, shared proposal indexing, automated deduplication and promotion of reviewed reflections remain design choices.
 

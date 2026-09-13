@@ -26,7 +26,7 @@ The initial publication allowlist is `apps/factory/app/`, `apps/factory/tests/`,
 
 A reviewer receives no publication tool. Its final report rechecks the PR head and base so a changed candidate requires another review. A review verdict is an assessment, not a merge authorization. Required evidence is host-owned: repository commands are recorded by the verification tool, and any change under either app's browser-facing source requires trusted real-browser interaction and keyboard-accessibility evidence. The reviewer cannot make a candidate eligible by relabeling, moving or omitting missing checks; until a trusted browser verifier supplies that evidence, those changes cannot receive `approve`. Model quality, hosted behavior and GitHub app write permissions require real-run evidence beyond the helper's fixture tests.
 
-## Branch ownership invariant — accepted direction, implementation pending
+## Branch ownership invariant — implemented and exercised
 
 Remi's decision on 12 September 2026: at most one agent owns write access to a branch at a time. Another agent needing to contribute must create its own branch and open a PR targeting the existing branch. It cannot queue for direct write access, adopt that branch because its owner is idle, or push a fix directly to the parent PR. Child PR merges remain manual. The later low-risk merge policy permits the outer workflow to merge qualifying PRs into main after independent verification.
 

@@ -121,6 +121,11 @@ Codex reviewed the hosted report: it proposed capturing human usefulness feedbac
 
 Checked 12 September 2026.
 
+This section is a dated stage-zero snapshot. It predates the bounded Jira REST,
+MCP, identity, OAuth and write work now described in
+[the current Jira state](jira-current-state.md); keep the historical claims
+below as evidence of what stage zero did not verify at that time.
+
 - `pnpm check`: typechecks, draft-boundary test and both production builds pass.
 - Initial GitHub Actions workflow passes installation, typechecks, test and builds.
 - Browser: starter request populates title and brief; save survives reload; saved request reopens.
