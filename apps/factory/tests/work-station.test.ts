@@ -24,6 +24,13 @@ test("review findings retain exact reviewed head, limitations and command failur
   assert.equal(result.commands[0]?.exitCode, 1);
   assert.deepEqual(result.limitations, ["No hosted browser run"]);
 });
+test("station projections retain the host-owned visual packet", () => {
+  const packet = { version: 1, status: "complete", requiredApps: ["jira"], baseSha: sha, headSha: sha, targetBranch: "main", reviewerSessionId: "wrun_reviewer", capturedAt: "2026-09-12T14:00:00Z", artifacts: [{ id: "a".repeat(32), app: "jira", origin: "http://127.0.0.1:3001", route: "/issues", baseSha: sha, headSha: sha, targetBranch: "main", capturedAt: "2026-09-12T14:00:00Z", before: { phase: "before", url: "https://factory.example/frame?phase=before", sha256: "b".repeat(64), mediaType: "image/png" }, after: { phase: "after", url: "https://factory.example/frame?phase=after", sha256: "c".repeat(64), mediaType: "image/png" } }], limitations: [] } as const;
+  const result = parseStationResult({ station: "reviewer", sessionId: "wrun_reviewer", prNumber: 2, url: "https://github.com/software-factory-workshop/jira-clone/pull/2", baseSha: sha, headSha: sha, targetBranch: "main", verdict: "approve", summary: "Reviewed", findings: [], commands: [], limitations: [], visualReview: packet, capturedAt: "2026-09-12T14:00:00Z" });
+  assert(result?.station === "reviewer");
+  assert.equal(result.visualReview?.status, "complete");
+  assert.equal(result.visualReview?.artifacts[0]?.after?.url, "https://factory.example/frame?phase=after");
+});
 test("run links retain station identity across reload", () => {
   assert.deepEqual(stationLinkSchema.parse({ station: "reviewer", run: "wrun_test" }), { station: "reviewer", run: "wrun_test" });
   assert(!stationLinkSchema.safeParse({ station: "worker", run: "../elsewhere" }).success);
