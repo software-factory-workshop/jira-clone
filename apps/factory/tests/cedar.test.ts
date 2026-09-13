@@ -7,7 +7,7 @@ import { test } from "node:test";
 import { FACTORY_POLICY_REVISION, FACTORY_POLICY_TEXT } from "../runtime/lib/cedar/generated-policies.ts";
 import { evaluateFactory, factoryPolicyManifest, validateFactoryPolicies } from "../runtime/lib/cedar/engine.ts";
 import { changeResource, repositoryResource } from "../runtime/lib/cedar/model.ts";
-import { runFactoryOperation, FactoryAuthorizationError } from "../runtime/lib/cedar/operation-runner.ts";
+import { runFactoryOperation, FactoryAuthorizationError, type FactoryDecisionAudit } from "../runtime/lib/cedar/operation-runner.ts";
 import { FACTORY_POLICY_METADATA } from "../runtime/lib/cedar/policy-metadata.ts";
 import { FACTORY_SCHEMA_REVISION, getFactoryCedarSchema } from "../runtime/lib/cedar/schema.ts";
 
@@ -167,8 +167,23 @@ test("missing evidence and unbound services fail closed", () => {
   assert.ok(unknownService.determiningPolicies.includes("factory-forbid-unbound-service-mutation"));
 });
 
-test("trusted operation runner never executes a denied operation and emits redacted decision audits", async () => {
-  const audits: Array<{ outcome: string; inputFields: readonly string[] }> = [];
+function assertAuditMetadata(audit: FactoryDecisionAudit, operationId: string) {
+  assert.equal(audit.operationId, operationId);
+  assert.equal(audit.action, "publish_change");
+  assert.deepEqual(audit.principal, { kind: "service", id: worker.id });
+  assert.deepEqual(audit.resource, { kind: "change", id: "operation-1" });
+  assert.equal(audit.decision, "ALLOW");
+  assert.equal(audit.valid, true);
+  assert.equal(audit.policyRevision, FACTORY_POLICY_REVISION);
+  assert.equal(audit.schemaRevision, FACTORY_SCHEMA_REVISION);
+  assert.deepEqual(audit.determiningPolicies, ["factory-worker-publishes-verified-change"]);
+  assert.deepEqual(audit.inputFields, ["baseSha", "branch", "candidateSha", "draft"]);
+  assert.deepEqual(audit.contextFields, Object.keys(context()).sort());
+  assert.equal(JSON.stringify(audit).includes(candidateSha), false);
+}
+
+test("trusted operation runner never executes denied or invalid operations and emits redacted decision audits", async () => {
+  const audits: FactoryDecisionAudit[] = [];
   let executed = false;
   await assert.rejects(
     runFactoryOperation({
@@ -188,7 +203,39 @@ test("trusted operation runner never executes a denied operation and emits redac
   );
   assert.equal(executed, false);
   assert.equal(audits[0]?.outcome, "blocked");
+  assert.equal(audits[0]?.decision, "DENY");
+  assert.equal(audits[0]?.valid, true);
+  assert.equal(audits[0]?.policyRevision, FACTORY_POLICY_REVISION);
+  assert.equal(audits[0]?.schemaRevision, FACTORY_SCHEMA_REVISION);
   assert.deepEqual(audits[0]?.inputFields, ["baseSha", "branch", "candidateSha", "draft"]);
+
+  audits.length = 0;
+  executed = false;
+  await assert.rejects(
+    runFactoryOperation({
+      operationId: "operation-invalid-input",
+      principal: worker,
+      action: "publish_change",
+      input: { branch, candidateSha, baseSha },
+      resource: change(),
+      context: context(),
+      execute: async () => {
+        executed = true;
+        return true;
+      },
+      onAudit: (audit) => audits.push(audit),
+    }),
+    FactoryAuthorizationError,
+  );
+  assert.equal(executed, false);
+  assert.equal(audits.length, 1);
+  assert.equal(audits[0]?.outcome, "blocked");
+  assert.equal(audits[0]?.decision, "DENY");
+  assert.equal(audits[0]?.valid, false);
+  assert.equal(audits[0]?.policyRevision, FACTORY_POLICY_REVISION);
+  assert.equal(audits[0]?.schemaRevision, FACTORY_SCHEMA_REVISION);
+  assert.deepEqual(audits[0]?.inputFields, ["baseSha", "branch", "candidateSha"]);
+  assert.ok(audits[0]?.errors.some((error) => error.startsWith("input.draft:")));
 
   audits.length = 0;
   const result = await runFactoryOperation({
@@ -204,4 +251,52 @@ test("trusted operation runner never executes a denied operation and emits redac
   assert.equal(result.output, "receipt");
   assert.equal(result.audit.outcome, "succeeded");
   assert.deepEqual(audits.map((audit) => audit.outcome), ["pending", "succeeded"]);
+  for (const audit of audits) assertAuditMetadata(audit, "operation-allowed");
+});
+
+test("trusted operation runner records a failed allowed execution with decision revisions", async () => {
+  const audits: FactoryDecisionAudit[] = [];
+  const result = await runFactoryOperation({
+    operationId: "operation-failed",
+    principal: worker,
+    action: "publish_change",
+    input: { branch, candidateSha, baseSha, draft: true },
+    resource: change(),
+    context: context(),
+    execute: async () => ({ accepted: false }),
+    isSuccess: (output) => output.accepted,
+    onAudit: (audit) => audits.push(audit),
+  });
+
+  assert.deepEqual(audits.map((audit) => audit.outcome), ["pending", "failed"]);
+  assert.equal(result.output.accepted, false);
+  assert.equal(result.audit.outcome, "failed");
+  assert.equal(result.audit.executionError, undefined);
+  assert.equal(audits[0]?.decisionId, audits[1]?.decisionId);
+  for (const audit of audits) assertAuditMetadata(audit, "operation-failed");
+});
+
+test("trusted operation runner records a thrown allowed execution with a bounded audit error", async () => {
+  const audits: FactoryDecisionAudit[] = [];
+  const executionError = new Error("upstream unavailable\u0000");
+  await assert.rejects(
+    runFactoryOperation({
+      operationId: "operation-threw",
+      principal: worker,
+      action: "publish_change",
+      input: { branch, candidateSha, baseSha, draft: true },
+      resource: change(),
+      context: context(),
+      execute: async () => {
+        throw executionError;
+      },
+      onAudit: (audit) => audits.push(audit),
+    }),
+    (error: unknown) => error === executionError,
+  );
+
+  assert.deepEqual(audits.map((audit) => audit.outcome), ["pending", "threw"]);
+  assert.equal(audits[1]?.executionError, "upstream unavailable ");
+  assert.equal(audits[0]?.decisionId, audits[1]?.decisionId);
+  for (const audit of audits) assertAuditMetadata(audit, "operation-threw");
 });
