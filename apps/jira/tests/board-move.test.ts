@@ -31,7 +31,7 @@ test("keyboard-first move saves and returns the new column", async () => {
 
 test("failed save keeps the original column, reports an error, and keeps selection input", async () => {
   const before = seed.map((issue) => ({ ...issue }));
-  const result = await moveIssue(seed, "ADEO-1", "Done", async () => {
+  const result = await moveIssue(seed, "ADEO-1", "In Progress", async () => {
     throw new Error("Demo-only save failure (deterministic test path).");
   });
   assert.equal(result.ok, false);
@@ -58,10 +58,17 @@ test("unknown statuses are rejected without touching issues", async () => {
   assert.equal(isObservedStatus("Done"), true);
 });
 
-test("move targets exclude the current column for keyboard operation", () => {
+test("move targets offer only the allowed demo transition for keyboard operation", () => {
   assert.deepEqual(moveTargets(["To Do", "In Progress", "In Review", "Done"], "To Do"), [
     "In Progress",
-    "In Review",
-    "Done",
+  ]);
+  assert.deepEqual(moveTargets(["To Do", "In Progress", "In Review", "Done"], "Done"), [
+    "To Do",
+  ]);
+  // Unknown statuses keep the old fallback (exclude only the current
+  // column) so keyboard operation never strands an issue.
+  assert.deepEqual(moveTargets(["To Do", "In Progress", "Archived"], "Archived"), [
+    "To Do",
+    "In Progress",
   ]);
 });

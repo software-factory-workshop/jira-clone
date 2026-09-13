@@ -120,7 +120,7 @@ test("admin can write and reset while fail paths and reset semantics hold", () =
   const created = createIssue({ title: "Demo actor write" });
   assert.equal(created.ok, true);
   const key = created.ok ? created.issue.key : "";
-  assert.equal(updateIssue(key, { status: "Done" }).ok, true);
+  assert.equal(updateIssue(key, { status: "In Progress" }).ok, true);
   assert.equal(addComment("ADEO-1", { body: "Visible" }).ok, true);
   resetIssues();
   assert.equal(getIssue(key), undefined);

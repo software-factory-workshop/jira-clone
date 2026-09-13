@@ -28,11 +28,11 @@ test("created-issue edits agree across list and single read (same-server reload)
   const created = createIssue({ title: "Demo save-path check" });
   assert.equal(created.ok, true);
   const key = created.ok ? created.issue.key : "";
-  const updated = updateIssue(key, { status: "Done", priority: "Lowest" });
+  const updated = updateIssue(key, { status: "In Progress", priority: "Lowest" });
   assert.equal(updated.ok, true);
   // A reload is a fresh read of the same demo-only store.
   assert.deepEqual(getIssue(key), getIssues().find((issue) => issue.key === key));
-  assert.equal(getIssue(key)?.status, "Done");
+  assert.equal(getIssue(key)?.status, "In Progress");
   assert.equal(getIssues().find((issue) => issue.key === key)?.priority, "Lowest");
   resetIssues();
 });
@@ -43,7 +43,7 @@ test("unknown keys remain 404 and unknown values reject before writing", () => {
   assert.equal(created.ok, true);
   const key = created.ok ? created.issue.key : "";
   const before = getIssue(key);
-  const badKey = updateIssue("ADEO-9999", { status: "Done" });
+  const badKey = updateIssue("ADEO-9999", { status: "In Progress" });
   assert.equal(badKey.ok, false);
   assert.equal(badKey.ok ? 0 : badKey.statusCode, 404);
   const badStatus = updateIssue(key, { status: "Archived" });
@@ -62,7 +62,7 @@ test("deterministic failure on a created issue writes nothing", () => {
   assert.equal(created.ok, true);
   const key = created.ok ? created.issue.key : "";
   const before = getIssue(key);
-  const failed = updateIssue(key, { status: "Done" }, { fail: true });
+  const failed = updateIssue(key, { status: "In Progress" }, { fail: true });
   assert.equal(failed.ok, false);
   assert.equal(failed.ok ? 0 : failed.statusCode, 500);
   assert.deepEqual(getIssue(key), before);

@@ -42,6 +42,46 @@ export function isObservedStatus(value: unknown): value is ObservedStatus {
   );
 }
 
+/**
+ * Demo-only status transition matrix for the Jira teaching board.
+ *
+ * Fixed best-effort default for this slice, mirroring the server guard:
+ * To Do -> In Progress, In Progress -> In Review, In Review -> Done,
+ * Done -> To Do (reopen). Any other move is rejected by the PATCH save
+ * path with a structured demoOnly 409 and writes nothing. Status labels
+ * match the existing fixture labels exactly. This is a teaching guard,
+ * not verified Jira workflow parity or production authorization.
+ */
+export const DEMO_TRANSITIONS = {
+  "To Do": ["In Progress"],
+  "In Progress": ["In Review"],
+  "In Review": ["Done"],
+  "Done": ["To Do"],
+} as const satisfies Record<ObservedStatus, readonly ObservedStatus[]>;
+
+/** Allowed demo-only targets from one observed status. Pure; never writes. */
+export function allowedTransitions(from: ObservedStatus): readonly ObservedStatus[] {
+  return DEMO_TRANSITIONS[from] ?? [];
+}
+
+/** Pure demo-only transition check. Same-status moves are handled by the caller as no-ops. */
+export function isDemoTransition(from: ObservedStatus, to: ObservedStatus): boolean {
+  return allowedTransitions(from).includes(to);
+}
+
+/**
+ * Human-readable allowed-target guidance for the board and detail move
+ * controls, e.g. `Allowed demo move: In Progress`. Kept in the shared
+ * helper so server rejections and UI guidance agree.
+ */
+export function allowedMoveHint(currentStatus: string): string {
+  if (!isObservedStatus(currentStatus)) {
+    return "Demo-only moves follow a fixed matrix; unknown demo statuses cannot move.";
+  }
+  const allowed = allowedTransitions(currentStatus);
+  return `Demo-only moves: from ${currentStatus} you may move to ${allowed.join(", ")}. Other moves are rejected and save nothing.`;
+}
+
 export function columnIssues(
   issues: BoardIssue[],
   status: string,
@@ -150,11 +190,19 @@ export async function moveIssue(
   }
 }
 
-/** Keyboard targets exclude the issue's current column. */
+/**
+ * Keyboard move targets for one issue: the allowed demo-only target(s)
+ * from its current column. Unknown statuses fall back to excluding only
+ * the current column so keyboard operation never strands an issue.
+ */
 export function moveTargets(
   statuses: readonly string[],
   currentStatus: string,
 ): string[] {
+  if (isObservedStatus(currentStatus)) {
+    const allowed = new Set<string>(allowedTransitions(currentStatus));
+    return statuses.filter((status) => allowed.has(status));
+  }
   return statuses.filter((status) => status !== currentStatus);
 }
 
