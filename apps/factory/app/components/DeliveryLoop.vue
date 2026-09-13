@@ -5,8 +5,6 @@ import { MIN_WORK_REQUEST_LENGTH } from "../utils/work-station";
 import { copyText, shortIdentifier } from "../utils/technical-details";
 import type { VisualReviewBinding, VisualReviewPacket } from "../../runtime/lib/visual-review";
 
-const props = defineProps<{ title: string; brief: string }>();
-
 interface Delivery {
   id: string;
   version: number;
@@ -25,6 +23,17 @@ interface Delivery {
   history: Array<{ phase: string; at?: string; sessionId?: string; headSha?: string }>;
 }
 interface ReconciliationResult { eligible: boolean; reason: string; commitSha?: string }
+
+const props = withDefaults(defineProps<{
+  title?: string;
+  brief?: string;
+  mode?: "compose" | "run";
+}>(), {
+  title: "",
+  brief: "",
+  mode: "compose",
+});
+const emit = defineEmits<{ started: [value: Delivery] }>();
 
 const route = useRoute();
 const router = useRouter();
@@ -62,6 +71,7 @@ const phaseDetail = computed(() => run.value?.error || run.value?.mergeDecision?
 const updatedLabel = computed(() => formatDeliveryUpdatedAt(run.value?.updatedAt));
 const briefLength = computed(() => props.brief.trim().length);
 const briefReady = computed(() => briefLength.value >= MIN_WORK_REQUEST_LENGTH);
+const canCompose = computed(() => props.mode === "compose");
 const visualReviewBinding = computed<VisualReviewBinding | undefined>(() => {
   const delivery = run.value;
   const review = delivery?.review;
@@ -85,13 +95,14 @@ function schedule() {
 }
 
 async function start() {
-  if (working.value) return;
+  if (!canCompose.value || working.value) return;
   working.value = true;
   error.value = "";
   operationId ??= crypto.randomUUID();
   try {
     run.value = await $fetch<Delivery>("/factory/delivery", { method: "POST", body: { operationId, title: props.title, brief: props.brief }, retry: 0 });
-    await router.replace({ query: { ...route.query, delivery: run.value.id } });
+    emit("started", run.value);
+    await router.replace({ path: "/work/run", query: { delivery: run.value.id } });
     await remember(run.value);
     operationId = undefined;
     schedule();
@@ -223,7 +234,7 @@ onBeforeUnmount(() => {
       <CockpitFlow
         id="delivery-observability"
         title="Delivery workflow"
-        :description="run ? 'Live phase and handoff state from the durable delivery snapshot.' : 'A preview of the handoffs that will be observed once you start a delivery.'"
+        :description="run ? 'Live phase and handoff state from the durable delivery snapshot.' : mode === 'compose' ? 'A preview of the handoffs that will be observed once you start a delivery.' : 'Select a delivery from Recent work to follow its live handoffs.'"
         :nodes="flowModel.nodes"
         :edges="flowModel.edges"
         :height="316"
@@ -244,7 +255,7 @@ onBeforeUnmount(() => {
     <VisualReviewPanel v-if="run?.review" :packet="run.review.visualReview" :binding="visualReviewBinding" />
 
     <div class="delivery-actions">
-      <UButton :disabled="!title.trim() || !briefReady || working || stopping" :loading="working && !run" icon="i-lucide-play" @click="start">Start durable delivery</UButton>
+      <UButton v-if="mode === 'compose' && !run" :disabled="!title.trim() || !briefReady || working || stopping" :loading="working" icon="i-lucide-play" @click="start">Start durable delivery</UButton>
       <UButton v-if="run?.publication" :to="run.publication.url" target="_blank" rel="noopener noreferrer" variant="outline" icon="i-lucide-git-pull-request">Open PR #{{ run.publication.number }}</UButton>
       <UButton v-if="run?.publication && reconcilable.has(run.phase)" variant="outline" :loading="reconciling" :disabled="working || reconciling" icon="i-lucide-shield-check" @click="reconcile">Check manual merge</UButton>
       <UButton v-if="run && (run.phase === 'blocked' || (run.phase === 'human_review' && !run.publication))" variant="outline" :disabled="working" icon="i-lucide-rotate-ccw" @click="resume">Resume observation</UButton>
@@ -252,7 +263,7 @@ onBeforeUnmount(() => {
       <UButton v-if="run && !stopped.has(run.phase)" variant="ghost" color="neutral" :loading="stopping" :disabled="working || stopping" @click="cancel">Stop delivery</UButton>
     </div>
     <UAlert v-if="reconciliation" :color="reconciliation.eligible ? 'success' : 'warning'" variant="soft" title="Manual merge evidence" :description="reconciliation.reason" />
-    <p class="delivery-requirement" :class="{ ready: briefReady }" role="status">A durable delivery needs at least {{ MIN_WORK_REQUEST_LENGTH }} characters in the brief ({{ briefLength }}/{{ MIN_WORK_REQUEST_LENGTH }}).</p>
+    <p v-if="mode === 'compose'" class="delivery-requirement" :class="{ ready: briefReady }" role="status">A durable delivery needs at least {{ MIN_WORK_REQUEST_LENGTH }} characters in the brief ({{ briefLength }}/{{ MIN_WORK_REQUEST_LENGTH }}).</p>
     <p v-if="error" class="delivery-error" role="alert">{{ error }}</p>
 
     <div v-if="run && ['ready', 'human_review', 'blocked', 'needs_revision'].includes(run.phase)" class="revision-request">
