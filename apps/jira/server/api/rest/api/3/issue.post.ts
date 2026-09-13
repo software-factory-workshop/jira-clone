@@ -1,7 +1,7 @@
 import { appActorLabel, authorizeAppWrite } from "../../../../utils/appAccounts";
 import { DEMO_ROLE_MATRIX_LABEL } from "../../../../utils/demoAccounts";
 import { PASSPORT_TOKEN_HEADER } from "../../../../utils/passportIdentity";
-import { REST_BOUNDARY, restCreateIssue } from "../../../../utils/jiraRest";
+import { REST_BOUNDARY, restCreateIssue, restBearerIdentity, authorizeBearerWrite } from "../../../../utils/jiraRest";
 
 /**
  * Demo-only Jira-style POST /api/rest/api/3/issue.
@@ -12,7 +12,10 @@ import { REST_BOUNDARY, restCreateIssue } from "../../../../utils/jiraRest";
  * is rejected with a labelled demoOnly 400 that writes nothing. Authority
  * runs first through the shared resolver/`authorizeAppWrite`, so viewer
  * writes stay 403 (and malformed Passport identities stay 401) without
- * touching state; responses carry `actor` and `identitySource`. The
+ * touching state; responses carry `actor` and `identitySource`. When an
+ * `Authorization: Bearer` demo OAuth token is present it is enforced
+ * instead (writes additionally require the `write` scope) and never
+ * falls through to the demo fallback. The
  * deterministic `{fail:true}` path returns a 500 and writes nothing.
  */
 export default defineEventHandler(async (event) => {
@@ -22,7 +25,11 @@ export default defineEventHandler(async (event) => {
     devUser: process.env.PASSPORT_DEV_USER,
     nodeEnv: process.env.NODE_ENV,
   };
-  const gate = authorizeAppWrite(identity, "create");
+  // A present `Authorization: Bearer` demo OAuth token is enforced instead
+  // of the Passport/demo gate (writes additionally require the `write`
+  // scope) and never falls through to the demo fallback.
+  const bearer = restBearerIdentity(getHeader(event, "authorization"));
+  const gate = bearer ? authorizeBearerWrite(bearer) : authorizeAppWrite(identity, "create");
   if (!gate.ok) {
     throw createError({
       statusCode: gate.statusCode,
@@ -41,10 +48,14 @@ export default defineEventHandler(async (event) => {
     fields?: unknown;
     fail?: unknown;
   }>(event);
-  const result = restCreateIssue(identity, {
-    fields: body?.fields,
-    fail: body?.fail,
-  });
+  const result = restCreateIssue(
+    identity,
+    {
+      fields: body?.fields,
+      fail: body?.fail,
+    },
+    { bearer },
+  );
   if (!result.ok) {
     throw createError({
       statusCode: result.statusCode,
@@ -53,7 +64,7 @@ export default defineEventHandler(async (event) => {
         demoOnly: true,
         roleMatrix: DEMO_ROLE_MATRIX_LABEL,
         boundary: REST_BOUNDARY,
-        actor: appActorLabel(gate.account),
+        actor: appActorLabel("data" in gate ? gate.data : gate.account),
       },
     });
   }

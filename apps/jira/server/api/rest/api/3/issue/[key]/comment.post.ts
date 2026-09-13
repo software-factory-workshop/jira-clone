@@ -1,7 +1,7 @@
 import { appActorLabel, authorizeAppWrite } from "../../../../../../utils/appAccounts";
 import { DEMO_ROLE_MATRIX_LABEL } from "../../../../../../utils/demoAccounts";
 import { PASSPORT_TOKEN_HEADER } from "../../../../../../utils/passportIdentity";
-import { REST_BOUNDARY, restAddComment } from "../../../../../../utils/jiraRest";
+import { REST_BOUNDARY, restAddComment, restBearerIdentity, authorizeBearerWrite } from "../../../../../../utils/jiraRest";
 
 /**
  * Demo-only Jira-style POST /api/rest/api/3/issue/:key/comment.
@@ -21,7 +21,11 @@ export default defineEventHandler(async (event) => {
     devUser: process.env.PASSPORT_DEV_USER,
     nodeEnv: process.env.NODE_ENV,
   };
-  const gate = authorizeAppWrite(identity, "comment");
+  // A present `Authorization: Bearer` demo OAuth token is enforced instead
+  // of the Passport/demo gate (writes additionally require the `write`
+  // scope) and never falls through to the demo fallback.
+  const bearer = restBearerIdentity(getHeader(event, "authorization"));
+  const gate = bearer ? authorizeBearerWrite(bearer) : authorizeAppWrite(identity, "comment");
   if (!gate.ok) {
     throw createError({
       statusCode: gate.statusCode,
@@ -41,10 +45,15 @@ export default defineEventHandler(async (event) => {
     body?: unknown;
     fail?: unknown;
   }>(event);
-  const result = restAddComment(identity, key, {
-    body: body?.body,
-    fail: body?.fail,
-  });
+  const result = restAddComment(
+    identity,
+    key,
+    {
+      body: body?.body,
+      fail: body?.fail,
+    },
+    { bearer },
+  );
   if (!result.ok) {
     throw createError({
       statusCode: result.statusCode,
@@ -53,7 +62,7 @@ export default defineEventHandler(async (event) => {
         demoOnly: true,
         roleMatrix: DEMO_ROLE_MATRIX_LABEL,
         boundary: REST_BOUNDARY,
-        actor: appActorLabel(gate.account),
+        actor: appActorLabel("data" in gate ? gate.data : gate.account),
       },
     });
   }

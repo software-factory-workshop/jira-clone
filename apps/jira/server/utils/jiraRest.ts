@@ -56,6 +56,11 @@ import {
   type AppIdentitySource,
   type AppRequestIdentity,
 } from "./appAccounts.ts";
+import {
+  authorizeOAuthBearerWrite,
+  resolveOAuthIssuer,
+  validateOAuthBearer,
+} from "./jiraOAuth.ts";
 
 /** Explicit boundary note attached to every adapter response. */
 export const REST_BOUNDARY =
@@ -586,13 +591,20 @@ export type RestWriteResult<T> =
  * Shared demo-only write gate for the four Jira-shaped write contracts.
  * Calls `authorizeAppWrite` through one path so HTTP routes and MCP tools
  * share the exact admin/member/viewer and malformed/unknown identity
- * semantics as the native routes. Returns the authorized account; callers
+ * semantics as the native routes. When an OAuth bearer validation is
+ * passed, it is enforced first instead: a present bearer (valid or not)
+ * never falls through to the demo fallback, and writes additionally
+ * require the `write` scope. Returns the authorized account; callers
  * attach it as `actor`/`identitySource` metadata. Pure; never writes.
  */
 export function authorizeRestWrite(
   identity: AppRequestIdentity,
   action: DemoWriteAction,
+  bearer?: ReturnType<typeof validateOAuthBearer> | null,
 ): RestWriteResult<AppAccount> {
+  if (bearer !== undefined && bearer !== null) {
+    return authorizeBearerWrite(bearer);
+  }
   const authorized = authorizeAppWrite(identity, action);
   if (!authorized.ok) {
     return {
@@ -699,8 +711,9 @@ function extractDescriptionText(value: unknown): string | null {
 export function restCreateIssue(
   identity: AppRequestIdentity,
   body: RestCreateIssueInput = {},
+  options?: { bearer?: ReturnType<typeof validateOAuthBearer> | null },
 ): RestWriteResult<{ issue: ReturnType<typeof toRestIssue>; actor: ReturnType<typeof appActorLabel>; identitySource: AppIdentitySource }> {
-  const authorized = authorizeRestWrite(identity, "create");
+  const authorized = authorizeRestWrite(identity, "create", options?.bearer ?? null);
   if (!authorized.ok) {
     return authorized;
   }
@@ -861,8 +874,9 @@ export function restUpdateIssue(
   identity: AppRequestIdentity,
   key: string,
   body: RestUpdateIssueInput = {},
+  options?: { bearer?: ReturnType<typeof validateOAuthBearer> | null },
 ): RestWriteResult<{ issue: ReturnType<typeof toRestIssue>; actor: ReturnType<typeof appActorLabel>; identitySource: AppIdentitySource }> {
-  const authorized = authorizeRestWrite(identity, "update");
+  const authorized = authorizeRestWrite(identity, "update", options?.bearer ?? null);
   if (!authorized.ok) {
     return authorized;
   }
@@ -1082,8 +1096,9 @@ export function restTransitionIssue(
   identity: AppRequestIdentity,
   key: string,
   body: RestTransitionIssueInput = {},
+  options?: { bearer?: ReturnType<typeof validateOAuthBearer> | null },
 ): RestWriteResult<{ issue: ReturnType<typeof toRestIssue>; transition: { id: string; name: string; to: { name: string } }; actor: ReturnType<typeof appActorLabel>; identitySource: AppIdentitySource }> {
-  const authorized = authorizeRestWrite(identity, "update");
+  const authorized = authorizeRestWrite(identity, "update", options?.bearer ?? null);
   if (!authorized.ok) {
     return authorized;
   }
@@ -1131,8 +1146,9 @@ export function restAddComment(
   identity: AppRequestIdentity,
   key: string,
   body: RestAddCommentInput = {},
+  options?: { bearer?: ReturnType<typeof validateOAuthBearer> | null },
 ): RestWriteResult<{ comment: { id: string; body: string; author: { displayName: string }; created: string; demoOnly: true }; actor: ReturnType<typeof appActorLabel>; identitySource: AppIdentitySource }> {
-  const authorized = authorizeRestWrite(identity, "comment");
+  const authorized = authorizeRestWrite(identity, "comment", options?.bearer ?? null);
   if (!authorized.ok) {
     return authorized;
   }
@@ -1167,6 +1183,64 @@ export function restAddComment(
       identitySource: account.identitySource,
     },
   };
+}
+
+/**
+ * Resolve a demo OAuth bearer identity from an `Authorization` header for
+ * the Jira-shaped HTTP routes. Returns null when no `Authorization` header
+ * was sent (callers keep the existing Passport/demo resolution); otherwise
+ * returns the bearer validation result, which callers enforce fail-closed
+ * (an invalid bearer never falls through to the demo fallback).
+ */
+export function restBearerIdentity(
+  authorization: unknown,
+  issuerInput?: { envIssuer?: unknown; proto?: unknown; host?: unknown },
+): ReturnType<typeof validateOAuthBearer> | null {
+  if (typeof authorization !== "string" || authorization.trim() === "") {
+    return null;
+  }
+  return validateOAuthBearer(
+    authorization,
+    resolveOAuthIssuer({
+      envIssuer: issuerInput?.envIssuer ?? process.env.JIRA_OAUTH_ISSUER,
+      proto: issuerInput?.proto,
+      host: issuerInput?.host,
+    }),
+  );
+}
+
+/**
+ * Shared OAuth bearer write gate for REST/MCP writes: the bearer
+ * validation must succeed and the grant must carry the `write` scope (see
+ * `authorizeOAuthBearerWrite`, which reuses the snapshotted viewer/member/
+ * admin semantics). Callers run this before `authorizeRestWrite` when an
+ * `Authorization` header is present; any bearer outcome (missing, invalid
+ * or under-scoped) fails closed and never falls through to the demo
+ * fallback.
+ */
+export function authorizeBearerWrite(
+  bearer: ReturnType<typeof validateOAuthBearer> | null,
+): RestWriteResult<AppAccount> {
+  if (!bearer) {
+    return {
+      ok: false,
+      statusCode: 401,
+      error: "No demo OAuth bearer identity was provided. Nothing was written.",
+    };
+  }
+  if (!bearer.ok) {
+    return { ok: false, statusCode: bearer.statusCode, error: `${bearer.error} Nothing was written.` };
+  }
+  const checked = authorizeOAuthBearerWrite(bearer);
+  if (!checked.ok) {
+    return {
+      ok: false,
+      statusCode: checked.statusCode,
+      error: `${checked.error} Nothing was written.`,
+      account: bearer.account,
+    };
+  }
+  return { ok: true, data: checked.account };
 }
 
 /**
