@@ -114,9 +114,9 @@ test("project statuses list every observed type/status with the demo envelope", 
   assert.equal(unknown.ok ? 0 : unknown.statusCode, 404);
 });
 
-test("issue read maps key/summary/status/priority/assignee plus demo envelope", () => {
+test("issue read maps key/summary/status/priority/assignee plus demo envelope", async () => {
   resetIssues();
-  const result = restIssue("ADEO-1");
+  const result = await restIssue("ADEO-1");
   assert.equal(result.ok, true);
   if (result.ok) {
     const stored = getIssue("ADEO-1");
@@ -137,15 +137,16 @@ test("issue read maps key/summary/status/priority/assignee plus demo envelope", 
   resetIssues();
 });
 
-test("unknown issue keys return a labelled 404 without writing", () => {
+test("unknown issue keys return a labelled 404 without writing", async () => {
   resetIssues();
   const beforeIssues = getIssues();
   const beforeComments = listComments("ADEO-1");
-  for (const read of [
+  const reads = await Promise.all([
     restIssue("ADEO-9999"),
     restComments("ADEO-9999"),
     restTransitions("ADEO-9999"),
-  ]) {
+  ]);
+  for (const read of reads) {
     assert.equal(read.ok, false);
     assert.equal(read.ok ? 0 : read.statusCode, 404);
     assert.match(read.ok ? "" : read.error, /Unknown issue key: ADEO-9999\./);
@@ -156,9 +157,9 @@ test("unknown issue keys return a labelled 404 without writing", () => {
   resetIssues();
 });
 
-test("search-lite returns the bounded list-lite slice with total", () => {
+test("search-lite returns the bounded list-lite slice with total", async () => {
   resetIssues();
-  const full = restSearch({});
+  const full = await restSearch({});
   assert.equal(full.ok, true);
   if (full.ok) {
     assert.equal(full.data.startAt, 0);
@@ -175,7 +176,7 @@ test("search-lite returns the bounded list-lite slice with total", () => {
     }
     assertEnvelope(full.data);
   }
-  const page = restSearch({ startAt: "1", maxResults: "2" });
+  const page = await restSearch({ startAt: "1", maxResults: "2" });
   assert.equal(page.ok, true);
   if (page.ok) {
     assert.equal(page.data.startAt, 1);
@@ -186,7 +187,7 @@ test("search-lite returns the bounded list-lite slice with total", () => {
       getIssues().slice(1, 3).map((issue) => issue.key),
     );
   }
-  const beyond = restSearch({ startAt: "999", maxResults: "10" });
+  const beyond = await restSearch({ startAt: "999", maxResults: "10" });
   assert.equal(beyond.ok, true);
   if (beyond.ok) {
     assert.equal(beyond.data.total, getIssues().length);
@@ -195,18 +196,18 @@ test("search-lite returns the bounded list-lite slice with total", () => {
   resetIssues();
 });
 
-test("any jql/JQL parameter is a labelled demoOnly 400, never silent", () => {
+test("any jql/JQL parameter is a labelled demoOnly 400, never silent", async () => {
   resetIssues();
   for (const query of [{ jql: "project=KAN" }, { JQL: "x" }, { Jql: "y" }]) {
-    const search = restSearch(query);
+    const search = await restSearch(query);
     assert.equal(search.ok, false);
     assert.equal(search.ok ? 0 : search.statusCode, 400);
     assert.match(search.ok ? "" : search.error, /no JQL engine/);
     assert.match(search.ok ? "" : search.error, /Nothing was written/);
-    const comments = restComments("ADEO-1", query);
+    const comments = await restComments("ADEO-1", query);
     assert.equal(comments.ok, false);
     assert.equal(comments.ok ? 0 : comments.statusCode, 400);
-    const transitions = restTransitions("ADEO-1", query);
+    const transitions = await restTransitions("ADEO-1", query);
     assert.equal(transitions.ok, false);
     assert.equal(transitions.ok ? 0 : transitions.statusCode, 400);
   }
@@ -216,7 +217,7 @@ test("any jql/JQL parameter is a labelled demoOnly 400, never silent", () => {
   resetIssues();
 });
 
-test("startAt/maxResults are bounded with labelled 400s", () => {
+test("startAt/maxResults are bounded with labelled 400s", async () => {
   assert.deepEqual(parseRestPagination({}), {
     ok: true,
     data: { startAt: 0, maxResults: 25 },
@@ -233,7 +234,7 @@ test("startAt/maxResults are bounded with labelled 400s", () => {
     const parsed = parseRestPagination(query);
     assert.equal(parsed.ok, false);
     assert.equal(parsed.ok ? 0 : parsed.statusCode, 400);
-    const searched = restSearch(query);
+    const searched = await restSearch(query);
     assert.equal(searched.ok, false);
     assert.equal(searched.ok ? 0 : searched.statusCode, 400);
     assert.match(searched.ok ? "" : searched.error, /Nothing was written/);
@@ -241,16 +242,16 @@ test("startAt/maxResults are bounded with labelled 400s", () => {
   const capped = parseRestPagination({ maxResults: "50" });
   assert.equal(capped.ok, true);
   if (capped.ok) assert.equal(capped.data.maxResults, 50);
-  const comments = restComments("ADEO-1", { maxResults: "51" });
+  const comments = await restComments("ADEO-1", { maxResults: "51" });
   assert.equal(comments.ok, false);
   assert.equal(comments.ok ? 0 : comments.statusCode, 400);
 });
 
-test("comment list maps demo comments with bounded pagination", () => {
+test("comment list maps demo comments with bounded pagination", async () => {
   resetIssues();
   assert.equal(addComment("ADEO-1", { body: "First" }).ok, true);
   assert.equal(addComment("ADEO-1", { body: "Second" }).ok, true);
-  const full = restComments("ADEO-1", {});
+  const full = await restComments("ADEO-1", {});
   assert.equal(full.ok, true);
   if (full.ok) {
     assert.equal(full.data.total, 2);
@@ -264,7 +265,7 @@ test("comment list maps demo comments with bounded pagination", () => {
     assert.equal(full.data.comments[0]?.demoOnly, true);
     assertEnvelope(full.data);
   }
-  const page = restComments("ADEO-1", { startAt: "1", maxResults: "1" });
+  const page = await restComments("ADEO-1", { startAt: "1", maxResults: "1" });
   assert.equal(page.ok, true);
   if (page.ok) {
     assert.equal(page.data.total, 2);
@@ -273,13 +274,13 @@ test("comment list maps demo comments with bounded pagination", () => {
       ["Second"],
     );
   }
-  const other = restComments("ADEO-2", {});
+  const other = await restComments("ADEO-2", {});
   assert.equal(other.ok, true);
   if (other.ok) assert.equal(other.data.total, 0);
   resetIssues();
 });
 
-test("transitions agree with DEMO_TRANSITIONS for every status", () => {
+test("transitions agree with DEMO_TRANSITIONS for every status", async () => {
   resetIssues();
   const matrix: Record<string, string[]> = {
     "To Do": ["In Progress"],
@@ -297,7 +298,7 @@ test("transitions agree with DEMO_TRANSITIONS for every status", () => {
       assert.equal(updateIssue(key, { status: "Done" }).ok, true);
     }
     assert.equal(getIssue(key)?.status, from);
-    const result = restTransitions(key, {});
+    const result = await restTransitions(key, {});
     assert.equal(result.ok, true);
     if (result.ok) {
       assert.equal(result.data.issueKey, key);
@@ -319,29 +320,29 @@ test("transitions agree with DEMO_TRANSITIONS for every status", () => {
   }
 });
 
-test("reads expose created/edited issues without writes and keep native semantics", () => {
+test("reads expose created/edited issues without writes and keep native semantics", async () => {
   resetIssues();
   const created = createIssue({ title: "Adapter visibility check" });
   assert.equal(created.ok, true);
   const key = created.ok ? created.issue.key : "";
   assert.equal(updateIssue(key, { status: "In Progress" }).ok, true);
   assert.equal(addComment(key, { body: "Visible via adapter" }).ok, true);
-  const issue = restIssue(key);
+  const issue = await restIssue(key);
   assert.equal(issue.ok, true);
   if (issue.ok) {
     assert.equal(issue.data.fields.summary, "Adapter visibility check");
     assert.equal(issue.data.fields.status.name, "In Progress");
   }
-  const search = restSearch({});
+  const search = await restSearch({});
   assert.equal(search.ok, true);
   if (search.ok) {
     assert.ok(search.data.issues.some((entry) => entry.key === key));
     assert.equal(search.data.total, getIssues().length);
   }
-  const comments = restComments(key, {});
+  const comments = await restComments(key, {});
   assert.equal(comments.ok, true);
   if (comments.ok) assert.equal(comments.data.total, 1);
-  const transitions = restTransitions(key, {});
+  const transitions = await restTransitions(key, {});
   assert.equal(transitions.ok, true);
   if (transitions.ok) {
     assert.deepEqual(
@@ -360,21 +361,21 @@ test("reads expose created/edited issues without writes and keep native semantic
   resetIssues();
 });
 
-test("adapter reads never mutate: no-write behavior across every shape", () => {
+test("adapter reads never mutate: no-write behavior across every shape", async () => {
   resetIssues();
   const beforeIssues = getIssues();
   const beforeComments = listComments("ADEO-1");
   assert.equal(restMyself("demo-viewer").ok, true);
   assert.equal(restProject("KAN").ok, true);
   assert.equal(restProjectStatuses("KAN").ok, true);
-  assert.equal(restIssue("ADEO-1").ok, true);
-  assert.equal(restSearch({ startAt: "0", maxResults: "2" }).ok, true);
-  assert.equal(restComments("ADEO-1", {}).ok, true);
-  assert.equal(restTransitions("ADEO-1", {}).ok, true);
+  assert.equal((await restIssue("ADEO-1")).ok, true);
+  assert.equal((await restSearch({ startAt: "0", maxResults: "2" })).ok, true);
+  assert.equal((await restComments("ADEO-1", {})).ok, true);
+  assert.equal((await restTransitions("ADEO-1", {})).ok, true);
   // Even failing adapter reads (404/400) change nothing.
-  assert.equal(restIssue("ADEO-9999").ok, false);
-  assert.equal(restSearch({ jql: "x" }).ok, false);
-  assert.equal(restSearch({ maxResults: "99" }).ok, false);
+  assert.equal((await restIssue("ADEO-9999")).ok, false);
+  assert.equal((await restSearch({ jql: "x" })).ok, false);
+  assert.equal((await restSearch({ maxResults: "99" })).ok, false);
   assert.deepEqual(getIssues(), beforeIssues);
   assert.deepEqual(listComments("ADEO-1"), beforeComments);
   assert.equal(getIssue("ADEO-9999"), undefined);

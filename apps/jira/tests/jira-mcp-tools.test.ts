@@ -197,32 +197,36 @@ test("mcp read tools map the REST contracts 1:1 and write nothing", async () => 
   );
 
   const getIssue = tools.get("getIssue")!;
+  const directIssue = await restIssue("ADEO-1");
   assert.deepEqual(
     await callTool(getIssue, { issueKey: "ADEO-1" }),
-    (restIssue("ADEO-1") as { ok: true; data: unknown }).data,
+    directIssue.ok ? directIssue.data : undefined,
   );
 
   const listIssues = tools.get("listIssues")!;
+  const directSearch = await restSearch({});
   assert.deepEqual(
     await callTool(listIssues, {}),
-    (restSearch({}) as { ok: true; data: unknown }).data,
+    directSearch.ok ? directSearch.data : undefined,
   );
+  const directPage = await restSearch({ startAt: "1", maxResults: "2" });
   assert.deepEqual(
     await callTool(listIssues, { startAt: 1, maxResults: 2 }),
-    (restSearch({ startAt: "1", maxResults: "2" }) as { ok: true; data: unknown })
-      .data,
+    directPage.ok ? directPage.data : undefined,
   );
 
   const listComments = tools.get("listComments")!;
+  const directComments = await restComments("ADEO-2", {});
   assert.deepEqual(
     await callTool(listComments, { issueKey: "ADEO-2" }),
-    (restComments("ADEO-2", {}) as { ok: true; data: unknown }).data,
+    directComments.ok ? directComments.data : undefined,
   );
 
   const getAllowedTransitions = tools.get("getAllowedTransitions")!;
+  const directTransitions = await restTransitions("ADEO-1", {});
   assert.deepEqual(
     await callTool(getAllowedTransitions, { issueKey: "ADEO-1" }),
-    (restTransitions("ADEO-1", {}) as { ok: true; data: unknown }).data,
+    directTransitions.ok ? directTransitions.data : undefined,
   );
 
   // Driving every read tool wrote nothing.
@@ -309,7 +313,7 @@ test("mcp write tools wrap the REST write contracts 1:1", async () => {
   // Exact contract parity: the tool result equals the helper result for the
   // same arguments (modulo the deterministic next key).
   resetIssues();
-  const direct = restCreateIssue(identity, {
+  const direct = await restCreateIssue(identity, {
     fields: { summary: "Parity check" },
   });
   assert.equal(direct.ok, true);
@@ -321,7 +325,7 @@ test("mcp write tools wrap the REST write contracts 1:1", async () => {
 
   const updateIssueTool = tools.get("updateIssue")!;
   resetIssues();
-  const directUpdate = restUpdateIssue(identity, "ADEO-1", {
+  const directUpdate = await restUpdateIssue(identity, "ADEO-1", {
     fields: { summary: "Parity rename" },
   });
   assert.equal(directUpdate.ok, true);
@@ -334,7 +338,7 @@ test("mcp write tools wrap the REST write contracts 1:1", async () => {
 
   const addCommentTool = tools.get("addComment")!;
   resetIssues();
-  const directComment = restAddComment(identity, "ADEO-1", { body: "Parity note" });
+  const directComment = await restAddComment(identity, "ADEO-1", { body: "Parity note" });
   assert.equal(directComment.ok, true);
   const directId = directComment.ok ? directComment.data.comment.id : "";
   resetIssues();
@@ -347,7 +351,7 @@ test("mcp write tools wrap the REST write contracts 1:1", async () => {
 
   const transitionTool = tools.get("transitionIssue")!;
   resetIssues();
-  const directMove = restTransitionIssue(identity, "ADEO-1", {
+  const directMove = await restTransitionIssue(identity, "ADEO-1", {
     transition: "demo-in-progress",
   });
   assert.equal(directMove.ok, true);

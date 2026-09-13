@@ -47,7 +47,7 @@ function liveSearchFetch(calls: string[]) {
   return async (url: string): Promise<RestSearchShape> => {
     calls.push(url);
     const parsed = new URL(url, "http://demo.test");
-    const result = restSearch(
+    const result = await restSearch(
       Object.fromEntries(parsed.searchParams.entries()),
     );
     assert.equal(result.ok, true);
@@ -60,7 +60,7 @@ function liveIssueFetch(calls: string[]) {
   return async (url: string): Promise<IssueDetailResponse> => {
     calls.push(url);
     const key = decodeURIComponent(url.split("/").pop() ?? "");
-    const result = restIssue(key);
+    const result = await restIssue(key);
     if (!result.ok) {
       const error = new Error(result.error) as Error & {
         data: { message: string };
@@ -78,7 +78,7 @@ function liveCommentsFetch(calls: string[]) {
     calls.push(url);
     const match = /\/issue\/([^/]+)\/comment/.exec(url);
     const key = decodeURIComponent(match?.[1] ?? "");
-    const result = restComments(key, {});
+    const result = await restComments(key, {});
     if (!result.ok) {
       throw new Error(result.error);
     }
@@ -109,7 +109,7 @@ test("board-search URL is bounded and maps the canonical search envelope", async
     description: bean.fields.description,
   });
   assert.deepEqual(restSearchToBoardIssues({}), []);
-  const adapted = restSearch({});
+  const adapted = await restSearch({});
   assert.equal(adapted.ok, true);
   if (adapted.ok) {
     assert.deepEqual(
@@ -194,8 +194,9 @@ test("comments read the canonical comment route and map author/created", async (
     `/api/rest/api/3/issue/ADEO-1/comment?startAt=${REST_BOARD_START_AT}&maxResults=${REST_BOARD_PAGE_SIZE}`,
   );
   assert.equal(addComment("ADEO-1", { body: "Canonical comment" }).ok, true);
-  const single: RestComment = restComments("ADEO-1", {}).ok
-    ? (restComments("ADEO-1", {}) as { ok: true; data: { comments: RestComment[] } }).data.comments[0]!
+  const commentResult = await restComments("ADEO-1", {});
+  const single: RestComment = commentResult.ok
+    ? commentResult.data.comments[0]!
     : ({} as RestComment);
   const mapped = restCommentToDemoComment(single);
   assert.equal(mapped.body, "Canonical comment");

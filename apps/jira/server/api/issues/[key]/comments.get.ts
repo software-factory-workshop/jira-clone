@@ -1,14 +1,17 @@
 import { DEMO_ROLE_MATRIX_LABEL } from "../../../utils/demoAccounts";
-import { listComments } from "../../../utils/issues";
+import {
+  getIssuePersistenceInfo,
+  listPersistentComments,
+} from "../../../utils/issuePersistence";
 
-export default defineEventHandler((event) => {
+export default defineEventHandler(async (event) => {
   const key = getRouterParam(event, "key") ?? "";
-  const comments = listComments(key);
+  const comments = await listPersistentComments(key);
   if (!comments) {
     throw createError({
       statusCode: 404,
       message: `Unknown issue key: ${key}.`,
     });
   }
-  return { comments, demoOnly: true };
+  return { comments, demoOnly: true, persistence: getIssuePersistenceInfo() };
 });

@@ -4,16 +4,17 @@ Derived from `factory/tasks/jira-teaching-loop.md`. Delivery mechanics follow
 `docs/delivery-loop.md` (factory API, CLI reconnect, same-owner revision handoff).
 
 > Current status, 13 September 2026: reset, priority editing, assignee
-> filtering, save/reload, deterministic failed saves and per-issue draft
-> retention are implemented in the demo-only Jira store and covered by local
-> tests. The checks below record the onsite and browser evidence still to
-> collect. They do not claim that the hosted aliases or external identity
-> configuration have been verified.
+> filtering, save/reload, deterministic failed saves, per-issue draft
+> retention and Neon-backed issue/comment persistence are implemented in the
+> demo-only Jira app and covered by local tests. The checks below record the
+> onsite and browser evidence still to collect. They do not claim that a
+> hosted Neon URL, hosted aliases or external identity configuration has been
+> verified.
 
 ## 1. Reset
 
 - Implemented locally: reset restores labelled fixtures and clears demo-created
-  and overridden issue state.
+  and overridden issue/comment state in either persistence mode.
 - [ ] Rehearsal: demonstrate reset and record the declared persistence boundary.
 - [ ] Rehearsal: confirm reset does not destroy unrelated browser-local drafts.
 
@@ -32,8 +33,8 @@ Derived from `factory/tasks/jira-teaching-loop.md`. Delivery mechanics follow
 
 ## 4. Save and reload
 
-- Implemented locally: the asynchronous demo-only save path persists edits on
-  the same running server.
+- Implemented locally: the asynchronous demo-only save path uses Neon when
+  `DATABASE_URL` is set and the labelled in-memory fallback otherwise.
 - [ ] Rehearsal: reload the page and show the displayed state matches the
   canonical saved state.
 
@@ -75,9 +76,11 @@ Derived from `factory/tasks/jira-teaching-loop.md`. Delivery mechanics follow
 
 > Board status-move note (worker draft, 12 Sep 2026): Kanban cards now move
 > through a keyboard-first `Move to …` control with HTML5 drag-and-drop as a
-> pointer enhancement. Moves save through `PATCH /api/issues/:key`, a labelled
-> demo-only in-memory path that survives reload on the same server, resets on
-> redeploy, and keeps the card in its original column on deterministic failure.
+> pointer enhancement. Moves save through `PATCH /api/issues/:key`, the
+> configured demo persistence path. Neon retains them across reloads, cold
+> starts and redeploys; the memory fallback retains them on the same server
+> and resets on redeploy. Both paths keep the card in its original column on
+> deterministic failure.
 > Pointer-drag approval still needs trusted human browser evidence.
 >
 > Demo-only transition guard (worker draft, 13 Sep 2026): status moves on the
@@ -90,4 +93,5 @@ Derived from `factory/tasks/jira-teaching-loop.md`. Delivery mechanics follow
 > bounded REST and MCP contracts, Passport-derived identity and a fake OAuth
 > provider. Those contracts are demo-only. Full Jira compatibility, production
 > Connect or OAuth registration, SAML, SCIM, durable accounts and complete Jira
-> permissions remain out of scope.
+> permissions remain out of scope. OAuth clients, grants and tokens remain in
+> their separate in-memory provider.

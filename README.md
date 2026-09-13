@@ -12,7 +12,7 @@ Grow a software factory with Eve, using an ADEO-branded Jira demo as its test su
 
 The cockpit starts and resumes durable Eve investigations. It also has browser-local request drafts, starter prompts, project knowledge and the factory growth path. “Review in GitHub” opens a prefilled issue; the user decides whether to submit it. Draft storage is local to a browser, not shared team state. GitHub repository context uses Vercel Connect when installed.
 
-The Jira demo has searchable synthetic issues, status and assignee filtering, list/board views, issue details, bounded creation, edits, comments, transitions and reset. Its demo-only in-memory store supports deterministic failed-save checks and same-server reloads. Passport-derived accounts, a labelled fallback role matrix, bounded Jira-shaped REST routes, eleven MCP tools and a fake OAuth provider are implemented locally. See [the current-state contract](docs/jira-current-state.md) for exact boundaries. This is not full Jira parity and does not provide durable persistence, production Connect or OAuth registration, SAML, SCIM or complete Jira permissions.
+The Jira demo has searchable synthetic issues, status and assignee filtering, list/board views, issue details, bounded creation, edits, comments, transitions and reset. Its issue and comment persistence uses Neon Postgres when `DATABASE_URL` is configured, with an explicit in-memory fallback for tests and workshops. Passport-derived accounts, a labelled fallback role matrix, bounded Jira-shaped REST routes, eleven MCP tools and a fake OAuth provider are implemented locally. See [the current-state contract](docs/jira-current-state.md) for exact boundaries. This is not full Jira parity and does not provide production Connect or OAuth registration, SAML, SCIM or complete Jira permissions.
 
 ## Run locally
 
@@ -31,12 +31,23 @@ pnpm test
 pnpm build
 ```
 
+### Jira persistence
+
+Set `DATABASE_URL` in the Jira app to use Neon Postgres. The first issue or
+comment read creates the two small demo tables and seeds the four labelled
+issues. `JIRA_PERSISTENCE=neon` requires `DATABASE_URL`; the default selects
+Neon when the URL exists and otherwise uses the labelled in-memory fallback.
+`JIRA_PERSISTENCE=memory` forces that fallback. The Jira test script sets the
+memory mode so local tests never write to a developer database. See
+[`apps/jira/.env.example`](apps/jira/.env.example) and the checked-in schema
+at [`apps/jira/server/db/neon-schema.sql`](apps/jira/server/db/neon-schema.sql).
+
 ## Repository map
 
 | Location | Purpose |
 | --- | --- |
 | `apps/factory` | Nuxt cockpit and its Eve agent |
-| `apps/jira` | Nuxt Jira demo shell |
+| `apps/jira` | Nuxt Jira demo application |
 | `packages/project-context` | Shared stage definitions, references and labelled fixtures |
 | `factory` | Goal, project context, reflections and mining experiments |
 | `packages/fx-sandbox-experiment` | Developer fx experiment for context calibration in Vercel Sandbox |

@@ -2,11 +2,12 @@ import { appActorLabel, authorizeAppWrite } from "../../../../utils/appAccounts"
 import { DEMO_ROLE_MATRIX_LABEL } from "../../../../utils/demoAccounts";
 import { PASSPORT_TOKEN_HEADER } from "../../../../utils/passportIdentity";
 import { REST_BOUNDARY, restCreateIssue, restBearerIdentity, authorizeBearerWrite } from "../../../../utils/jiraRest";
+import { getIssuePersistenceInfo } from "../../../../utils/issuePersistence";
 
 /**
  * Demo-only Jira-style POST /api/rest/api/3/issue.
  *
- * Bounded creation over the same in-memory demo store as POST /api/issues:
+ * Bounded creation over the same configured persistence boundary as POST /api/issues:
  * `fields.summary` is required, `priority`, `assignee`, `description`,
  * `issuetype` and the fixture-defaulted `status` are optional, anything else
  * is rejected with a labelled demoOnly 400 that writes nothing. Authority
@@ -38,6 +39,7 @@ export default defineEventHandler(async (event) => {
         demoOnly: true,
         roleMatrix: DEMO_ROLE_MATRIX_LABEL,
         boundary: REST_BOUNDARY,
+        persistence: getIssuePersistenceInfo(),
         ...("account" in gate && gate.account
           ? { actor: appActorLabel(gate.account) }
           : {}),
@@ -48,7 +50,7 @@ export default defineEventHandler(async (event) => {
     fields?: unknown;
     fail?: unknown;
   }>(event);
-  const result = restCreateIssue(
+  const result = await restCreateIssue(
     identity,
     {
       fields: body?.fields,
@@ -64,6 +66,7 @@ export default defineEventHandler(async (event) => {
         demoOnly: true,
         roleMatrix: DEMO_ROLE_MATRIX_LABEL,
         boundary: REST_BOUNDARY,
+        persistence: getIssuePersistenceInfo(),
         actor: appActorLabel("data" in gate ? gate.data : gate.account),
       },
     });
@@ -73,5 +76,6 @@ export default defineEventHandler(async (event) => {
     demoOnly: true,
     roleMatrix: DEMO_ROLE_MATRIX_LABEL,
     boundary: REST_BOUNDARY,
+    persistence: getIssuePersistenceInfo(),
   };
 });

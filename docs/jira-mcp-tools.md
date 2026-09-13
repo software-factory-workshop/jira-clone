@@ -37,8 +37,13 @@ written on denial), but they run without Passport auth and never claim it:
 `identitySource` in write results always reports `demoFallback`.
 
 This is not full Jira parity, not a JQL engine, not production
-OAuth/Connect/SAML/SCIM, and persistence remains the existing in-memory demo
-store.
+OAuth/Connect/SAML/SCIM, and it does not replace production authorization.
+
+Issue and comment reads and writes use the shared persistence boundary. The
+default is Neon Postgres when `DATABASE_URL` is set. `JIRA_PERSISTENCE=memory`
+selects the labelled in-memory fallback, and the test script sets that mode so
+tests do not write to a developer database. OAuth clients, grants and tokens
+remain in their separate in-memory demo provider.
 
 Protocol coverage lives in `apps/jira/tests/jira-mcp-tools.test.ts`: the
 eleven-file surface (reads `readOnlyHint: true`, writes `readOnlyHint:

@@ -7,9 +7,9 @@ import { REST_BOUNDARY, restComments } from "../../../../../../utils/jiraRest";
  * maxResults hard-bound 50). Unknown keys stay 404; jql/JQL is a labelled
  * 400. Never writes.
  */
-export default defineEventHandler((event) => {
+export default defineEventHandler(async (event) => {
   const key = getRouterParam(event, "key") ?? "";
-  const result = restComments(key, getQuery(event) as Record<string, unknown>);
+  const result = await restComments(key, getQuery(event) as Record<string, unknown>);
   if (!result.ok) {
     throw createError({
       statusCode: result.statusCode,

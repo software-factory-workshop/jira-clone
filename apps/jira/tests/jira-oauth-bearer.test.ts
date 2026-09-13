@@ -105,57 +105,56 @@ function memberIdentity() {
   return { demoUser: "demo-member", nodeEnv: "test" as const };
 }
 
-test("oauth bearer: member write-scope tokens perform the bounded REST writes", () => {
+test("oauth bearer: member write-scope tokens perform the bounded REST writes", async () => {
   resetOAuthState();
   resetIssues();
-  return bearerToken({ role: "member", scope: "read write" }).then((tokens) => {
-    assert.equal(tokens.scope, "read write");
-    const bearer = bearerFor(tokens.accessToken);
-    assert.ok(bearer?.ok);
-    const gate = authorizeBearerWrite(bearer);
-    assert.equal(gate.ok, true);
+  const tokens = await bearerToken({ role: "member", scope: "read write" });
+  assert.equal(tokens.scope, "read write");
+  const bearer = bearerFor(tokens.accessToken);
+  assert.ok(bearer?.ok);
+  const gate = authorizeBearerWrite(bearer);
+  assert.equal(gate.ok, true);
 
-    const created = restCreateIssue(
-      memberIdentity(),
-      { fields: { summary: "OAuth bearer issue", priority: { name: "High" } } },
-      { bearer },
-    );
-    assert.equal(created.ok, true);
-    assert.ok(created.ok);
-    const key = created.data.issue.key;
+  const created = await restCreateIssue(
+    memberIdentity(),
+    { fields: { summary: "OAuth bearer issue", priority: { name: "High" } } },
+    { bearer },
+  );
+  assert.equal(created.ok, true);
+  assert.ok(created.ok);
+  const key = created.data.issue.key;
 
-    const updated = restUpdateIssue(
-      memberIdentity(),
-      key,
-      { fields: { priority: { name: "Low" } } },
-      { bearer },
-    );
-    assert.equal(updated.ok, true);
+  const updated = await restUpdateIssue(
+    memberIdentity(),
+    key,
+    { fields: { priority: { name: "Low" } } },
+    { bearer },
+  );
+  assert.equal(updated.ok, true);
 
-    const commented = restAddComment(
-      memberIdentity(),
-      key,
-      { body: "bearer comment" },
-      { bearer },
-    );
-    assert.equal(commented.ok, true);
+  const commented = await restAddComment(
+    memberIdentity(),
+    key,
+    { body: "bearer comment" },
+    { bearer },
+  );
+  assert.equal(commented.ok, true);
 
-    const from = getIssue(key)?.status ?? "To Do";
-    const transitions = restTransitionIssue(
-      memberIdentity(),
-      key,
-      { transition: undefined, fail: false },
-      { bearer },
-    );
-    // Resolving without a transition id fails closed and writes nothing.
-    assert.equal(transitions.ok, false);
-    assert.equal(getIssue(key)?.status, from);
+  const from = getIssue(key)?.status ?? "To Do";
+  const transitions = await restTransitionIssue(
+    memberIdentity(),
+    key,
+    { transition: undefined, fail: false },
+    { bearer },
+  );
+  // Resolving without a transition id fails closed and writes nothing.
+  assert.equal(transitions.ok, false);
+  assert.equal(getIssue(key)?.status, from);
 
-    // The write happened under the bearer account, not the demo fallback.
-    assert.equal(created.data.actor.id, "passport:bearer-member");
-    assert.equal(created.data.identitySource, "passport");
-    resetIssues();
-  });
+  // The write happened under the bearer account, not the demo fallback.
+  assert.equal(created.data.actor.id, "passport:bearer-member");
+  assert.equal(created.data.identitySource, "passport");
+  resetIssues();
 });
 
 test("oauth bearer: viewer tokens read but cannot write, and member read-only tokens cannot write", async () => {
@@ -168,7 +167,7 @@ test("oauth bearer: viewer tokens read but cannot write, and member read-only to
   assert.equal(viewerGate.ok, false);
   assert.equal(viewerGate.ok ? 0 : viewerGate.statusCode, 403);
 
-  const viewerWrite = restCreateIssue(
+  const viewerWrite = await restCreateIssue(
     memberIdentity(),
     { fields: { summary: "viewer must not write" } },
     { bearer: viewerBearer },
@@ -178,7 +177,7 @@ test("oauth bearer: viewer tokens read but cannot write, and member read-only to
 
   const readOnlyMember = await bearerToken({ role: "member", scope: "read" });
   const readOnlyBearer = bearerFor(readOnlyMember.accessToken);
-  const readOnlyWrite = restCreateIssue(
+  const readOnlyWrite = await restCreateIssue(
     memberIdentity(),
     { fields: { summary: "read scope must not write" } },
     { bearer: readOnlyBearer },
@@ -194,7 +193,7 @@ test("oauth bearer: invalid, revoked and deactivated tokens fail closed without 
   // No Authorization header: existing demo behavior is untouched.
   assert.equal(restBearerIdentity(null), null);
   assert.equal(restBearerIdentity(""), null);
-  const untouched = restCreateIssue(memberIdentity(), {
+  const untouched = await restCreateIssue(memberIdentity(), {
     fields: { summary: "demo fallback still works without bearer" },
   });
   assert.equal(untouched.ok, true);
@@ -204,7 +203,7 @@ test("oauth bearer: invalid, revoked and deactivated tokens fail closed without 
   // Unknown bearer: validation fails and the write gate fails closed.
   const unknown = bearerFor("demo_at_unknown");
   assert.ok(unknown && !unknown.ok);
-  const unknownWrite = restCreateIssue(
+  const unknownWrite = await restCreateIssue(
     memberIdentity(),
     { fields: { summary: "unknown bearer must not fall back" } },
     { bearer: unknown },
@@ -215,7 +214,7 @@ test("oauth bearer: invalid, revoked and deactivated tokens fail closed without 
   // Malformed header never falls through either.
   const malformed = restBearerIdentity("Basic abc", { envIssuer: ISSUER });
   assert.ok(malformed && !malformed.ok);
-  const malformedWrite = restCreateIssue(
+  const malformedWrite = await restCreateIssue(
     memberIdentity(),
     { fields: { summary: "malformed bearer must not fall back" } },
     { bearer: malformed },
@@ -227,7 +226,7 @@ test("oauth bearer: invalid, revoked and deactivated tokens fail closed without 
   oauthRevokeToken({ token: tokens.accessToken });
   const revoked = bearerFor(tokens.accessToken);
   assert.ok(revoked && !revoked.ok);
-  const revokedWrite = restCreateIssue(
+  const revokedWrite = await restCreateIssue(
     memberIdentity(),
     { fields: { summary: "revoked bearer must not write" } },
     { bearer: revoked },
@@ -239,7 +238,7 @@ test("oauth bearer: invalid, revoked and deactivated tokens fail closed without 
   deactivateOAuthAccount("passport:bearer-member");
   const dead = bearerFor(live.accessToken);
   assert.ok(dead && !dead.ok);
-  const deadWrite = restCreateIssue(
+  const deadWrite = await restCreateIssue(
     memberIdentity(),
     { fields: { summary: "deactivated bearer must not write" } },
     { bearer: dead },

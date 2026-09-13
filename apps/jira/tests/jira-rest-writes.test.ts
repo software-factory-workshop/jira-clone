@@ -67,14 +67,14 @@ function assertWriteEnvelope(value: unknown) {
   assert.match(REST_BOUNDARY, /issue\/:key\/comment/);
   assert.match(REST_BOUNDARY, /issue\/:key\/transitions/);
   assert.match(REST_BOUNDARY, /not full Jira parity/);
-  assert.match(REST_BOUNDARY, /in-memory demo store/);
+  assert.match(REST_BOUNDARY, /configured Jira demo persistence layer/);
   assert.match(DEMO_ROLE_MATRIX_LABEL, /Demo-only role matrix/);
 }
 
-test("rest create maps Jira fields to the demo model with actor metadata", () => {
+test("rest create maps Jira fields to the demo model with actor metadata", async () => {
   resetIssues();
   assertWriteEnvelope({});
-  const result = restCreateIssue(memberFallback(), {
+  const result = await restCreateIssue(memberFallback(), {
     fields: {
       summary: "  REST-created follow-up  ",
       priority: { name: "Highest" },
@@ -103,7 +103,7 @@ test("rest create maps Jira fields to the demo model with actor metadata", () =>
     assert.ok(stored);
     assert.equal(stored?.title, "REST-created follow-up");
     // The read-back agrees with the created bean.
-    assert.deepEqual(restIssue("ADEO-5"), {
+    assert.deepEqual(await restIssue("ADEO-5"), {
       ok: true,
       data: toRestIssue(stored!),
     });
@@ -111,9 +111,9 @@ test("rest create maps Jira fields to the demo model with actor metadata", () =>
   resetIssues();
 });
 
-test("rest create accepts assignee/description string shapes and status objects", () => {
+test("rest create accepts assignee/description string shapes and status objects", async () => {
   resetIssues();
-  const created = restCreateIssue(memberFallback(), {
+  const created = await restCreateIssue(memberFallback(), {
     fields: {
       summary: "Shapes",
       assignee: "Demo member",
@@ -125,7 +125,7 @@ test("rest create accepts assignee/description string shapes and status objects"
   if (created.ok) {
     assert.equal(created.data.issue.fields.status.name, "To Do");
   }
-  const doc = restCreateIssue(memberFallback(), {
+  const doc = await restCreateIssue(memberFallback(), {
     fields: {
       summary: "Doc description",
       description: { content: [{ text: "hello " }, { text: "world" }] },
@@ -138,7 +138,7 @@ test("rest create accepts assignee/description string shapes and status objects"
   resetIssues();
 });
 
-test("rest create rejects unsupported fields, bad values and unknown projects", () => {
+test("rest create rejects unsupported fields, bad values and unknown projects", async () => {
   resetIssues();
   const before = getIssues();
   for (const body of [
@@ -158,7 +158,7 @@ test("rest create rejects unsupported fields, bad values and unknown projects", 
     { fields: { summary: "x", issuetype: { name: "  " } } },
     { fields: { summary: "x", project: { key: "NOPE" } } },
   ]) {
-    const rejected = restCreateIssue(
+    const rejected = await restCreateIssue(
       memberFallback(),
       body as { fields?: unknown },
     );
@@ -170,14 +170,14 @@ test("rest create rejects unsupported fields, bad values and unknown projects", 
     );
     assert.match(rejected.ok ? "" : rejected.error, /Nothing was written/);
   }
-  const unknownField = restCreateIssue(memberFallback(), {
+  const unknownField = await restCreateIssue(memberFallback(), {
     fields: { summary: "x", storyPoints: 3 },
   });
   assert.equal(unknownField.ok, false);
   assert.equal(unknownField.ok ? 0 : unknownField.statusCode, 400);
   assert.match(unknownField.ok ? "" : unknownField.error, /Unsupported demoOnly field/);
   assert.match(unknownField.ok ? "" : unknownField.error, /storyPoints/);
-  const unknownProject = restCreateIssue(memberFallback(), {
+  const unknownProject = await restCreateIssue(memberFallback(), {
     fields: { summary: "x", project: { key: "NOPE" } },
   });
   assert.equal(unknownProject.ok, false);
@@ -188,10 +188,10 @@ test("rest create rejects unsupported fields, bad values and unknown projects", 
   resetIssues();
 });
 
-test("rest create preserves the deterministic fail path without writing", () => {
+test("rest create preserves the deterministic fail path without writing", async () => {
   resetIssues();
   const before = getIssues();
-  const failed = restCreateIssue(memberFallback(), {
+  const failed = await restCreateIssue(memberFallback(), {
     fields: { summary: "Never saved" },
     fail: true,
   });
@@ -203,9 +203,9 @@ test("rest create preserves the deterministic fail path without writing", () => 
   resetIssues();
 });
 
-test("rest update maps summary/priority/assignee/description with actor metadata", () => {
+test("rest update maps summary/priority/assignee/description with actor metadata", async () => {
   resetIssues();
-  const result = restUpdateIssue(memberFallback(), "ADEO-1", {
+  const result = await restUpdateIssue(memberFallback(), "ADEO-1", {
     fields: {
       summary: "Renamed via REST",
       priority: "Lowest",
@@ -238,10 +238,10 @@ test("rest update maps summary/priority/assignee/description with actor metadata
   assert.equal(getIssue("ADEO-1")?.title, "Welcome to the ADEO Jira workspace");
 });
 
-test("rest update rejects status fields, unknown fields, keys and values", () => {
+test("rest update rejects status fields, unknown fields, keys and values", async () => {
   resetIssues();
   const before = getIssue("ADEO-1");
-  const statusHint = restUpdateIssue(memberFallback(), "ADEO-1", {
+  const statusHint = await restUpdateIssue(memberFallback(), "ADEO-1", {
     fields: { status: { name: "In Progress" } },
   });
   assert.equal(statusHint.ok, false);
@@ -257,22 +257,22 @@ test("rest update rejects status fields, unknown fields, keys and values", () =>
     { fields: { assignee: "" } },
     { fields: { description: 42 } },
   ]) {
-    const rejected = restUpdateIssue(memberFallback(), "ADEO-1", body);
+    const rejected = await restUpdateIssue(memberFallback(), "ADEO-1", body);
     assert.equal(rejected.ok, false, JSON.stringify(body));
     assert.match(rejected.ok ? "" : rejected.error, /Nothing was written/);
   }
-  const unknown = restUpdateIssue(memberFallback(), "ADEO-9999", {
+  const unknown = await restUpdateIssue(memberFallback(), "ADEO-9999", {
     fields: { summary: "Never" },
   });
   assert.equal(unknown.ok, false);
   assert.equal(unknown.ok ? 0 : unknown.statusCode, 404);
   assert.match(unknown.ok ? "" : unknown.error, /Unknown issue key/);
-  const unsupported = restUpdateIssue(memberFallback(), "ADEO-1", {
+  const unsupported = await restUpdateIssue(memberFallback(), "ADEO-1", {
     fields: { summary: "x", duedate: "2026-01-01" },
   });
   assert.equal(unsupported.ok, false);
   assert.match(unsupported.ok ? "" : unsupported.error, /Unsupported demoOnly field/);
-  const failed = restUpdateIssue(memberFallback(), "ADEO-1", {
+  const failed = await restUpdateIssue(memberFallback(), "ADEO-1", {
     fields: { summary: "Never saved" },
     fail: true,
   });
@@ -282,11 +282,11 @@ test("rest update rejects status fields, unknown fields, keys and values", () =>
   resetIssues();
 });
 
-test("rest update agrees with the native store and transition guard", () => {
+test("rest update agrees with the native store and transition guard", async () => {
   resetIssues();
   // Native edits stay visible through the REST read-back.
   assert.equal(updateIssue("ADEO-1", { priority: "High" }).ok, true);
-  const read = restIssue("ADEO-1");
+  const read = await restIssue("ADEO-1");
   assert.equal(read.ok, true);
   if (read.ok) assert.equal(read.data.fields.priority.name, "High");
   // The shared matrix still guards status-only native moves (409).
@@ -294,7 +294,7 @@ test("rest update agrees with the native store and transition guard", () => {
   assert.equal(illegal.ok, false);
   assert.equal(illegal.ok ? 0 : illegal.statusCode, 409);
   // REST field edits then persist on the same boundary.
-  const edited = restUpdateIssue(memberFallback(), "ADEO-1", {
+  const edited = await restUpdateIssue(memberFallback(), "ADEO-1", {
     fields: { summary: "Shared boundary" },
   });
   assert.equal(edited.ok, true);
@@ -302,9 +302,9 @@ test("rest update agrees with the native store and transition guard", () => {
   resetIssues();
 });
 
-test("rest comment creates Jira-shaped comments with actor metadata", () => {
+test("rest comment creates Jira-shaped comments with actor metadata", async () => {
   resetIssues();
-  const result = restAddComment(memberFallback(), "ADEO-1", {
+  const result = await restAddComment(memberFallback(), "ADEO-1", {
     body: "  REST comment  ",
   });
   assert.equal(result.ok, true);
@@ -327,29 +327,29 @@ test("rest comment creates Jira-shaped comments with actor metadata", () => {
     ["REST comment"],
   );
   // A doc-shaped body is best-effort text, matching creation.
-  const doc = restAddComment(memberFallback(), "ADEO-1", {
+  const doc = await restAddComment(memberFallback(), "ADEO-1", {
     body: { content: [{ text: "doc " }, { text: "body" }] },
   } as unknown as { body?: unknown });
   assert.equal(doc.ok, true);
   resetIssues();
 });
 
-test("rest comment rejects unknown keys, blank bodies and fail paths", () => {
+test("rest comment rejects unknown keys, blank bodies and fail paths", async () => {
   resetIssues();
   const before = listComments("ADEO-1");
-  const unknown = restAddComment(memberFallback(), "ADEO-9999", { body: "x" });
+  const unknown = await restAddComment(memberFallback(), "ADEO-9999", { body: "x" });
   assert.equal(unknown.ok, false);
   assert.equal(unknown.ok ? 0 : unknown.statusCode, 404);
   assert.match(unknown.ok ? "" : unknown.error, /Unknown issue key/);
   for (const body of ["", "   ", undefined, 42]) {
-    const rejected = restAddComment(memberFallback(), "ADEO-1", { body } as {
+    const rejected = await restAddComment(memberFallback(), "ADEO-1", { body } as {
       body?: unknown;
     });
     assert.equal(rejected.ok, false, JSON.stringify(body));
     assert.equal(rejected.ok ? 0 : rejected.statusCode, 400);
     assert.match(rejected.ok ? "" : rejected.error, /Nothing was written/);
   }
-  const failed = restAddComment(memberFallback(), "ADEO-1", {
+  const failed = await restAddComment(memberFallback(), "ADEO-1", {
     body: "Never saved",
     fail: true,
   });
@@ -363,13 +363,13 @@ test("rest comment rejects unknown keys, blank bodies and fail paths", () => {
   resetIssues();
 });
 
-test("rest transitions perform allowed moves and reject the rest", () => {
+test("rest transitions perform allowed moves and reject the rest", async () => {
   resetIssues();
-  const listed = restTransitions("ADEO-1", {});
+  const listed = await restTransitions("ADEO-1", {});
   assert.equal(listed.ok, true);
   const allowedId = listed.ok ? listed.data.transitions[0]?.id : "";
   assert.equal(allowedId, toRestTransitionId("In Progress"));
-  const moved = restTransitionIssue(memberFallback(), "ADEO-1", {
+  const moved = await restTransitionIssue(memberFallback(), "ADEO-1", {
     transition: { id: allowedId },
   });
   assert.equal(moved.ok, true);
@@ -390,16 +390,16 @@ test("rest transitions perform allowed moves and reject the rest", () => {
   }
   assert.equal(getIssue("ADEO-1")?.status, "In Progress");
   // Bare id and name shapes resolve through the same pure helper.
-  const bare = resolveRestTransitionTarget("ADEO-2", "demo-in-review");
+  const bare = await resolveRestTransitionTarget("ADEO-2", "demo-in-review");
   assert.deepEqual(bare, { ok: true, data: "In Review" });
-  const named = resolveRestTransitionTarget("ADEO-2", { name: "In Review" });
+  const named = await resolveRestTransitionTarget("ADEO-2", { name: "In Review" });
   assert.deepEqual(named, { ok: true, data: "In Review" });
-  const nested = resolveRestTransitionTarget("ADEO-2", {
+  const nested = await resolveRestTransitionTarget("ADEO-2", {
     to: { name: "In Review" },
   });
   assert.deepEqual(nested, { ok: true, data: "In Review" });
   // Off-matrix names fail closed with a 409 naming the allowed ids.
-  const skip = restTransitionIssue(memberFallback(), "ADEO-2", {
+  const skip = await restTransitionIssue(memberFallback(), "ADEO-2", {
     transition: "Done",
   });
   assert.equal(skip.ok, false);
@@ -407,25 +407,25 @@ test("rest transitions perform allowed moves and reject the rest", () => {
   assert.match(skip.ok ? "" : skip.error, /not in the demo matrix/);
   assert.match(skip.ok ? "" : skip.error, /demo-in-review/);
   assert.deepEqual(skip.ok ? [] : (skip.allowedFrom ?? []), ["In Review"]);
-  const skipName = resolveRestTransitionTarget("ADEO-2", "Done");
+  const skipName = await resolveRestTransitionTarget("ADEO-2", "Done");
   assert.equal(skipName.ok, false);
   assert.equal(skipName.ok ? 0 : skipName.statusCode, 409);
-  const bogus = restTransitionIssue(memberFallback(), "ADEO-2", {
+  const bogus = await restTransitionIssue(memberFallback(), "ADEO-2", {
     transition: { id: "demo-archived" },
   });
   assert.equal(bogus.ok, false);
   assert.equal(bogus.ok ? 0 : bogus.statusCode, 400);
   assert.match(bogus.ok ? "" : bogus.error, /Unknown demo transition id/);
-  const missing = restTransitionIssue(memberFallback(), "ADEO-2", {});
+  const missing = await restTransitionIssue(memberFallback(), "ADEO-2", {});
   assert.equal(missing.ok, false);
   assert.equal(missing.ok ? 0 : missing.statusCode, 400);
   assert.match(missing.ok ? "" : missing.error, /expected `transition`/);
-  const unknown = restTransitionIssue(memberFallback(), "ADEO-9999", {
+  const unknown = await restTransitionIssue(memberFallback(), "ADEO-9999", {
     transition: { id: "demo-in-progress" },
   });
   assert.equal(unknown.ok, false);
   assert.equal(unknown.ok ? 0 : unknown.statusCode, 404);
-  const failed = restTransitionIssue(memberFallback(), "ADEO-2", {
+  const failed = await restTransitionIssue(memberFallback(), "ADEO-2", {
     transition: { id: "demo-in-review" },
     fail: true,
   });
@@ -436,7 +436,7 @@ test("rest transitions perform allowed moves and reject the rest", () => {
   resetIssues();
 });
 
-test("rest writes keep admin/member semantics and denials change nothing", () => {
+test("rest writes keep admin/member semantics and denials change nothing", async () => {
   resetIssues();
   const beforeIssues = getIssues();
   const beforeComments = listComments("ADEO-1");
@@ -453,26 +453,27 @@ test("rest writes keep admin/member semantics and denials change nothing", () =>
     );
     assert.equal(authorizeDemoWrite("demo-viewer", action).ok, false);
   }
-  for (const denied of [
+  const deniedResults = await Promise.all([
     restCreateIssue(viewerFallback(), { fields: { summary: "Denied" } }),
     restUpdateIssue(viewerFallback(), "ADEO-1", { fields: { summary: "Denied" } }),
     restAddComment(viewerFallback(), "ADEO-1", { body: "Denied" }),
     restTransitionIssue(viewerFallback(), "ADEO-1", {
       transition: { id: "demo-in-progress" },
     }),
-  ]) {
+  ]);
+  for (const denied of deniedResults) {
     assert.equal(denied.ok, false);
     assert.equal(denied.ok ? 0 : denied.statusCode, 403);
     assert.match(denied.ok ? "" : denied.error, /Demo-only permission denied/);
     assert.match(denied.ok ? "" : denied.error, /Nothing was written/);
   }
   // Passport viewers are denied identically; admins/members succeed.
-  const passportViewer = restCreateIssue(passport("viewer"), {
+  const passportViewer = await restCreateIssue(passport("viewer"), {
     fields: { summary: "Denied" },
   });
   assert.equal(passportViewer.ok, false);
   assert.equal(passportViewer.ok ? 0 : passportViewer.statusCode, 403);
-  const passportMember = restCreateIssue(passport("member", "write-m-1"), {
+  const passportMember = await restCreateIssue(passport("member", "write-m-1"), {
     fields: { summary: "Member write" },
   });
   assert.equal(passportMember.ok, true);
@@ -481,7 +482,7 @@ test("rest writes keep admin/member semantics and denials change nothing", () =>
     assert.equal(passportMember.data.actor.id, "passport:write-m-1");
     assert.equal(passportMember.data.actor.identitySource, "passport");
   }
-  const passportAdmin = restUpdateIssue(passport("admin", "write-a-1"), "ADEO-1", {
+  const passportAdmin = await restUpdateIssue(passport("admin", "write-a-1"), "ADEO-1", {
     fields: { summary: "Admin write" },
   });
   assert.equal(passportAdmin.ok, true);
@@ -501,14 +502,15 @@ test("rest writes keep admin/member semantics and denials change nothing", () =>
       nodeEnv: "production" as const,
     },
   ]) {
-    for (const attempt of [
+    const attempts = await Promise.all([
       restCreateIssue(identity, { fields: { summary: "Denied" } }),
       restUpdateIssue(identity, "ADEO-1", { fields: { summary: "Denied" } }),
       restAddComment(identity, "ADEO-1", { body: "Denied" }),
       restTransitionIssue(identity, "ADEO-1", {
         transition: { id: "demo-in-progress" },
       }),
-    ]) {
+    ]);
+    for (const attempt of attempts) {
       assert.equal(attempt.ok, false, JSON.stringify(identity));
       assert.ok(
         [400, 401].includes(attempt.ok ? 0 : attempt.statusCode),
@@ -525,27 +527,27 @@ test("rest writes keep admin/member semantics and denials change nothing", () =>
   resetIssues();
 });
 
-test("passport admin/member/viewer write parity matches native routes", () => {
+test("passport admin/member/viewer write parity matches native routes", async () => {
   resetIssues();
   // Passport member comments; Passport viewer cannot; malformed never falls back.
-  const memberComment = restAddComment(passport("member", "parity-m"), {
+  const memberComment = await restAddComment(passport("member", "parity-m"), {
     body: "Member comment",
   } as unknown as Parameters<typeof restAddComment>[2]);
   void memberComment;
-  const memberOk = restAddComment(
+  const memberOk = await restAddComment(
     { passportToken: fakeJwt({ external_sub: "parity-m", role: "member" }), nodeEnv: "production" },
     "ADEO-1",
     { body: "Member comment" },
   );
   assert.equal(memberOk.ok, true);
-  const viewerDenied = restAddComment(
+  const viewerDenied = await restAddComment(
     { passportToken: fakeJwt({ external_sub: "parity-v" }), nodeEnv: "production" },
     "ADEO-1",
     { body: "Viewer comment" },
   );
   assert.equal(viewerDenied.ok, false);
   assert.equal(viewerDenied.ok ? 0 : viewerDenied.statusCode, 403);
-  const malformed = restAddComment(
+  const malformed = await restAddComment(
     { passportToken: "bogus", demoUser: "demo-admin", nodeEnv: "production" },
     "ADEO-1",
     { body: "Never" },
@@ -573,7 +575,7 @@ test("passport admin/member/viewer write parity matches native routes", () => {
   resetIssues();
 });
 
-test("mcp demoUser fallback reports demoFallback without Passport claims", () => {
+test("mcp demoUser fallback reports demoFallback without Passport claims", async () => {
   resetIssues();
   assert.deepEqual(mcpWriteIdentity(undefined), {
     passportToken: undefined,
@@ -581,7 +583,7 @@ test("mcp demoUser fallback reports demoFallback without Passport claims", () =>
     devUser: undefined,
     nodeEnv: "test",
   });
-  const created = restCreateIssue(mcpWriteIdentity("demo-member"), {
+  const created = await restCreateIssue(mcpWriteIdentity("demo-member"), {
     fields: { summary: "MCP-shaped write" },
   });
   assert.equal(created.ok, true);

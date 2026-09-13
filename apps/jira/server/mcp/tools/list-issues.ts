@@ -47,7 +47,7 @@ export default defineMcpTool({
     if (startAt !== undefined) query["startAt"] = String(startAt);
     if (maxResults !== undefined) query["maxResults"] = String(maxResults);
     if (jql !== undefined) query["jql"] = jql;
-    const result = restSearch(query);
+    const result = await restSearch(query);
     if (!result.ok) {
       throw createError({ statusCode: result.statusCode, message: result.error });
     }

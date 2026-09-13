@@ -1,18 +1,19 @@
 /**
- * Demo-only Jira-style REST adapter over the demo store (bounded reads plus
+ * Demo-only Jira-style REST adapter over the Jira persistence boundary (bounded reads plus
  * the four explicit demo-only write contracts).
  *
- * Small shared formatter plus pure helpers for the Jira-shaped surface
- * under `/api/rest/api/3/**`. Every helper reuses the existing demo store
- * (`./issues`), application accounts (`./appAccounts`), demo accounts
+ * Shared formatter plus asynchronous helpers for the Jira-shaped surface
+ * under `/api/rest/api/3/**`. Every helper reuses the shared issue persistence
+ * adapter, application accounts (`./appAccounts`), demo accounts
  * (`./demoAccounts`) and the observed reference metadata in
  * `packages/project-context/src/jira-reference.json` (project KAN id 10000,
  * "My Kanban Space", simplified next-gen software project; the six observed
- * issue types; the four observed statuses). No new dependencies.
+ * issue types; the four observed statuses). Issue and comment reads/writes
+ * use the configured persistence adapter.
  *
- * Demo boundaries, repeated on every envelope via `demoOnly`, `roleMatrix`
- * and `boundary`: reads plus the four explicit write contracts over the
- * labelled in-memory demo store, no JQL engine, no production auth. Reads
+ * Demo boundaries, repeated on every envelope via `demoOnly`, `roleMatrix`,
+ * `boundary` and `persistence`: reads plus the four explicit write contracts
+ * over the configured Jira demo persistence layer, no JQL engine, no production auth. Reads
  * stay open to the demo viewer (no write authorization gate); writes run
  * the shared `authorizeAppWrite` authority first and change nothing on
  * denial. Unknown issue/project keys return a labelled 404 without
@@ -29,20 +30,24 @@
 import {
   OBSERVED_STATUSES,
   PRIORITIES,
-  addComment,
   allowedTransitions,
-  createIssue,
-  getIssue,
-  getIssues,
   isDemoTransition,
   isObservedStatus,
   isPriority,
-  listComments,
-  updateIssue,
   type DemoIssue,
   type DemoPriority,
   type ObservedStatus,
 } from "./issues.ts";
+import {
+  addPersistentComment,
+  createPersistentIssue,
+  getIssuePersistenceInfo,
+  getPersistentIssue,
+  getPersistentIssues,
+  listPersistentComments,
+  updatePersistentIssue,
+  type IssuePersistenceInfo,
+} from "./issuePersistence.ts";
 import {
   DEMO_ROLE_MATRIX_LABEL,
   type DemoRole,
@@ -66,9 +71,10 @@ import {
 export const REST_BOUNDARY =
   "Demo-only Jira-style REST subset: reads plus the bounded writes POST /api/rest/api/3/issue, " +
   "PUT /api/rest/api/3/issue/:key, POST /api/rest/api/3/issue/:key/comment and " +
-  "POST /api/rest/api/3/issue/:key/transitions over the labelled in-memory demo store; " +
+  "POST /api/rest/api/3/issue/:key/transitions over the configured Jira demo persistence layer " +
+  "(Neon Postgres when DATABASE_URL is configured, with an explicit in-memory fallback); " +
   "no JQL engine, no production auth. Unknown keys stay 404 and write nothing. " +
-  "This is not full Jira parity and persistence is the existing in-memory demo store. " +
+  "This is not full Jira parity or a substitute for production authorization. " +
   "The Jira MCP toolkit wraps these contracts 1:1.";
 
 /** Observed reference project, mirrored from the dated jira-reference.json capture. */
@@ -102,6 +108,7 @@ type DemoEnvelope = {
   demoOnly: true;
   roleMatrix: string;
   boundary: string;
+  persistence: IssuePersistenceInfo;
 };
 
 function demoEnvelope(): DemoEnvelope {
@@ -109,6 +116,7 @@ function demoEnvelope(): DemoEnvelope {
     demoOnly: true,
     roleMatrix: DEMO_ROLE_MATRIX_LABEL,
     boundary: REST_BOUNDARY,
+    persistence: getIssuePersistenceInfo(),
   };
 }
 
@@ -424,8 +432,8 @@ export function restProjectStatuses(
  * Single-issue read with the Jira-like envelope. Unknown keys return a
  * labelled 404. Pure; never writes.
  */
-export function restIssue(key: string): RestResult<RestIssue> {
-  const issue = getIssue(key);
+export async function restIssue(key: string): Promise<RestResult<RestIssue>> {
+  const issue = await getPersistentIssue(key);
   if (!issue) {
     return {
       ok: false,
@@ -437,13 +445,13 @@ export function restIssue(key: string): RestResult<RestIssue> {
 }
 
 /**
- * Search-lite over the demo store: the full list-lite slice with bounded
+ * Search-lite over the persistence boundary: the full list-lite slice with bounded
  * `startAt`/`maxResults`. There is no JQL engine, so any jql/JQL parameter
  * is a labelled 400, never silently ignored. Pure; never writes.
  */
-export function restSearch(
+export async function restSearch(
   query: Record<string, unknown> = {},
-): RestResult<RestSearchResponse> {
+): Promise<RestResult<RestSearchResponse>> {
   const jql = checkNoJql(query);
   if (jql) {
     return jql;
@@ -452,7 +460,7 @@ export function restSearch(
   if (!page.ok) {
     return page;
   }
-  const all = getIssues().map(toRestIssue);
+  const all = (await getPersistentIssues()).map(toRestIssue);
   const { startAt, maxResults } = page.data;
   return {
     ok: true,
@@ -471,15 +479,15 @@ export function restSearch(
  * `startAt`/`maxResults`. Unknown keys return a labelled 404. Pure; never
  * writes.
  */
-export function restComments(
+export async function restComments(
   key: string,
   query: Record<string, unknown> = {},
-): RestResult<RestCommentList> {
+): Promise<RestResult<RestCommentList>> {
   const jql = checkNoJql(query);
   if (jql) {
     return jql;
   }
-  const comments = listComments(key);
+  const comments = await listPersistentComments(key);
   if (!comments) {
     return {
       ok: false,
@@ -517,15 +525,15 @@ export function restComments(
  * `DEMO_TRANSITIONS` matrix that guards the PATCH save path. Unknown keys
  * return a labelled 404. Pure; never writes.
  */
-export function restTransitions(
+export async function restTransitions(
   key: string,
   query: Record<string, unknown> = {},
-): RestResult<RestTransitionList> {
+): Promise<RestResult<RestTransitionList>> {
   const jql = checkNoJql(query);
   if (jql) {
     return jql;
   }
-  const issue = getIssue(key);
+  const issue = await getPersistentIssue(key);
   if (!issue) {
     return {
       ok: false,
@@ -708,11 +716,11 @@ function extractDescriptionText(value: unknown): string | null {
  * deterministic `{fail:true}` path fail closed with labelled demoOnly
  * errors that write nothing. Actor checks run first via `authorizeRestWrite`.
  */
-export function restCreateIssue(
+export async function restCreateIssue(
   identity: AppRequestIdentity,
   body: RestCreateIssueInput = {},
   options?: { bearer?: ReturnType<typeof validateOAuthBearer> | null },
-): RestWriteResult<{ issue: ReturnType<typeof toRestIssue>; actor: ReturnType<typeof appActorLabel>; identitySource: AppIdentitySource }> {
+): Promise<RestWriteResult<{ issue: ReturnType<typeof toRestIssue>; actor: ReturnType<typeof appActorLabel>; identitySource: AppIdentitySource }>> {
   const authorized = authorizeRestWrite(identity, "create", options?.bearer ?? null);
   if (!authorized.ok) {
     return authorized;
@@ -836,7 +844,7 @@ export function restCreateIssue(
       };
     }
   }
-  const created = createIssue(
+  const created = await createPersistentIssue(
     {
       title: summary.trim(),
       ...(type === undefined ? {} : { type }),
@@ -870,12 +878,12 @@ export function restCreateIssue(
  * hint to use the transitions route instead. The deterministic `{fail:true}`
  * path writes nothing. Actor checks run first via `authorizeRestWrite`.
  */
-export function restUpdateIssue(
+export async function restUpdateIssue(
   identity: AppRequestIdentity,
   key: string,
   body: RestUpdateIssueInput = {},
   options?: { bearer?: ReturnType<typeof validateOAuthBearer> | null },
-): RestWriteResult<{ issue: ReturnType<typeof toRestIssue>; actor: ReturnType<typeof appActorLabel>; identitySource: AppIdentitySource }> {
+): Promise<RestWriteResult<{ issue: ReturnType<typeof toRestIssue>; actor: ReturnType<typeof appActorLabel>; identitySource: AppIdentitySource }>> {
   const authorized = authorizeRestWrite(identity, "update", options?.bearer ?? null);
   if (!authorized.ok) {
     return authorized;
@@ -970,7 +978,7 @@ export function restUpdateIssue(
     }
     description = mapped;
   }
-  const updated = updateIssue(
+  const updated = await updatePersistentIssue(
     key,
     {
       ...(raw["summary"] === undefined
@@ -1009,11 +1017,11 @@ export function restUpdateIssue(
  * objects. Unknown ids fail closed with the allowed demo transition ids
  * named; nothing is written here.
  */
-export function resolveRestTransitionTarget(
+export async function resolveRestTransitionTarget(
   key: string,
   transition: unknown,
-): RestWriteResult<ObservedStatus> {
-  const issue = getIssue(key);
+): Promise<RestWriteResult<ObservedStatus>> {
+  const issue = await getPersistentIssue(key);
   if (!issue) {
     return {
       ok: false,
@@ -1092,22 +1100,22 @@ export function resolveRestTransitionTarget(
  * target resolves through the shared read helpers and the move applies via
  * the shared `updateIssue` store path.
  */
-export function restTransitionIssue(
+export async function restTransitionIssue(
   identity: AppRequestIdentity,
   key: string,
   body: RestTransitionIssueInput = {},
   options?: { bearer?: ReturnType<typeof validateOAuthBearer> | null },
-): RestWriteResult<{ issue: ReturnType<typeof toRestIssue>; transition: { id: string; name: string; to: { name: string } }; actor: ReturnType<typeof appActorLabel>; identitySource: AppIdentitySource }> {
+): Promise<RestWriteResult<{ issue: ReturnType<typeof toRestIssue>; transition: { id: string; name: string; to: { name: string } }; actor: ReturnType<typeof appActorLabel>; identitySource: AppIdentitySource }>> {
   const authorized = authorizeRestWrite(identity, "update", options?.bearer ?? null);
   if (!authorized.ok) {
     return authorized;
   }
   const account = authorized.data;
-  const target = resolveRestTransitionTarget(key, body?.transition);
+  const target = await resolveRestTransitionTarget(key, body?.transition);
   if (!target.ok) {
     return target;
   }
-  const moved = updateIssue(key, { status: target.data }, { fail: failFlag(body?.fail) });
+  const moved = await updatePersistentIssue(key, { status: target.data }, { fail: failFlag(body?.fail) });
   if (!moved.ok) {
     return {
       ok: false,
@@ -1137,17 +1145,17 @@ export function restTransitionIssue(
  * Demo-only Jira-shaped comment creation: POST /api/rest/api/3/issue/:key/comment.
  *
  * Accepts the Jira comment `body` (a plain string, the shape the demo sends)
- * and writes through the shared demo comment store. Unknown keys, blank
+ * and writes through the shared comment persistence boundary. Unknown keys, blank
  * bodies and the deterministic `{fail:true}` path fail closed with labelled
  * demoOnly errors that write nothing. Actor checks run first via
  * `authorizeRestWrite`.
  */
-export function restAddComment(
+export async function restAddComment(
   identity: AppRequestIdentity,
   key: string,
   body: RestAddCommentInput = {},
   options?: { bearer?: ReturnType<typeof validateOAuthBearer> | null },
-): RestWriteResult<{ comment: { id: string; body: string; author: { displayName: string }; created: string; demoOnly: true }; actor: ReturnType<typeof appActorLabel>; identitySource: AppIdentitySource }> {
+): Promise<RestWriteResult<{ comment: { id: string; body: string; author: { displayName: string }; created: string; demoOnly: true }; actor: ReturnType<typeof appActorLabel>; identitySource: AppIdentitySource }>> {
   const authorized = authorizeRestWrite(identity, "comment", options?.bearer ?? null);
   if (!authorized.ok) {
     return authorized;
@@ -1165,7 +1173,7 @@ export function restAddComment(
         "Invalid demoOnly request: a nonblank comment `body` string is required. Nothing was written.",
     };
   }
-  const created = addComment(key, { body: text.trim() }, { fail: failFlag(body?.fail) });
+  const created = await addPersistentComment(key, { body: text.trim() }, { fail: failFlag(body?.fail) });
   if (!created.ok) {
     return { ok: false, statusCode: created.statusCode, error: created.error };
   }
@@ -1277,4 +1285,3 @@ export function mcpWriteIdentity(demoUser: unknown): AppRequestIdentity {
     nodeEnv: "test",
   };
 }
-

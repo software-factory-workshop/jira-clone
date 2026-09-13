@@ -19,6 +19,7 @@ import {
 } from "~/utils/issueDetail";
 import {
   fetchBoardIssues,
+  type RestPersistenceShape,
   type RestSearchShape,
 } from "~/utils/restIssues";
 import {
@@ -184,6 +185,7 @@ function refreshCommentDraftStorage(): void {
   commentDraftReloadable.value = isCommentDraftStorageAvailable();
 }
 const issues = ref<BoardIssue[]>([]);
+const persistence = ref<RestPersistenceShape | null>(null);
 const loading = ref(true);
 const loadError = ref<string | null>(null);
 const moveError = ref<string | null>(null);
@@ -211,6 +213,20 @@ const draftPriority = ref("Medium");
 const draftAssignee = ref("Unassigned");
 const draftDescription = ref("");
 const createTypes = ["Story", "Task", "Bug"];
+
+const persistenceLabel = computed(
+  () => persistence.value?.label ?? "Jira demo persistence",
+);
+const persistenceDescription = computed(
+  () =>
+    persistence.value?.description ??
+    "The active persistence boundary is loading from the canonical REST read.",
+);
+const persistenceReloadHint = computed(() =>
+  persistence.value?.mode === "neon"
+    ? "Reload to confirm it remains in Neon Postgres."
+    : "Reload to confirm it remains on this server.",
+);
 
 watch(selected, (issue) => {
   selectedTarget.value = issue ? moveTargets(statuses, issue.status)[0] ?? "" : "";
@@ -371,20 +387,28 @@ async function saveStatus(
   next: string,
   fail = false,
 ): Promise<BoardIssue> {
-  const saved = await $fetch<{ issue: BoardIssue }>(`/api/issues/${key}`, {
+  const saved = await $fetch<{
+    issue: BoardIssue;
+    persistence?: RestPersistenceShape;
+  }>(`/api/issues/${key}`, {
     method: "PATCH",
     body: { status: next, ...(fail ? { fail: true } : {}) },
     headers: demoHeaders(),
   });
+  if (saved.persistence) persistence.value = saved.persistence;
   return saved.issue;
 }
 
 async function savePriority(key: string, next: string): Promise<BoardIssue> {
-  const saved = await $fetch<{ issue: BoardIssue }>(`/api/issues/${key}`, {
+  const saved = await $fetch<{
+    issue: BoardIssue;
+    persistence?: RestPersistenceShape;
+  }>(`/api/issues/${key}`, {
     method: "PATCH",
     body: { priority: next },
     headers: demoHeaders(),
   });
+  if (saved.persistence) persistence.value = saved.persistence;
   return saved.issue;
 }
 
@@ -396,8 +420,10 @@ async function refresh() {
       $fetch<RestSearchShape>(url),
     );
     issues.value = data.issues;
+    persistence.value = data.persistence ?? null;
   } catch (error) {
     issues.value = [];
+    persistence.value = null;
     loadError.value = demoErrorMessage(
       error,
       "Could not load board issues through the REST search read.",
@@ -419,7 +445,7 @@ async function moveCard(key: string, toStatus: string) {
   );
   issues.value = result.issues;
   if (result.ok) {
-    saveNotice.value = `Demo-only save: ${key} moved to ${toStatus}. Reload to confirm it persists on this server.`;
+    saveNotice.value = `Demo-only save: ${key} moved to ${toStatus}. ${persistenceReloadHint.value}`;
   } else {
     moveError.value = result.error;
   }
@@ -440,7 +466,7 @@ async function changePriorityCard(key: string, next: string) {
   );
   issues.value = result.issues;
   if (result.ok) {
-    saveNotice.value = `Demo-only save: ${key} priority set to ${next}. Reload to confirm it persists on this server.`;
+    saveNotice.value = `Demo-only save: ${key} priority set to ${next}. ${persistenceReloadHint.value}`;
   } else {
     priorityError.value = result.error;
   }
@@ -493,7 +519,10 @@ async function createCard() {
   }
   createSaving.value = true;
   try {
-    const saved = await $fetch<{ issue: BoardIssue }>("/api/issues", {
+    const saved = await $fetch<{
+      issue: BoardIssue;
+      persistence?: RestPersistenceShape;
+    }>("/api/issues", {
       method: "POST",
       headers: demoHeaders(),
       body: {
@@ -505,6 +534,7 @@ async function createCard() {
         description: draftDescription.value,
       },
     });
+    if (saved.persistence) persistence.value = saved.persistence;
     issues.value = [...issues.value, saved.issue];
     createOpen.value = false;
     draftTitle.value = "";
@@ -513,7 +543,7 @@ async function createCard() {
     draftPriority.value = "Medium";
     draftAssignee.value = "Unassigned";
     draftDescription.value = "";
-    saveNotice.value = `Demo-only create: ${saved.issue.key} added. Reload to confirm it persists on this server.`;
+    saveNotice.value = `Demo-only create: ${saved.issue.key} added. ${persistenceReloadHint.value}`;
   } catch (error) {
     createError.value = demoErrorMessage(error, "Demo create failed.");
   } finally {
@@ -527,14 +557,15 @@ async function resetBoard() {
   priorityError.value = null;
   saveNotice.value = null;
   try {
-    await $fetch("/api/issues/reset", {
+    const reset = await $fetch<{ persistence?: RestPersistenceShape }>("/api/issues/reset", {
       method: "POST",
       headers: demoHeaders(),
     });
+    if (reset.persistence) persistence.value = reset.persistence;
     await refresh();
     if (!loadError.value) {
       saveNotice.value =
-        "Demo board reset to labelled fixture identities. Reset only affects this demo-only store.";
+        `Demo board reset to labelled fixture identities. Reset affects ${persistenceLabel.value}.`;
     }
   } catch (error) {
     moveError.value = demoErrorMessage(error, "Demo reset failed.");
@@ -618,9 +649,10 @@ await refresh();
             <UIcon name="i-lucide-info" />
             <p>
               <strong>Synthetic demo data.</strong> Review the layout and open
-              an issue. Status moves and priority edits use a labelled
-              <strong>demo-only save path</strong>: they persist across reload
-              on this server and reset on redeploy. Status moves follow a
+              an issue. The active issue and comment store is
+              <strong>{{ persistenceLabel }}</strong>: {{ persistenceDescription }}
+              Status moves and priority edits use a labelled
+              <strong>demo-only save path</strong>. Status moves follow a
               fixed <strong>demo-only transition matrix</strong> (To Do →
               In Progress → In Review → Done → To Do); other moves are
               rejected and save nothing. <span v-if="meIdentitySource === 'passport'">Acting as
@@ -666,8 +698,8 @@ await refresh();
               Reset demo board
             </UButton>
             <span class="demo-save-hint">
-              Reset restores the labelled fixture identities and only affects
-              the demo-only store.
+              Reset restores the labelled fixture identities and clears the
+              active issue and comment store.
             </span>
           </div>
           <p v-if="readOnly" id="workspace-access-hint" class="save-note" role="status">
@@ -862,14 +894,14 @@ await refresh();
           </div>
           <p class="footer-note">
             Observed Jira statuses · ADEO Nuxt UI v0.1.1 · Fixture content ·
-            Demo-only saves reset on redeploy
+            {{ persistenceLabel }}
           </p>
         </main>
       </div>
       <UModal
         v-model:open="createOpen"
         title="Create demo issue"
-        description="Demo-only create on this server. The draft is kept when saving fails."
+        description="Demo-only create through the active issue persistence boundary. The draft is kept when saving fails."
       >
         <template #body>
           <form class="create-form" @submit.prevent="void createCard()">
@@ -955,8 +987,7 @@ await refresh();
               </UButton>
             </div>
             <p class="demo-save-hint">
-              Demo-only save: the next ADEO-n key is allocated on this
-              server and the issue resets on redeploy.
+              Demo-only save through {{ persistenceLabel }}. {{ persistenceDescription }}
             </p>
           </form>
         </template>
@@ -1057,8 +1088,8 @@ await refresh();
             <section aria-label="Demo-only comments">
               <h3>Comments · demo-only</h3>
               <p class="demo-save-hint">
-                Demo-only discussion on this server. Comments are synthetic,
-                reset with the board, and never leave this demo store.
+                Demo-only discussion. Comments are synthetic, reset with the
+                board, and use {{ persistenceLabel }}.
               </p>
               <p v-if="commentsLoading" class="empty" role="status">
                 Loading demo comments…
