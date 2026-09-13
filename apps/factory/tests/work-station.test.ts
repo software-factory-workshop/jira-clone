@@ -1,7 +1,7 @@
 import test from "node:test";
 import { defaultMessageReducer } from "eve/client";
 import assert from "node:assert/strict";
-import { dispatchedTask, parsePullRequest, parseStationResult, pendingStationRequests, stationLinkSchema, latestStationTurn, readStationStream, workerRequest, stationLaunchError, matchesStationDelivery, parseStationToolResult } from "../app/utils/work-station.ts";
+import { dispatchedTask, parsePullRequest, parseStationResult, pendingStationRequests, stationLinkSchema, latestStationTurn, readStationStream, workerRequest, stationLaunchError, matchesStationDelivery, parseStationToolResult, appendStationTail, advanceStationTurn, boundStationProjection, MAX_STATION_TAIL_EVENTS, MAX_STATION_PROJECTION_MESSAGES, MAX_STATION_PROJECTION_PARTS } from "../app/utils/work-station.ts";
 const sha = "a".repeat(40);
 test("review input only accepts PRs in the configured repository", () => {
   assert.equal(parsePullRequest("2"), 2);
@@ -63,6 +63,40 @@ test("a resumed child is not stopped by an earlier cancellation", () => {
   assert.equal(latestStationTurn(history), "running");
   history.push({ type: "turn.completed" });
   assert.equal(latestStationTurn(history), "completed");
+});
+
+test("station event tails stay bounded while turn state remains incremental", () => {
+  const tail = [] as Parameters<typeof appendStationTail>[0];
+  const event = (sequence: number) => ({ type: "step.started", data: { sequence } }) as Parameters<typeof appendStationTail>[1];
+  let turn = advanceStationTurn("unknown", { type: "turn.started" });
+  for (let sequence = 0; sequence < MAX_STATION_TAIL_EVENTS + 2; sequence++) {
+    appendStationTail(tail, event(sequence));
+    turn = advanceStationTurn(turn, event(sequence));
+  }
+  assert.equal(tail.length, MAX_STATION_TAIL_EVENTS);
+  assert.equal((tail[0]?.data as { sequence: number }).sequence, 2);
+  assert.equal((tail.at(-1)?.data as { sequence: number }).sequence, MAX_STATION_TAIL_EVENTS + 1);
+  assert.equal(turn, "running");
+});
+
+test("station projections bound messages and parts without losing active request or result", () => {
+  const reducer = defaultMessageReducer();
+  let data = reducer.initial();
+  const operationId = "d4c2d7da-37da-45ad-a782-c903e59a3c5d";
+  const result = { station: "worker", sessionId: "wrun_worker", operationId, revision: sha, summary: "Published", commands: [], publication: { branch: "factory/work", number: 2, url: "https://github.com/software-factory-workshop/jira-clone/pull/2", headSha: sha, baseSha: sha } };
+  const pinned = { messages: [{ id: "old", role: "assistant", metadata: { turnId: "old" }, parts: [
+    { type: "dynamic-tool", state: "approval-requested", toolCallId: "request", toolName: "session_limit_continuation", input: {}, approval: { id: "request" }, toolMetadata: { eve: { kind: "tool-call", name: "session_limit_continuation", inputRequest: { requestId: "request", prompt: "Continue?" } } } },
+    { type: "dynamic-tool", state: "output-available", toolCallId: "publish", toolName: "publish_work", input: {}, output: result },
+  ] }] } as typeof data;
+  data = boundStationProjection(pinned, "worker", operationId);
+  for (let index = 0; index < MAX_STATION_PROJECTION_MESSAGES + 16; index++) {
+    data = boundStationProjection(reducer.reduce(data, { type: "step.started", data: { turnId: `turn_${index}`, stepIndex: 0 } }), "worker", operationId);
+  }
+  const partCount = data.messages.reduce((count, message) => count + message.parts.length, 0);
+  assert.ok(data.messages.length <= MAX_STATION_PROJECTION_MESSAGES);
+  assert.ok(partCount <= MAX_STATION_PROJECTION_PARTS);
+  assert.equal(pendingStationRequests(data).at(0)?.requestId, "request");
+  assert.equal(parseStationToolResult("publish_work", data.messages.flatMap(message => message.parts).find(part => part.type === "dynamic-tool" && part.toolName === "publish_work" && part.state === "output-available")?.output, operationId)?.station, "worker");
 });
 
 test("durable station tail reads late dispatch and child decisions beyond a turn boundary", async (t) => {

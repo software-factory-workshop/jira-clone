@@ -1,5 +1,5 @@
 import { z } from "zod";
-import type { EveMessageData, MessageStreamEvent } from "eve/client";
+import type { EveMessageData, EveMessagePart, MessageStreamEvent } from "eve/client";
 import { visualReviewPacketSchema } from "../../runtime/lib/visual-review.ts";
 
 export const stationSessionSchema = z.object({ sessionId: z.string().regex(/^wrun_[A-Za-z0-9_-]+$/), execution: z.enum(["owner", "dispatcher", "direct"]).optional(), rootAgent:z.enum(["worker","reviewer"]).optional(), ownerSessionId: z.string().optional(), deliveryId: z.string().min(1).optional(), operationId: z.string().uuid().optional() });
@@ -7,6 +7,9 @@ export const stationLinkSchema = z.object({ station: z.enum(["worker", "reviewer
 export type StationLink = z.infer<typeof stationLinkSchema>;
 export type StationKind = z.infer<typeof stationLinkSchema>["station"];
 export const MIN_WORK_REQUEST_LENGTH = 20;
+export const MAX_STATION_TAIL_EVENTS = 256;
+export const MAX_STATION_PROJECTION_MESSAGES = 64;
+export const MAX_STATION_PROJECTION_PARTS = 256;
 
 export function parsePullRequest(value: string): number | undefined {
   const text = value.trim();
@@ -45,16 +48,70 @@ export function pendingStationRequests(data: EveMessageData, hasRecordedResult =
   return data.messages.flatMap(message => message.parts).flatMap(part => part.type === "dynamic-tool" && part.state === "approval-requested" && part.toolMetadata?.eve?.inputRequest ? [part.toolMetadata.eve.inputRequest] : []);
 }
 
+export type StationTurn = "cancelled" | "failed" | "completed" | "running" | "unknown";
+
 // The last turn boundary wins: cancellation of an earlier turn is not a stopped
 // session after a steer or continuation starts a new turn.
-export function latestStationTurn(events: readonly { type: string }[]) {
-  for (const event of [...events].reverse()) {
-    if (event.type === "turn.cancelled") return "cancelled";
-    if (["turn.failed", "session.failed"].includes(event.type)) return "failed";
-    if (event.type === "turn.completed") return "completed";
-    if (["turn.started", "step.started", "message.received"].includes(event.type)) return "running";
+export function advanceStationTurn(current: StationTurn, event: { type: string }): StationTurn {
+  if (event.type === "turn.cancelled") return "cancelled";
+  if (["turn.failed", "session.failed"].includes(event.type)) return "failed";
+  if (event.type === "turn.completed") return "completed";
+  if (["turn.started", "step.started", "message.received"].includes(event.type)) return "running";
+  return current;
+}
+
+export function latestStationTurn(events: readonly { type: string }[]): StationTurn {
+  return events.reduce(advanceStationTurn, "unknown");
+}
+
+// WorkRun still needs a recent event tail for the station projection, but it
+// must not copy the complete durable session history on every streamed event.
+export function appendStationTail(tail: MessageStreamEvent[], event: MessageStreamEvent) {
+  tail.push(event);
+  if (tail.length > MAX_STATION_TAIL_EVENTS) tail.splice(0, tail.length - MAX_STATION_TAIL_EVENTS);
+}
+
+function stationProjectionPin(part: EveMessagePart, station: StationKind, operationId?: string) {
+  if (part.type === "authorization") return part.state === "required";
+  if (part.type !== "dynamic-tool") return false;
+  if (part.state === "approval-requested") return true;
+  if (part.toolName !== station || part.state !== "output-available") return false;
+  return !!dispatchedTask(part.output) || !!parseStationToolResult(part.toolName, part.output, operationId);
+}
+
+// The Eve reducer is intentionally an accumulator, so a long replay grows
+// messages and parts forever. Keep the recent UI window plus the bounded set
+// of active semantic parts that must survive that window: pending requests,
+// authorizations, dispatch receipts, and the matching station result.
+export function boundStationProjection(data: EveMessageData, station: StationKind, operationId?: string): EveMessageData {
+  const pinned = new Set<EveMessagePart>();
+  const pinnedMessageIds = new Set<string>();
+  for (const message of [...data.messages].reverse()) {
+    for (const part of [...message.parts].reverse()) {
+      if (pinned.size >= MAX_STATION_PROJECTION_PARTS) break;
+      if (stationProjectionPin(part, station, operationId)) {
+        pinned.add(part);
+        pinnedMessageIds.add(message.id);
+      }
+    }
+    if (pinned.size >= MAX_STATION_PROJECTION_PARTS) break;
   }
-  return "unknown";
+
+  const pinnedMessages = data.messages.filter(message => pinnedMessageIds.has(message.id)).slice(-MAX_STATION_PROJECTION_MESSAGES);
+  const remainingMessages = MAX_STATION_PROJECTION_MESSAGES - pinnedMessages.length;
+  const recentMessages = remainingMessages ? data.messages.filter(message => !pinnedMessageIds.has(message.id)).slice(-remainingMessages) : [];
+  const selectedIds = new Set([...pinnedMessages, ...recentMessages].map(message => message.id));
+  const selectedMessages = data.messages.filter(message => selectedIds.has(message.id));
+  const keptParts = new Set<EveMessagePart>();
+  for (const message of selectedMessages) for (const part of message.parts) if (pinned.has(part)) keptParts.add(part);
+  for (const message of [...selectedMessages].reverse()) {
+    for (const part of [...message.parts].reverse()) {
+      if (keptParts.size >= MAX_STATION_PROJECTION_PARTS) break;
+      keptParts.add(part);
+    }
+    if (keptParts.size >= MAX_STATION_PROJECTION_PARTS) break;
+  }
+  return { messages: selectedMessages.map(message => ({ ...message, parts: message.parts.filter(part => keptParts.has(part)) })) } satisfies EveMessageData;
 }
 
 // Eve's Vue entry is browser-bundled; its generic client entry contains Node
