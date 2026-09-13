@@ -314,6 +314,59 @@ nav button span:last-child:not(:first-child) {
   font-size: 12px;
   color: #007680;
 }
+.draft-conflict {
+  display: grid;
+  gap: 14px;
+  padding: 16px;
+  border: 1px solid #e5c98c;
+  border-radius: 6px;
+  background: #fffaf0;
+  color: #5d4a26;
+}
+.draft-conflict p {
+  margin: 5px 0 0;
+}
+.draft-conflict summary {
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 600;
+}
+.conflict-compare {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 12px;
+}
+.conflict-compare article {
+  min-width: 0;
+  padding: 12px;
+  border: 1px solid #eadfca;
+  border-radius: 4px;
+  background: #fff;
+}
+.conflict-compare h3 {
+  margin: 0 0 9px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .7px;
+}
+.conflict-compare pre {
+  max-height: 180px;
+  margin: 8px 0 0;
+  overflow: auto;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font: inherit;
+  font-size: 12px;
+  line-height: 1.55;
+  color: #596b75;
+}
+@media (max-width: 700px) {
+  .conflict-compare {
+    grid-template-columns: 1fr;
+  }
+}
 .starters {
   margin-top: 38px;
 }

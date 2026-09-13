@@ -2,6 +2,7 @@
 import { deliveryFlow } from "../utils/observability-flow";
 import { describeDeliveryPhase, formatDeliveryUpdatedAt } from "../utils/delivery-summary";
 import { MIN_WORK_REQUEST_LENGTH } from "../utils/work-station";
+import { copyText, shortIdentifier } from "../utils/technical-details";
 
 const props = defineProps<{ title: string; brief: string }>();
 
@@ -30,6 +31,8 @@ const error = ref("");
 const working = ref(false);
 const stopping = ref(false);
 const revision = ref("");
+const copiedEvidence = ref<string>();
+let copyTimer: ReturnType<typeof setTimeout> | undefined;
 let operationId: string | undefined;
 let timer: ReturnType<typeof setTimeout> | undefined;
 let disposed = false;
@@ -145,6 +148,19 @@ async function revise() {
     working.value = false;
   }
 }
+function copyLabel(value: string) {
+  return copiedEvidence.value === value ? "Copied" : "Copy";
+}
+async function copyEvidence(value: string) {
+  try {
+    if (!await copyText(value)) throw new Error("Clipboard unavailable");
+    copiedEvidence.value = value;
+    clearTimeout(copyTimer);
+    copyTimer = setTimeout(() => { copiedEvidence.value = undefined; }, 1800);
+  } catch {
+    error.value = "Could not copy that value. Expand the technical evidence to select it.";
+  }
+}
 
 watch(() => route.query.delivery, async (id) => {
   clearTimeout(timer);
@@ -160,6 +176,7 @@ watch(() => route.query.delivery, async (id) => {
 onBeforeUnmount(() => {
   disposed = true;
   clearTimeout(timer);
+  clearTimeout(copyTimer);
 });
 </script>
 
@@ -192,7 +209,8 @@ onBeforeUnmount(() => {
       <div><strong>{{ phaseInfo.label }}</strong><span>{{ phaseDetail }}</span></div>
       <span class="delivery-updated">{{ updatedLabel }}</span>
     </div>
-    <p v-if="run" class="delivery-id">Delivery {{ run.id }} · cycle {{ run.cycle }}<template v-if="run.publication?.targetBranch"> · target {{ run.publication.targetBranch }}</template></p>
+    <p v-if="run" class="delivery-id">Delivery <code>{{ shortIdentifier(run.id) }}</code> · cycle {{ run.cycle }}<template v-if="run.publication?.targetBranch"> · target {{ shortIdentifier(run.publication.targetBranch, 24) }}</template></p>
+    <details v-if="run" class="technical-evidence"><summary>Technical evidence</summary><dl><div><dt>Delivery ID</dt><dd><code>{{ run.id }}</code><UButton size="xs" variant="ghost" @click="copyEvidence(run.id)">{{ copyLabel(run.id) }}</UButton></dd></div><div v-if="run.publication?.targetBranch"><dt>Target branch</dt><dd><code>{{ run.publication.targetBranch }}</code><UButton size="xs" variant="ghost" @click="copyEvidence(run.publication.targetBranch)">{{ copyLabel(run.publication.targetBranch) }}</UButton></dd></div><div><dt>Cycle</dt><dd>{{ run.cycle }}</dd></div></dl></details>
     <p v-if="run?.mergeDecision" class="delivery-note">{{ run.mergeDecision.reason }}</p>
     <p v-if="run?.error" class="delivery-error" role="alert">{{ run.error }}</p>
     <p v-if="run?.review" class="delivery-note">{{ run.review.summary }}</p>
@@ -237,6 +255,13 @@ onBeforeUnmount(() => {
 .delivery-updated { margin-left: auto; flex-shrink: 0; color: var(--ui-text-muted); font-size: 11px; }
 .delivery-id, .delivery-note, .delivery-error { margin: 14px 0 0; font-size: 12px; line-height: 1.6; }
 .delivery-id { color: var(--ui-text-muted); overflow-wrap: anywhere; }
+.technical-evidence { margin: 16px 0 0; padding: 12px 14px; border: 1px solid var(--ui-border); border-radius: 6px; background: var(--ui-bg-muted); font-size: 12px; }
+.technical-evidence summary { cursor: pointer; font-weight: 600; }
+.technical-evidence dl { display: grid; gap: 9px; margin: 12px 0 0; }
+.technical-evidence dl div { display: grid; grid-template-columns: 110px minmax(0, 1fr); align-items: center; gap: 10px; }
+.technical-evidence dt { color: var(--ui-text-muted); }
+.technical-evidence dd { display: flex; min-width: 0; align-items: center; gap: 8px; margin: 0; overflow-wrap: anywhere; }
+.technical-evidence code { overflow-wrap: anywhere; }
 .delivery-note { color: #53666e; }
 .delivery-error { color: #a33d37; }
 .delivery-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 20px; }

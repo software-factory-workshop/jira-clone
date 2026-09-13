@@ -4,10 +4,13 @@ import type { MessageStreamEvent } from "eve/client";
 import { dispatchedTask, parseStationToolResult, pendingStationRequests, matchesStationDelivery, latestStationTurn, readStationStream, type StationKind } from "../utils/work-station";
 import { authorizationLink } from "../utils/mining-output";
 import { stationFlow } from "../utils/observability-flow";
+import { copyText, shortIdentifier } from "../utils/technical-details";
 const props = defineProps<{ sessionId: string; station: StationKind; child?: boolean; awaitingDecision?: boolean; execution?: "owner" | "dispatcher" | "direct"; rootAgent?: "worker" | "reviewer"; deliveryId?: string; operationId?: string }>();
 const emit = defineEmits<{ settled: [value: boolean]; recorded: [value: boolean] }>();
 const { data, events, status, error, resume, respond } = useEveAgent({ host: import.meta.client && props.rootAgent ? `${window.location.origin}/${props.rootAgent}` : undefined, initialSession: { sessionId: props.sessionId, streamIndex: 0 }, resume: true });
 const actionError = ref("");
+const copiedEvidence = ref<string>();
+let copyTimer: ReturnType<typeof setTimeout> | undefined;
 const childSettled = ref(false);
 const deliveryStarted = ref(false);
 const queuedForOwner = computed(() => !!props.deliveryId && !deliveryStarted.value);
@@ -63,7 +66,7 @@ async function followChild() {
   finally { controller.abort(); discovery = undefined; }
 }
 onMounted(() => { void followChild(); });
-onBeforeUnmount(() => discovery?.abort());
+onBeforeUnmount(() => { discovery?.abort(); clearTimeout(copyTimer); });
 const result = computed(() => {
   for (const part of [...parts.value].reverse()) {
     if (part.type !== "dynamic-tool" || part.state !== "output-available") continue;
@@ -123,6 +126,19 @@ async function stop() {
   } catch { actionError.value = "Cancellation could not be confirmed. Reconnect to check the run."; }
   finally { stopping.value = false; }
 }
+function copyLabel(value: string) {
+  return copiedEvidence.value === value ? "Copied" : "Copy";
+}
+async function copyEvidence(value: string) {
+  try {
+    if (!await copyText(value)) throw new Error("Clipboard unavailable");
+    copiedEvidence.value = value;
+    clearTimeout(copyTimer);
+    copyTimer = setTimeout(() => { copiedEvidence.value = undefined; }, 1800);
+  } catch {
+    actionError.value = "Could not copy that value. Select it from the technical evidence instead.";
+  }
+}
 </script>
 <template>
   <div :class="{ 'panel station-run': !child }">
@@ -139,10 +155,10 @@ async function stop() {
         :nodes="flowModel.nodes"
         :edges="flowModel.edges"
       />
-      <template v-if="result">
+        <template v-if="result">
         <p>{{ result.summary }}</p>
-        <template v-if="result.station === 'worker'"><UButton :to="result.publication.url" target="_blank" rel="noopener noreferrer" icon="i-lucide-git-pull-request">Open {{ execution === 'owner' ? 'PR' : 'draft PR' }} #{{ result.publication.number }}</UButton><p class="small muted">Branch {{ result.publication.branch }}<br />Head {{ result.publication.headSha }}<br />Base {{ result.publication.baseSha }}<template v-if="result.publication.targetBranch"><br />PR target {{ result.publication.targetBranch }}<span v-if="result.publication.parentPrNumber"> · parent PR #{{ result.publication.parentPrNumber }}</span></template><template v-if="result.publication.ownerSessionId"><br />Branch owner {{ result.publication.ownerSessionId }}</template></p><p class="small muted">Use the PR reviewer above for an independent review.</p></template>
-        <template v-else><p><a class="review-pr-link" :href="result.url" target="_blank" rel="noopener noreferrer">PR #{{ result.prNumber }}</a> · Reviewed head <code>{{ result.headSha }}</code></p><p v-if="result.targetBranch" class="small muted">PR target {{ result.targetBranch }}</p><p class="small muted">{{ result.capturedAt }} · This verdict applies to that exact head. No merge was performed.</p><UCard v-for="(finding, index) in result.findings" :key="index" class="review-finding"><UBadge :color="finding.severity === 'blocking' ? 'error' : 'neutral'" variant="soft">{{ finding.severity }}</UBadge><h3>{{ finding.path }}<span v-if="finding.line">:{{ finding.line }}</span></h3><p>{{ finding.message }}</p><p class="small">Evidence: {{ finding.evidence }}</p></UCard><p v-if="!result.findings.length">No findings were recorded.</p><ul v-if="result.limitations.length"><li v-for="item in result.limitations" :key="item">{{ item }}</li></ul></template>
+        <template v-if="result.station === 'worker'"><UButton :to="result.publication.url" target="_blank" rel="noopener noreferrer" icon="i-lucide-git-pull-request">Open {{ execution === 'owner' ? 'PR' : 'draft PR' }} #{{ result.publication.number }}</UButton><p class="small muted">Branch <code>{{ shortIdentifier(result.publication.branch, 24) }}</code> · head <code>{{ shortIdentifier(result.publication.headSha) }}</code> · base <code>{{ shortIdentifier(result.publication.baseSha) }}</code></p><details class="technical-evidence"><summary>Technical evidence</summary><dl><div><dt>Branch</dt><dd><code>{{ result.publication.branch }}</code><UButton size="xs" variant="ghost" @click="copyEvidence(result.publication.branch)">{{ copyLabel(result.publication.branch) }}</UButton></dd></div><div><dt>Head SHA</dt><dd><code>{{ result.publication.headSha }}</code><UButton size="xs" variant="ghost" @click="copyEvidence(result.publication.headSha)">{{ copyLabel(result.publication.headSha) }}</UButton></dd></div><div><dt>Base SHA</dt><dd><code>{{ result.publication.baseSha }}</code><UButton size="xs" variant="ghost" @click="copyEvidence(result.publication.baseSha)">{{ copyLabel(result.publication.baseSha) }}</UButton></dd></div><div v-if="result.publication.targetBranch"><dt>PR target</dt><dd><code>{{ result.publication.targetBranch }}</code><UButton size="xs" variant="ghost" @click="copyEvidence(result.publication.targetBranch)">{{ copyLabel(result.publication.targetBranch) }}</UButton></dd></div><div v-if="result.publication.parentPrNumber"><dt>Parent PR</dt><dd>#{{ result.publication.parentPrNumber }}</dd></div><div v-if="result.publication.ownerSessionId"><dt>Branch owner session</dt><dd><code>{{ result.publication.ownerSessionId }}</code><UButton size="xs" variant="ghost" @click="copyEvidence(result.publication.ownerSessionId)">{{ copyLabel(result.publication.ownerSessionId) }}</UButton></dd></div></dl></details><p class="small muted">Use the PR reviewer above for an independent review.</p></template>
+        <template v-else><p><a class="review-pr-link" :href="result.url" target="_blank" rel="noopener noreferrer">PR #{{ result.prNumber }}</a> · Reviewed head <code>{{ shortIdentifier(result.headSha) }}</code></p><p class="small muted">{{ result.capturedAt }} · This verdict applies to that exact head. No merge was performed.</p><details class="technical-evidence"><summary>Technical evidence</summary><dl><div><dt>Reviewed head SHA</dt><dd><code>{{ result.headSha }}</code><UButton size="xs" variant="ghost" @click="copyEvidence(result.headSha)">{{ copyLabel(result.headSha) }}</UButton></dd></div><div><dt>Base SHA</dt><dd><code>{{ result.baseSha }}</code><UButton size="xs" variant="ghost" @click="copyEvidence(result.baseSha)">{{ copyLabel(result.baseSha) }}</UButton></dd></div><div v-if="result.targetBranch"><dt>PR target</dt><dd><code>{{ result.targetBranch }}</code><UButton size="xs" variant="ghost" @click="copyEvidence(result.targetBranch)">{{ copyLabel(result.targetBranch) }}</UButton></dd></div></dl></details><UCard v-for="(finding, index) in result.findings" :key="index" class="review-finding"><UBadge :color="finding.severity === 'blocking' ? 'error' : 'neutral'" variant="soft">{{ finding.severity }}</UBadge><h3>{{ finding.path }}<span v-if="finding.line">:{{ finding.line }}</span></h3><p>{{ finding.message }}</p><p class="small">Evidence: {{ finding.evidence }}</p></UCard><p v-if="!result.findings.length">No findings were recorded.</p><ul v-if="result.limitations.length"><li v-for="item in result.limitations" :key="item">{{ item }}</li></ul></template>
         <details class="checks"><summary>Command evidence · {{ result.commands.length }} checks</summary><details v-for="(command, index) in result.commands" :key="index"><summary><code>{{ command.command }}</code> · exit {{ command.exitCode }}</summary><p v-if="command.truncated" class="small muted">Output is truncated.</p><pre>{{ command.stdout }}</pre><pre v-if="command.stderr">{{ command.stderr }}</pre></details></details>
       </template>
       <p v-else-if="!active && summary" class="summary">{{ summary }}</p>
@@ -151,7 +167,7 @@ async function stop() {
     </template>
     <fieldset v-for="request in pendingRequests" :key="request.requestId" class="decision"><legend>Awaiting decision</legend><p>{{ request.prompt }}</p><UButton v-for="option in request.options || []" :key="option.id" :color="option.style === 'danger' ? 'error' : 'primary'" :disabled="!!answering" @click="answer(request.requestId, option.id)">{{ option.label }}</UButton><p class="small muted">This decision applies to the existing station run. No option is selected automatically.</p></fieldset>
     <WorkRun v-if="childId" :session-id="childId" :station="station" :awaiting-decision="needsDecision" child @settled="childSettled = $event" @recorded="childRecorded = $event" />
-    <div v-if="!child" class="run-actions"><UButton v-if="childId && discoveryError && !childRecorded" variant="outline" @click="reconnect">Reconnect decisions</UButton><UButton v-if="canStop || stopping" color="neutral" variant="outline" :loading="stopping" :disabled="stopping" @click="stop">Stop {{ station === 'worker' ? 'worker' : 'review' }}</UButton><a :href="runLink">Open run {{ sessionId }}</a></div>
+    <div v-if="!child" class="run-actions"><UButton v-if="childId && discoveryError && !childRecorded" variant="outline" @click="reconnect">Reconnect decisions</UButton><UButton v-if="canStop || stopping" color="neutral" variant="outline" :loading="stopping" :disabled="stopping" @click="stop">Stop {{ station === 'worker' ? 'worker' : 'review' }}</UButton><a :href="runLink" :aria-label="`Open run ${sessionId}`">Open run <code>{{ shortIdentifier(sessionId) }}</code></a></div>
     <p v-if="cancellationRequested && canStop" role="status">Cancellation requested. Waiting for the station to stop.</p>
     <UAlert v-if="actionError" color="warning" title="Action not completed" :description="actionError" />
   </div>
@@ -171,6 +187,13 @@ ul { padding-left:22px; list-style:disc; }
 .summary, pre { white-space:pre-wrap; }
 .checks { margin:24px 0; }
 .checks details { margin:16px 0; }
+.technical-evidence { margin:20px 0; padding:14px 16px; border:1px solid var(--ui-border); border-radius:6px; background:var(--ui-bg-muted); }
+.technical-evidence summary { font-weight:600; }
+.technical-evidence dl { display:grid; gap:10px; margin:14px 0 0; }
+.technical-evidence dl div { display:grid; grid-template-columns:minmax(110px, 150px) minmax(0, 1fr); align-items:center; gap:10px; }
+.technical-evidence dt { color:var(--ui-text-muted); font-size:12px; }
+.technical-evidence dd { display:flex; min-width:0; align-items:center; gap:8px; margin:0; overflow-wrap:anywhere; }
+.technical-evidence code { min-width:0; overflow-wrap:anywhere; }
 summary { cursor:pointer; }
 pre { background:var(--ui-bg-muted); padding:12px; max-height:280px; overflow:auto; }
 </style>

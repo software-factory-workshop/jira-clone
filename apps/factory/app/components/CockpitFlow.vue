@@ -108,7 +108,7 @@ function statusLabel(status: string) {
         <p class="flow-description">{{ description }}</p>
       </div>
       <div class="flow-toolbar" aria-label="Flow map controls">
-        <span class="flow-interaction-hint"><UIcon name="i-lucide-mouse" aria-hidden="true" /> Pan · scroll to zoom</span>
+        <span class="flow-interaction-hint"><UIcon name="i-lucide-mouse" aria-hidden="true" /> Drag to pan · scroll to zoom · stages below are keyboard friendly</span>
         <button type="button" aria-label="Zoom out" title="Zoom out" @click="zoomOut({ duration: 120 })"><UIcon name="i-lucide-minus" aria-hidden="true" /></button>
         <button type="button" aria-label="Fit map to view" title="Fit map to view" @click="resetView"><UIcon name="i-lucide-maximize-2" aria-hidden="true" /></button>
         <button type="button" aria-label="Zoom in" title="Zoom in" @click="zoomIn({ duration: 120 })"><UIcon name="i-lucide-plus" aria-hidden="true" /></button>
@@ -164,6 +164,15 @@ function statusLabel(status: string) {
         <span>{{ node.title }}</span>
       </button>
     </div>
+
+    <ol class="flow-linear" aria-label="Linear flow summary">
+      <li v-for="(node, index) in nodes" :key="node.id">
+        <button type="button" :class="{ selected: node.id === selectedId }" :aria-current="node.id === selectedId ? 'step' : undefined" @click="selectNode(node.id)">
+          <span class="flow-linear-index" aria-hidden="true">{{ index + 1 }}</span>
+          <span class="flow-linear-copy"><strong>{{ node.title }}</strong><small>{{ statusLabel(node.status) }} · {{ node.subtitle }}</small></span>
+        </button>
+      </li>
+    </ol>
 
     <div v-if="selectedNode" class="flow-detail" role="status">
       <span class="flow-detail-icon" aria-hidden="true"><UIcon :name="selectedNode.icon" /></span>
@@ -426,6 +435,54 @@ function statusLabel(status: string) {
   background: #f3f8f8;
   color: #2d545c;
 }
+.flow-linear {
+  display: none;
+  margin: 0;
+  padding: 12px 18px 2px;
+  list-style: none;
+}
+.flow-linear li + li {
+  border-top: 1px solid #edf1f2;
+}
+.flow-linear button {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 4px;
+  border: 0;
+  background: transparent;
+  color: #66777e;
+  text-align: left;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+.flow-linear button.selected {
+  color: #2d545c;
+}
+.flow-linear-index {
+  display: grid;
+  width: 24px;
+  height: 24px;
+  flex-shrink: 0;
+  place-items: center;
+  border: 1px solid #d5e1e2;
+  border-radius: 50%;
+  font-size: 11px;
+}
+.flow-linear-copy {
+  display: grid;
+  min-width: 0;
+  gap: 3px;
+}
+.flow-linear-copy strong {
+  font-size: 12px;
+  font-weight: 650;
+}
+.flow-linear-copy small {
+  color: #8a999d;
+  font-size: 11px;
+}
 .flow-stage-dot {
   width: 7px;
   height: 7px;
@@ -494,6 +551,8 @@ function statusLabel(status: string) {
   .flow-heading { display: block; }
   .flow-toolbar { margin-top: 13px; }
   .flow-interaction-hint { margin-right: auto; }
+  .flow-stage-list { display: none; }
+  .flow-linear { display: block; }
 }
 @media (prefers-reduced-motion: reduce) {
   .flow-node, .flow-node.status-active .flow-node-icon { animation: none; transition: none; }

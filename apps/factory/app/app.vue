@@ -53,6 +53,7 @@ const draftsLoaded = ref(false);
 const draftsError = ref("");
 const draftsErrorKind = ref<CockpitFailureKind>();
 const unsaved = computed(() => isDraftDirty({ title: title.value, request: request.value }, savedSnapshot.value));
+const draftConflict = ref<{ latest: Draft; local: { title: string; request: string } }>();
 const selectedReference = ref(referenceValue(route.query.reference));
 const {
   data: github,
@@ -80,6 +81,27 @@ async function refreshDrafts() {
  } finally {
    draftsLoading.value = false;
  }
+}
+async function captureDraftConflict(cause: unknown) {
+  if (cockpitFailureKind(cause) !== "conflict" || !activeId.value) return;
+  const local = editorText();
+  if (!await refreshDrafts()) return;
+  const latest = drafts.value.find((draft) => draft.id === activeId.value);
+  if (latest) draftConflict.value = { latest, local };
+}
+async function reloadLatestDraft() {
+  const conflict = draftConflict.value;
+  if (!conflict) return;
+  activeId.value = conflict.latest.id;
+  activeVersion.value = draftVersions.value[conflict.latest.id] ?? 0;
+  title.value = conflict.latest.title;
+  request.value = conflict.latest.request;
+  savedSnapshot.value = cleanSnapshot(activeId.value, activeVersion.value, editorText());
+  draftConflict.value = undefined;
+  draftSwitchError.value = "";
+  pendingDestination.value = null;
+  notice.value = "Loaded the latest shared version. Your previous text was not saved.";
+  await focusEditor();
 }
 onMounted(async () => {
   void refreshGithub();
@@ -233,11 +255,13 @@ async function saveAndContinue() {
     const applied = applySaveReceipt({ activeId: activeId.value, activeVersion: activeVersion.value }, previousId, { id, version: saved.version });
     activeId.value = applied.activeId;
     activeVersion.value = applied.activeVersion;
+    draftConflict.value = undefined;
     await refreshDrafts();
     notice.value = "Draft saved in the shared cockpit.";
     await applyDestination(destination);
   } catch (cause) {
     draftSwitchError.value = cockpitFailureMessage(cause, "This draft");
+    await captureDraftConflict(cause);
   } finally { confirmSaving.value = false; }
 }
 async function focusEditor() {
@@ -261,12 +285,13 @@ async function save() {
     const saved=await cockpit.save("drafts",id,{title:title.value.trim(),request:request.value.trim()},activeVersion.value);
     // A delayed receipt for another draft cannot claim this editor.
     const applied=applySaveReceipt({activeId:activeId.value,activeVersion:activeVersion.value},previousId,{id,version:saved.version});
-    activeId.value=applied.activeId;activeVersion.value=applied.activeVersion;
+    activeId.value=applied.activeId;activeVersion.value=applied.activeVersion;draftConflict.value=undefined;
     savedSnapshot.value=cleanSnapshot(activeId.value,activeVersion.value,editorText());
     await refreshDrafts();notice.value="Draft saved in the shared cockpit.";
   } catch (cause) {
     notice.value = cockpitFailureMessage(cause, "This draft");
     if (cockpitFailureKind(cause) === "unavailable") draftsError.value = cockpitFailureMessage(cause, "Shared drafts");
+    await captureDraftConflict(cause);
   }finally{saving.value=false;}
 }
 const issueUrl=ref("");let issueSequence=0;
@@ -291,7 +316,7 @@ watch([title,request],async()=>{const sequence=++issueSequence;issueUrl.value=""
             :aria-label="`Work, ${workCountLabel}`"
             @click="navigateSection('work', $event)"
           >
-            <UIcon name="i-lucide-inbox" aria-hidden="true" />Work <span aria-hidden="true">{{ draftsLoaded ? drafts.length : "—" }}</span>
+            <UIcon name="i-lucide-inbox" aria-hidden="true" />Work <span aria-hidden="true">{{ draftsLoaded ? `${drafts.length} drafts` : "—" }}</span>
           </button>
           <button
             :class="{ active: section === 'knowledge' }"
@@ -433,6 +458,20 @@ watch([title,request],async()=>{const sequence=++issueSequence;issueUrl.value=""
                 <p v-if="notice" role="status" class="save-notice">
                   {{ notice }}
                 </p>
+                <section v-if="draftConflict" class="draft-conflict" role="alert">
+                  <div>
+                    <strong>Shared draft changed elsewhere</strong>
+                    <p class="small">Your text is retained. Compare it with the latest version, then choose whether to reload the shared draft.</p>
+                  </div>
+                  <details>
+                    <summary>Compare versions</summary>
+                    <div class="conflict-compare">
+                      <article><h3>Your unsaved text</h3><strong>{{ draftConflict.local.title || "Untitled" }}</strong><pre>{{ draftConflict.local.request || "No request text" }}</pre></article>
+                      <article><h3>Latest shared version</h3><strong>{{ draftConflict.latest.title }}</strong><pre>{{ draftConflict.latest.request }}</pre></article>
+                    </div>
+                  </details>
+                  <UButton size="xs" variant="outline" @click="reloadLatestDraft">Reload latest shared draft</UButton>
+                </section>
                 <UModal
                   :open="!!pendingDestination"
                   title="Unsaved draft changes"
@@ -442,6 +481,7 @@ watch([title,request],async()=>{const sequence=++issueSequence;issueUrl.value=""
                   <template #body>
                     <p class="small muted">Your current title and request are kept while you decide. Saving replaces the editor only after the shared cockpit confirms.</p>
                     <p v-if="draftSwitchError" role="alert" class="small confirm-error">{{ draftSwitchError }}</p>
+                    <UButton v-if="draftConflict" size="xs" variant="outline" @click="reloadLatestDraft">Reload latest shared draft</UButton>
                     <div class="confirm-actions">
                       <UButton icon="i-lucide-save" :loading="confirmSaving" :disabled="confirmSaving" @click="saveAndContinue">Save and continue</UButton>
                       <UButton variant="outline" color="neutral" :disabled="confirmSaving" @click="discardAndContinue">Discard changes</UButton>

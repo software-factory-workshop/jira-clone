@@ -32,7 +32,7 @@ export const flowStatusLabels: Record<FlowStatus, string> = {
   active: "Running",
   complete: "Complete",
   attention: "Needs attention",
-  failed: "Stopped",
+  failed: "Failed",
 };
 
 export function displayToolName(toolName: string): string {
@@ -70,6 +70,10 @@ function compact(value: string | undefined, limit = 150): string | undefined {
   const text = value.replace(/\s+/g, " ").trim();
   if (!text) return undefined;
   return text.length > limit ? `${text.slice(0, limit - 1).trimEnd()}…` : text;
+}
+
+function shortIdentifier(value: string, length = 12): string {
+  return value.length > length ? `${value.slice(0, length)}…` : value;
 }
 
 type DeliveryStage = "request" | "worker" | "review" | "revision" | "merge" | "outcome";
@@ -180,7 +184,7 @@ export function deliveryFlow(input: DeliveryFlowInput): FlowModel {
       status: deliveryStageStatus("worker", input, visited),
       icon: "i-lucide-hammer",
       position: { x: 238, y: 126 },
-      detail: workerSession ? `Session ${workerSession}` : "An isolated Eve worker creates or updates the PR.",
+      detail: workerSession ? `Session ${shortIdentifier(workerSession)}` : "An isolated Eve worker creates or updates the PR.",
       meta: input.publication?.number ? `PR #${input.publication.number}` : undefined,
     },
     {
@@ -190,7 +194,7 @@ export function deliveryFlow(input: DeliveryFlowInput): FlowModel {
       status: deliveryStageStatus("review", input, visited),
       icon: "i-lucide-scan-search",
       position: { x: 478, y: 126 },
-      detail: input.reviewerSessionId ? `Session ${input.reviewerSessionId}` : "A separate reviewer checks the published head and target.",
+      detail: input.reviewerSessionId ? `Session ${shortIdentifier(input.reviewerSessionId)}` : "A separate reviewer checks the published head and target.",
       meta: input.review?.verdict ? `Verdict: ${input.review.verdict}` : undefined,
     },
     {
@@ -298,7 +302,7 @@ export function stationFlow(input: StationFlowInput): FlowModel {
       status: stationStatus(input),
       icon: input.station === "worker" ? "i-lucide-bot" : "i-lucide-shield-check",
       position: { x: 246, y: 118 },
-      detail: input.taskId ? `Background task ${input.taskId}` : `${stationName} is following the station contract in its own session.`,
+      detail: input.taskId ? `Background task ${shortIdentifier(input.taskId)}` : `${stationName} is following the station contract in its own session.`,
       meta: input.awaitingAuthorization ? "Connection required" : undefined,
     },
   ];
