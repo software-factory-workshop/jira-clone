@@ -1,1 +1,0 @@
-Gateway credits preflight returned HTTP 503 before sandbox startup or model invocation. No task-mining output. See experiment report for infrastructure failures, which are excluded from quality comparison.

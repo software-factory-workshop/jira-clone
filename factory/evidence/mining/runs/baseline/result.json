@@ -1,1 +1,0 @@
-{"text":"VERCEL_OIDC_TOKEN authentication failed · HTTP 401","usage":{"inputTokenDetails":{},"outputTokenDetails":{},"raw":{}},"finishReason":"other","steps":[{"text":"VERCEL_OIDC_TOKEN authentication failed · HTTP 401","usage":{"inputTokenDetails":{},"outputTokenDetails":{}},"toolCalls":[],"toolResults":[]}],"elapsedMs":47263}
