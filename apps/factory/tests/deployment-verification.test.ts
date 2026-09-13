@@ -4,7 +4,7 @@ import { mkdtemp, mkdir, writeFile, rm } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { deploymentStatus } from "../scripts/verify-vercel-status.mjs";
-import { verifyNativeOutput } from "../scripts/verify-native-output.mjs";
+import { CEDAR_WASM_RELATIVE_PATHS, verifyNativeOutput } from "../scripts/verify-native-output.mjs";
 const sha = "a".repeat(40);
 const statuses = ["adeo-factory-cockpit", "adeo-jira-clone"].map(project => ({ context: `Vercel – ${project}`, state: "success", target_url: `https://vercel.com/demo-software-factory/${project}/deployment` }));
 test("deployment proof requires the exact commit and both fixed team/project statuses", () => {
@@ -20,7 +20,16 @@ test("native output check requires a Workflow function and catches hidden fx cop
     await assert.rejects(verifyNativeOutput(directory));
     const workflow=join(directory,"functions/.well-known/workflow/v1/flow.func");
     await mkdir(workflow,{recursive:true});await writeFile(join(directory,"config.json"),"{}");await writeFile(join(workflow,".vc-config.json"),"{}");
+    for (const relativePath of CEDAR_WASM_RELATIVE_PATHS) {
+      const asset = join(directory, relativePath);
+      await mkdir(join(asset, ".."), { recursive: true });
+      await writeFile(asset, "wasm");
+    }
     await verifyNativeOutput(directory);
+    await rm(join(directory, CEDAR_WASM_RELATIVE_PATHS[0]), { force: true });
+    await assert.rejects(verifyNativeOutput(directory), /Cedar WASM asset is missing/);
+    await mkdir(join(directory, CEDAR_WASM_RELATIVE_PATHS[0], ".."), { recursive: true });
+    await writeFile(join(directory, CEDAR_WASM_RELATIVE_PATHS[0]), "wasm");
     await writeFile(join(workflow,"ai-sdk__harness-acp.mjs"),"export {};");
     await assert.rejects(verifyNativeOutput(directory),/Experimental fx/);
   } finally {await rm(directory,{recursive:true,force:true});}

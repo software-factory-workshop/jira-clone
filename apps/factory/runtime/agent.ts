@@ -4,6 +4,7 @@ import { model, verifyGatewayScope } from "./lib/github.mjs";
 
 export default defineAgent({
   model: defineDynamic({events:{"session.started":async()=>{verifyGatewayScope(await getVercelOidcToken(),process.env.AI_GATEWAY_API_KEY);return model;}}}),
+  build: { externalDependencies: ["@cedar-policy/cedar-wasm"] },
   defaultTools: false,
   limits: {
     maxInputTokensPerSession: false,
