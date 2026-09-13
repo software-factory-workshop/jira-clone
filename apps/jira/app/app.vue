@@ -14,6 +14,7 @@ import {
   ALL_ASSIGNEES,
   OBSERVED_STATUSES,
   PRIORITIES,
+  allowedMoveHint,
   assigneeOptions,
   changePriority,
   columnIssues,
@@ -489,7 +490,10 @@ await refresh();
               <strong>Synthetic demo data.</strong> Review the layout and open
               an issue. Status moves and priority edits use a labelled
               <strong>demo-only save path</strong>: they persist across reload
-              on this server and reset on redeploy. Acting as
+              on this server and reset on redeploy. Status moves follow a
+              fixed <strong>demo-only transition matrix</strong> (To Do →
+              In Progress → In Review → Done → To Do); other moves are
+              rejected and save nothing. Acting as
               <strong>{{ demoAccount.label }} ({{ demoAccount.role }})</strong
               > — a demo-only simulation with no real login or production
               permissions. {{ DEMO_ROLE_MATRIX_LABEL }} Unknown or blank
@@ -682,6 +686,7 @@ await refresh();
                     :model-value="issue.status"
                     :items="statuses"
                     :aria-label="cardMoveLabel(issue)"
+                    :aria-describedby="`allowed-${issue.key}`"
                     :disabled="pendingKeys.includes(issue.key)"
                     size="sm"
                     @update:model-value="
@@ -692,6 +697,9 @@ await refresh();
                     "
                   />
                 </label>
+                <p :id="`allowed-${issue.key}`" class="demo-save-hint">
+                  {{ allowedMoveHint(issue.status) }}
+                </p>
                 <span v-if="pendingKeys.includes(issue.key)" class="saving">
                   Saving demo move…
                 </span>
@@ -849,6 +857,7 @@ await refresh();
                 v-model="selectedTarget"
                 :items="selectedTargets"
                 :aria-label="`Move ${selected.key} to another column`"
+                aria-describedby="allowed-detail"
                 :disabled="
                   !selectedTargets.length ||
                   pendingKeys.includes(selected.key)
@@ -856,6 +865,9 @@ await refresh();
                 size="sm"
               />
             </label>
+            <p id="allowed-detail" class="demo-save-hint">
+              {{ allowedMoveHint(selected.status) }}
+            </p>
             <UButton
               icon="i-lucide-move"
               :loading="pendingKeys.includes(selected.key)"

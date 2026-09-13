@@ -60,11 +60,11 @@ test("updated created issue reflects its server value on reload", async () => {
   const created = createIssue({ title: "Demo detail check" });
   assert.equal(created.ok, true);
   const key = created.ok ? created.issue.key : "";
-  const updated = updateIssue(key, { status: "Done", priority: "Lowest" });
+  const updated = updateIssue(key, { status: "In Progress", priority: "Lowest" });
   assert.equal(updated.ok, true);
   const calls: string[] = [];
   const reloaded = await fetchIssueDetail(key, serverFetch(calls));
-  assert.equal(reloaded.issue.status, "Done");
+  assert.equal(reloaded.issue.status, "In Progress");
   assert.equal(reloaded.issue.priority, "Lowest");
   assert.deepEqual(reloaded.issue, getIssue(key));
   resetIssues();

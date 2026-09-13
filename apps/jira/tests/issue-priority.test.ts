@@ -35,10 +35,10 @@ test("priority update persists and survives a reload read", () => {
 
 test("priority can be saved together with status on one PATCH", () => {
   resetIssues();
-  const updated = updateIssue("ADEO-1", { status: "Done", priority: "Low" });
+  const updated = updateIssue("ADEO-1", { status: "In Progress", priority: "Low" });
   assert.equal(updated.ok, true);
   if (updated.ok) {
-    assert.equal(updated.issue.status, "Done");
+    assert.equal(updated.issue.status, "In Progress");
     assert.equal(updated.issue.priority, "Low");
   }
   resetIssues();
@@ -58,7 +58,7 @@ test("unknown priority and unknown key are rejected without writing", () => {
   assert.equal(badKey.ok, false);
   assert.equal(badKey.ok ? 0 : badKey.statusCode, 404);
   // Priority-only validation leaves the status path untouched.
-  const statusStill = updateIssueStatus("ADEO-1", "Done");
+  const statusStill = updateIssueStatus("ADEO-1", "In Progress");
   assert.equal(statusStill.ok, true);
   resetIssues();
 });

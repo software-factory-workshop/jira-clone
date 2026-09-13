@@ -70,3 +70,13 @@ Derived from `factory/tasks/jira-teaching-loop.md`. Delivery mechanics follow
 > demo-only in-memory path that survives reload on the same server, resets on
 > redeploy, and keeps the card in its original column on deterministic failure.
 > Pointer-drag approval still needs trusted human browser evidence.
+>
+> Demo-only transition guard (worker draft, 13 Sep 2026): status moves on the
+> PATCH save path follow a fixed **demo-only** matrix — To Do → In Progress →
+> In Review → Done → To Do (reopen). Any other move is rejected with a
+> structured demoOnly 409 naming the allowed target(s), and nothing is
+> written. Authorization still runs first, so viewer writes stay 403. The
+> matrix is a small explicit teaching default: it is **not verified Jira
+> workflow parity and not production authorization**. No REST/MCP parity,
+> Passport/OAuth, SAML, SCIM, durable accounts or full Jira permissions are
+> claimed here.

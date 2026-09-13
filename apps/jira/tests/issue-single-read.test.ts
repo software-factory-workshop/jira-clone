@@ -26,17 +26,17 @@ test("unknown key reads undefined without writing", () => {
 
 test("single read reflects status/priority overrides after PATCH", () => {
   resetIssues();
-  const updated = updateIssue("ADEO-2", { status: "Done", priority: "Lowest" });
+  const updated = updateIssue("ADEO-2", { status: "In Review", priority: "Lowest" });
   assert.equal(updated.ok, true);
   assert.deepEqual(getIssue("ADEO-2"), updated.ok ? updated.issue : undefined);
-  assert.equal(getIssue("ADEO-2")?.status, "Done");
+  assert.equal(getIssue("ADEO-2")?.status, "In Review");
   assert.equal(getIssue("ADEO-2")?.priority, "Lowest");
   resetIssues();
 });
 
 test("reset clears single-read overrides back to fixtures", () => {
   resetIssues();
-  updateIssue("ADEO-2", { status: "Done", priority: "Lowest" });
+  updateIssue("ADEO-2", { status: "In Review", priority: "Lowest" });
   resetIssues();
   assert.equal(getIssue("ADEO-2")?.status, "In Progress");
   assert.equal(getIssue("ADEO-2")?.priority, "High");

@@ -5,8 +5,11 @@
  * synthetic fixtures from `@jira-clone/context`. Status moves, priority
  * edits, issues created via POST /api/issues and per-issue demo-only
  * comments survive page reload against the same running server but reset on
- * redeploy, cold start or POST /api/issues/reset. No Jira transition
- * enforcement is claimed: any move among the observed statuses is allowed.
+ * redeploy, cold start or POST /api/issues/reset. A small, explicit,
+ * demo-only transition matrix (`DEMO_TRANSITIONS`) guards status moves on
+ * the PATCH save path: any other move is rejected with a 409 and writes
+ * nothing. This is a teaching guard only; it does not claim verified Jira
+ * workflow parity or production authorization.
  *
  * Priority is a bounded synthetic allowlist (Highest, High, Medium, Low,
  * Lowest) chosen to cover the fixture values. It teaches the save path; it
@@ -50,6 +53,37 @@ export function isObservedStatus(value: unknown): value is ObservedStatus {
     typeof value === "string" &&
     (OBSERVED_STATUSES as readonly string[]).includes(value)
   );
+}
+
+/**
+ * Demo-only status transition matrix for the Jira teaching board.
+ *
+ * Fixed best-effort default for this slice: To Do -> In Progress,
+ * In Progress -> In Review, In Review -> Done, Done -> To Do (reopen).
+ * Any other status move is rejected on the PATCH save path with a
+ * structured demoOnly 409 that names the allowed target(s); nothing is
+ * written. Same-status saves are no-ops and priority-only saves bypass
+ * this rule. Status labels match the existing fixture labels exactly.
+ *
+ * This is a small explicit teaching guard. It is not verified Jira
+ * workflow parity and not production authorization: the demo actor check
+ * in the API routes still runs first, so viewer writes stay 403.
+ */
+export const DEMO_TRANSITIONS = {
+  "To Do": ["In Progress"],
+  "In Progress": ["In Review"],
+  "In Review": ["Done"],
+  "Done": ["To Do"],
+} as const satisfies Record<ObservedStatus, readonly ObservedStatus[]>;
+
+/** Allowed demo-only targets from one observed status. Pure; never writes. */
+export function allowedTransitions(from: ObservedStatus): readonly ObservedStatus[] {
+  return DEMO_TRANSITIONS[from] ?? [];
+}
+
+/** Pure demo-only transition check. Same-status moves are handled by the caller as no-ops. */
+export function isDemoTransition(from: ObservedStatus, to: ObservedStatus): boolean {
+  return allowedTransitions(from).includes(to);
 }
 
 export function isPriority(value: unknown): value is DemoPriority {
@@ -98,7 +132,13 @@ export function getIssue(key: string): DemoIssue | undefined {
 
 export type UpdateResult =
   | { ok: true; issue: DemoIssue }
-  | { ok: false; error: string; statusCode: number };
+  | {
+      ok: false;
+      error: string;
+      statusCode: number;
+      /** Present only on demo-only transition rejections (409). */
+      allowedFrom?: readonly ObservedStatus[];
+    };
 
 export type IssuePatch = {
   status?: unknown;
@@ -110,7 +150,12 @@ export type IssuePatch = {
  * boundary. Seeded issues are stored as overrides; created demo issues are
  * updated in place on the same boundary. Unknown values are rejected with a
  * client error before any write; the deterministic `fail` path never writes
- * either.
+ * either. Status moves are further guarded by the demo-only
+ * `DEMO_TRANSITIONS` matrix: a move to any other observed status is
+ * rejected with a 409 carrying `allowedFrom`, and nothing is written.
+ * Same-status saves are no-ops and priority-only saves bypass the matrix.
+ * This guard is not verified Jira workflow parity or production
+ * authorization; actor checks still run first in the API routes.
  */
 export function updateIssue(
   key: string,
@@ -152,6 +197,25 @@ export function updateIssue(
       error: "Nothing to save. Provide a demo status and/or priority.",
       statusCode: 400,
     };
+  }
+  if (patch.status !== undefined) {
+    const current = getIssue(key)?.status;
+    if (
+      isObservedStatus(current) &&
+      patch.status !== current &&
+      !isDemoTransition(current, patch.status)
+    ) {
+      const allowed = allowedTransitions(current);
+      return {
+        ok: false,
+        error:
+          `Demo-only transition rejected: "${current}" -> "${patch.status}" is not in the demo matrix. ` +
+          `Allowed demo target(s) from "${current}": ${allowed.join(", ")}. ` +
+          `Nothing was saved. This is a teaching guard, not verified Jira workflow parity.`,
+        statusCode: 409,
+        allowedFrom: allowed,
+      };
+    }
   }
   if (seed) {
     if (patch.status !== undefined) {
