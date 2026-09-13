@@ -2,7 +2,7 @@
 import { useEveAgent, defaultMessageReducer, type EveMessageData } from "eve/vue";
 import type { MessageStreamEvent } from "eve/client";
 import { triggerRef } from "vue";
-import { dispatchedTask, parseStationToolResult, pendingStationRequests, matchesStationDelivery, advanceStationTurn, appendStationTail, readStationStream, type StationKind, type StationTurn } from "../utils/work-station";
+import { dispatchedTask, parseStationToolResult, pendingStationRequests, matchesStationDelivery, advanceStationTurn, appendStationTail, boundStationProjection, readStationStream, type StationKind, type StationTurn } from "../utils/work-station";
 import { authorizationLink } from "../utils/mining-output";
 import { stationFlow } from "../utils/observability-flow";
 import { copyText, shortIdentifier } from "../utils/technical-details";
@@ -61,7 +61,7 @@ async function followChild() {
       appendStationTail(tailEvents.value, event);
       triggerRef(tailEvents);
       tailTurn.value = advanceStationTurn(tailTurn.value, event);
-      tailData.value = reducer.reduce(tailData.value, event);
+      tailData.value = boundStationProjection(reducer.reduce(tailData.value, event), props.station, props.operationId);
       if (event.type === "subagent.called" && event.data.name === props.station) {
         discoveredChild.value = event.data.childSessionId;
       }
