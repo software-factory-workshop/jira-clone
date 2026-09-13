@@ -12,19 +12,23 @@ import { factoryAuth } from '../lib/route-auth';
 import { stationOperation } from './stations';
 import { deliveryRequest,newDelivery,operationFor,transition,terminal,applyReview,referenceState,claimAdvance,commitAdvance,requestResume,beginRevision,admissionRecoveryAction,recordAdmissionFailure,retryAdmission,type Delivery } from '../lib/delivery-state';
 import { listDeliveryReceipts,readDelivery,updateDelivery } from '../lib/delivery-store';
-import { snapshotEvents,childIn,hostResult,stoppedWithoutResult,eventsForDelivery,resumeMessage,resumeReceipt } from '../lib/delivery-events';
+import { classifyDeliveryError,snapshotEvents,childIn,hostResult,stoppedWithoutResult,eventsForDelivery,resumeMessage,resumeReceipt,type ClassifiedDeliveryError } from '../lib/delivery-events';
 import { readPull,readBranch,WorkError,workBranch } from '../lib/work-github';
 import { visualReviewPacketSchema } from '../lib/visual-review';
 const publication=z.object({number:z.number().int().positive(),url:z.string().url(),headSha:z.string().regex(/^[a-f0-9]{40}$/),targetHeadSha:z.string().regex(/^[a-f0-9]{40}$/),targetBranch:z.string(),ownerSessionId:z.string(),branch:z.string()});
 const review=z.object({verdict:z.enum(['approve','changes_requested','incomplete']),summary:z.string(),headSha:z.string(),baseSha:z.string(),targetBranch:z.string(),findings:z.array(z.object({severity:z.string(),path:z.string(),message:z.string(),evidence:z.string()})),limitations:z.array(z.string()),visualReview:visualReviewPacketSchema.optional(),verification:z.object({prepared:z.boolean(),repositoryChecksPassed:z.boolean(),candidateUnchanged:z.boolean()}).optional()});
 function admissionFailureResponse(state: Delivery){return Response.json({deliveryId:state.id,phase:state.phase,state:state.state,error:state.error||'Outer workflow admission failed.',recovery:admissionRecoveryAction(state.id,state.request)},{status:503});}
 async function existing(id:string){const saved=await readDelivery(id);if(!saved)throw new Error('Delivery not found');return saved.state;}
-function protectedRoute(fn:(request:Request,args:RouteHandlerArgs)=>Promise<Response>){return async(request:Request,args:RouteHandlerArgs)=>{const auth=await routeAuth(request,factoryAuth);if(auth instanceof Response)return auth;try{return await fn(request,args);}catch(error){return Response.json({error:error instanceof Error?error.message:'Delivery failed'},{status:400});}};}
+function classifiedResponse(failure: ClassifiedDeliveryError, state?: Delivery){
+ const recovery=failure.code.startsWith('observation_')&&state ? {method:'POST',path:`/factory/delivery/${state.id}/resume`,body:{},description:'Retry observation of the same session. The failed phase and owner are preserved.'} : failure.code==='provider_unavailable'&&state ? {method:'POST',path:`/factory/delivery/${state.id}/advance`,body:{},description:'Retry the same delivery operation after the provider recovers.'} : undefined;
+ return Response.json({...(state?{deliveryId:state.id,phase:state.phase,state:state.state,failedPhase:state.failedPhase}:{}),error:{code:failure.code,kind:failure.kind,message:failure.message,retryable:failure.retryable},...(recovery?{recovery}:{})},{status:failure.status});
+}
+function protectedRoute(fn:(request:Request,args:RouteHandlerArgs)=>Promise<Response>){return async(request:Request,args:RouteHandlerArgs)=>{const auth=await routeAuth(request,factoryAuth);if(auth instanceof Response)return auth;try{return await fn(request,args);}catch(error){return classifiedResponse(classifyDeliveryError(error));}};}
 async function checkCurrent(p:NonNullable<Delivery['publication']>){
  const token=await getToken('github/jira-clone',{subject:{type:'app'}});const pr=await readPull(token,p.number);const targetHeadSha=await readBranch(token,pr.base.ref);
  const status=referenceState(p,{state:pr.state,headSha:pr.head.sha,targetBranch:pr.base.ref,targetHeadSha});
  if(status==='needs_revision')throw new WorkError('needs_revision','PR head or target advanced. Request /revise for the original owner to incorporate current changes with refresh_target, verify and republish; then the loop requests a fresh review.');
- if(status==='blocked')throw new WorkError('blocked','PR closed or retargeted; an explicit target decision is required. No branch was adopted.');
+ if(status==='blocked')throw new WorkError('target_closed','PR closed or retargeted; an explicit target decision is required. No branch was adopted.');
 }
 async function advance(request:Request,ctx:RouteHandlerArgs){
  const id=ctx.params.id;let state=await existing(id);if(terminal(state.phase))return Response.json(state);
@@ -32,6 +36,7 @@ async function advance(request:Request,ctx:RouteHandlerArgs){
  if(driverGeneration&&!ownsDriver(state,driverGeneration,request.headers.get('x-factory-driver-run')||''))return Response.json(state);
  const claim=await updateDelivery(id,current=>{if(!current)throw new Error('Delivery not found');const result=claimAdvance(current);return{state:current,result};});
  if(!claim)return Response.json(await existing(id));state=claim;let claimedVersion=claim.version;const startedPhase=claim.phase;
+ let failure: ClassifiedDeliveryError|undefined;
  try{
   if(state.phase==='merging'){
    if(!state.publication||!state.mergeReview||!state.reviewerSessionId)throw new Error('Missing bound review for merge decision');
@@ -58,7 +63,7 @@ async function advance(request:Request,ctx:RouteHandlerArgs){
    if(station==='reviewer')await checkCurrent(state.publication!);
    const body=station==='worker'?{operationId:state.operationId,title:state.request.title,brief:state.request.brief,...(state.request.parentPrNumber?{parentPrNumber:state.request.parentPrNumber}:{})}:station==='reviewer'?{operationId:state.operationId,prNumber:state.publication!.number}:{operationId:state.operationId,prNumber:state.publication!.number,brief:state.revisionBrief};
    const response=await stationOperation(new Request(request.url,{method:'POST',headers:request.headers,body:JSON.stringify(body)}),{...ctx,params:{station}},state.id);
-   const result=await response.json();if(!response.ok)throw new Error(typeof result.error==='string'?result.error:result.error?.message||'Station start failed');
+   const result=await response.json();if(!response.ok){const code=typeof result.error==='object'&&result.error&&typeof result.error.code==='string'?result.error.code:response.status>=500?'provider_unavailable':'invalid_request';throw new WorkError(code,typeof result.error==='string'?result.error:result.error?.message||'Station start failed');}
    state.sessionId=z.string().parse(result.sessionId);state.childSessionId=station==='revisions'||result.execution==='direct'||result.execution==='owner'?state.sessionId:undefined;state.deliveryId=result.deliveryId;state.execution={attempt:state.attempt,station,operationId:state.operationId,sessionId:state.sessionId,deliveryId:state.deliveryId};
    transition(state,station==='worker'?'working':station==='reviewer'?'reviewing':'revising',{reason:`${station} execution accepted by the host.`});
   }else{
@@ -79,9 +84,22 @@ async function advance(request:Request,ctx:RouteHandlerArgs){
     state.failedPhase=state.phase;state.error='Agent stopped without a trusted result. Inspect its run; source and ownership are preserved.';transition(state,'human_review',{reason:'The owner session stopped without a trusted host result.'});
    }
   }
- }catch(error){state.failedPhase=startedPhase;state.error=error instanceof Error?error.message:'Delivery advance failed';transition(state,error instanceof WorkError&&error.code==='needs_revision'?'needs_revision':'blocked',{reason:state.error});}
+ }catch(error){
+  failure=classifyDeliveryError(error);
+  state.error=failure.message;
+  if(failure.kind==='observation'){
+   state.failedPhase=startedPhase;
+   transition(state,'blocked',{actor:'workflow',reason:`Recoverable observation failure in ${startedPhase}: ${failure.message}`});
+  }else if(failure.code==='target_closed'){
+   state.failedPhase=startedPhase;
+   transition(state,'human_review',{actor:'provider',reason:`Target requires a human decision: ${failure.message}`});
+  }else if(failure.code==='needs_revision'||failure.code==='stale_head'||failure.code==='target_advanced'){
+   transition(state,'needs_revision',{actor:'provider',reason:failure.message});
+  }
+ }
  const committed=await updateDelivery(id,current=>{if(!current)throw new Error('Delivery missing');const next=commitAdvance(current,state,claimedVersion);return{state:next,result:next};});
  if(committed.phase==='cancelled'&&state.sessionId)await (await factorySession(state.sessionId,ctx.attachSession)).cancel({tasks:true});
+ if(failure)return classifiedResponse(failure,committed);
  return Response.json(committed);
 }
 export default defineChannel({routes:[
