@@ -1,6 +1,6 @@
 # Task mining: the first agent station
 
-The input is a question or an open request to find useful work. The output is up to three ranked proposals with evidence, acceptance criteria, uncertainties and a reflection. No proposal is automatically approved, implemented or published.
+The input is a question or an open request to find useful work. The output is up to three ranked proposals with evidence, acceptance criteria, uncertainties and a reflection. No proposal is automatically approved, implemented or published. The station follows the [shared agent quality contract](policies/agent-quality.md), including its evidence vocabulary and user-facing show-me guidance.
 
 The station uses native Eve. The earlier fx experiment remains separately packaged for calibration; it is not part of the deployed agent's execution path. See [dated verification](../docs/verification.md) for what has actually run. Source configuration alone does not establish hosted access or proposal usefulness.
 
