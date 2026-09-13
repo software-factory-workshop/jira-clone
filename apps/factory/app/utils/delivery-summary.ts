@@ -56,20 +56,28 @@ export const attentionPhases: ReadonlySet<string> = new Set([
 ]);
 
 const maxAttentionReasonLength = 180;
+const observationTimeoutHintLength = 1500;
+
+const observationTimeoutHint =
+  'The delivery observer timed out before the session stream completed. No partial result was accepted; resume the blocked delivery to restore its phase and re-observe the same session.';
 
 export function deriveAttentionReason(value: {
   error?: string;
   review?: { summary?: string };
   mergeDecision?: { reason?: string };
 }): string | undefined {
-  const candidates = [value.error, value.review?.summary, value.mergeDecision?.reason];
+  const candidates: Array<{ text: string | undefined; limit: number }> = [
+    typeof value.error === "string" && value.error.includes("no partial result accepted")
+      ? { text: `${value.error} ${observationTimeoutHint}`, limit: observationTimeoutHintLength }
+      : { text: value.error, limit: maxAttentionReasonLength },
+    { text: value.review?.summary, limit: maxAttentionReasonLength },
+    { text: value.mergeDecision?.reason, limit: maxAttentionReasonLength },
+  ];
   for (const candidate of candidates) {
-    if (typeof candidate !== "string") continue;
-    const collapsed = candidate.replace(/\s+/g, " ").trim();
+    if (typeof candidate.text !== "string") continue;
+    const collapsed = candidate.text.replace(/\s+/g, " ").trim();
     if (!collapsed) continue;
-    return collapsed.length > maxAttentionReasonLength
-      ? `${collapsed.slice(0, maxAttentionReasonLength - 1).trimEnd()}…`
-      : collapsed;
+    return collapsed.length > candidate.limit ? `${collapsed.slice(0, candidate.limit - 1).trimEnd()}…` : collapsed;
   }
   return undefined;
 }
