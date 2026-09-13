@@ -85,6 +85,10 @@ export interface DeliveryReceipt {
   recordedAt: string;
 }
 
+export interface DeliveryAdmissionFailure {
+  recordedAt: string;
+}
+
 export const deliveryReceiptSchema = z.object({
   schemaVersion: z.literal(1),
   receiptId: z.string().uuid(),
@@ -148,6 +152,7 @@ export interface Delivery {
   resumeOperationId?: string;
   resumeRequests?: Record<string, boolean>;
   failedPhase?: Phase;
+  admissionFailure?: DeliveryAdmissionFailure;
   revisionRequests?: Record<string, string>;
   revisionBrief?: string;
   error?: string;
@@ -304,6 +309,43 @@ export function newDelivery(principalId: string, request: DeliveryRequest): Deli
     recordedAt: now,
   }];
   return delivery;
+}
+
+export function admissionRecoveryAction(id: string, request: DeliveryRequest) {
+  return {
+    method: 'POST' as const,
+    path: '/factory/delivery' as const,
+    body: request,
+    description: 'Retry the original request with the same operationId. The deterministic delivery ID is reused and outer admission is retried.',
+  };
+}
+
+function admissionFailureMessage(error: unknown) {
+  const message = error instanceof Error ? error.message : String(error || 'unknown error');
+  return (message.replace(/[\u0000-\u001f\u007f]/g, ' ').replace(/\s+/g, ' ').trim() || 'unknown error').slice(0, 700);
+}
+
+export function recordAdmissionFailure(state: Delivery, error: unknown) {
+  if (state.phase !== 'worker_starting') throw new Error('Admission failure can only be recorded before worker start.');
+  const reason = `Outer workflow admission failed: ${admissionFailureMessage(error)}. Retry the original POST with the same operationId to retry admission for this delivery.`;
+  state.failedPhase = 'worker_starting';
+  state.admissionFailure = { recordedAt: new Date().toISOString() };
+  state.error = reason.slice(0, 1000);
+  transition(state, 'blocked', { actor: 'provider', reason });
+  return state;
+}
+
+export function retryAdmission(state: Delivery) {
+  if (state.phase !== 'blocked' || state.failedPhase !== 'worker_starting' || !state.admissionFailure) return false;
+  transition(state, 'worker_starting', {
+    actor: 'operator',
+    operationId: state.request.operationId,
+    reason: 'Retrying outer workflow admission for the existing delivery.',
+  });
+  delete state.failedPhase;
+  delete state.admissionFailure;
+  delete state.error;
+  return true;
 }
 
 export function transition(state: Delivery, phase: Phase, options: TransitionOptions = {}) {

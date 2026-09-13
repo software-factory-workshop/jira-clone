@@ -23,10 +23,12 @@ All routes require `factoryAuth`, including machine bearer identity or the prote
 | GET | `/factory/delivery/:id/receipts` | None |
 | POST | `/factory/delivery/:id/advance` | `{}` |
 | POST | `/factory/delivery/:id/cancel` | `{}` |
-| POST | `/factory/delivery/:id/resume` | `{}`; retry a blocked observation with the original operation |
+| POST | `/factory/delivery/:id/resume` | `{operationId?}`; retry a blocked observation with the original operation |
 | POST | `/factory/delivery/:id/revise` | `{operationId,brief}`; original owner only |
 
 Creation is idempotent for the same caller and operation ID, with conflicting payloads rejected. Revision request IDs stay recorded across subsequent reviews. CAS claims fence concurrent advances; external station starts keep stable Eve continuation keys across retries. Cancellation records intent first and requests cancellation of the parent and admitted child tasks, including a launch racing the request. A publication completed before cancellation is retained; cancellation cannot undo an existing PR.
+
+If the initial outer workflow/driver admission fails after the delivery receipt and projection are written, `POST /factory/delivery` returns `503` with the deterministic `deliveryId`, a `blocked` phase, `failedPhase: worker_starting`, and a `recovery` action. Retry the exact same request with the same `operationId`; it reuses the existing delivery and retries driver admission rather than creating another work item. The existing `POST /factory/delivery/:id/resume` route remains available with a fresh `operationId` for an explicit operator recovery.
 
 Delivery observation fails closed: the outer observer reads the full Eve stream up to the captured tail and never accepts a partial prefix as a verdict. A timed-out observation moves the delivery to `blocked` with its phase preserved and a `Session observation timed out; no partial result accepted.` error; `resume` restores the preserved phase and re-observes the same session without replacing the worker.
 

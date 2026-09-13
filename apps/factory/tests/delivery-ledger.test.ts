@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   MAX_DELIVERY_HISTORY,
+  admissionRecoveryAction,
   beginRevision,
   canTransition,
   claimAdvance,
@@ -11,6 +12,8 @@ import {
   newDelivery,
   normalizeDelivery,
   requestResume,
+  recordAdmissionFailure,
+  retryAdmission,
   transition,
   workStateForPhase,
 } from '../runtime/lib/delivery-state.ts';
@@ -38,6 +41,36 @@ test('new work has a canonical projection and an admission receipt', () => {
   assert.equal(receipt?.to, 'worker_starting');
   assert.equal(receipt?.state, 'dispatched');
   deliveryReceiptSchema.parse(receipt);
+});
+
+test('failed outer admission is traceable and same-operation retry reuses the delivery', () => {
+  const state = delivery();
+  const deliveryId = state.id;
+  const recovery = admissionRecoveryAction(state.id, state.request);
+
+  recordAdmissionFailure(state, new Error('Outer workflow POST returned HTTP 500'));
+
+  assert.equal(deliveryId, newDelivery('ledger-test', task).id);
+  assert.equal(recovery.body.operationId, task.operationId);
+  assert.equal(state.phase, 'blocked');
+  assert.equal(state.state, 'failed');
+  assert.equal(state.failedPhase, 'worker_starting');
+  assert.match(state.error || '', /Outer workflow admission failed/);
+  assert.deepEqual(recovery, {
+    method: 'POST',
+    path: '/factory/delivery',
+    body: task,
+    description: 'Retry the original request with the same operationId. The deterministic delivery ID is reused and outer admission is retried.',
+  });
+
+  assert.equal(retryAdmission(state), true);
+  assert.equal(state.id, deliveryId);
+  assert.equal(recovery.body, task);
+  assert.equal(state.request.operationId, recovery.body.operationId);
+  assert.equal(state.phase, 'worker_starting');
+  assert.equal(state.failedPhase, undefined);
+  assert.equal(state.admissionFailure, undefined);
+  assert.equal(retryAdmission(state), false);
 });
 
 test('legacy projections are upgraded without changing the durable phase', () => {
