@@ -5,6 +5,7 @@ export const stationSessionSchema = z.object({ sessionId: z.string().regex(/^wru
 export const stationLinkSchema = z.object({ station: z.enum(["worker", "reviewer"]), run: z.string().regex(/^wrun_[A-Za-z0-9_-]+$/), execution: z.enum(["owner", "dispatcher", "direct"]).optional(), rootAgent:z.enum(["worker","reviewer"]).optional(), deliveryId: z.string().min(1).max(200).optional(), operationId: z.string().uuid().optional() });
 export type StationLink = z.infer<typeof stationLinkSchema>;
 export type StationKind = z.infer<typeof stationLinkSchema>["station"];
+export const MIN_WORK_REQUEST_LENGTH = 20;
 
 export function parsePullRequest(value: string): number | undefined {
   const text = value.trim();
@@ -86,6 +87,7 @@ export type WorkMode = "create" | "revise" | "contribute";
 export function workerRequest(mode: WorkMode, draft: { title: string; brief: string }, pr: string) {
   const brief = draft.brief.trim();
   if (!brief) throw new Error("Write the requested change in the brief above.");
+  if (brief.length < MIN_WORK_REQUEST_LENGTH) throw new Error(`Write at least ${MIN_WORK_REQUEST_LENGTH} characters in the brief before starting a worker.`);
   const prNumber = mode === "create" ? undefined : parsePullRequest(pr);
   if (mode !== "create" && !prNumber) throw new Error("Enter a PR number or a jira-clone GitHub pull-request URL.");
   if (mode === "revise") return { path: "/factory/stations/revisions", body: { prNumber, brief } };

@@ -14,6 +14,7 @@ const queuedForOwner = computed(() => !!props.deliveryId && !deliveryStarted.val
 const runLink = computed(() => `?${new URLSearchParams({ station: props.station, ...(props.rootAgent?{rootAgent:props.rootAgent}:{}), run: props.sessionId, ...(props.execution ? { execution: props.execution } : {}), ...(props.deliveryId ? { deliveryId: props.deliveryId } : {}), ...(props.operationId ? { operationId: props.operationId } : {}) })}`);
 const childRecorded = ref(false);
 const cancellationRequested = ref(false);
+const stopping = ref(false);
 const discoveredChild = ref<string>();
 const discoveryError = ref(false);
 let discovery: AbortController | undefined;
@@ -77,7 +78,7 @@ const stopped = computed(() => turn.value === "cancelled");
 const ended = computed(() => ["completed", "failed"].includes(turn.value));
 watch(() => !!result.value, value => emit("recorded", value), { immediate: true });
 watch(() => !!result.value || (!needsDecision.value && (stopped.value || (ended.value && !active.value))), value => emit("settled", value), { immediate: true });
-const canStop = computed(() => !props.child && !queuedForOwner.value && !result.value && !childRecorded.value && (needsDecision.value || (childId.value ? !childSettled.value : !stopped.value && (!!taskId.value || (active.value && !ended.value)))));
+const canStop = computed(() => !props.child && !stopping.value && !queuedForOwner.value && !result.value && !childRecorded.value && (needsDecision.value || (childId.value ? !childSettled.value : !stopped.value && (!!taskId.value || (active.value && !ended.value)))));
 const authorizations = computed(() => parts.value.filter(part => part.type === "authorization" && part.state === "required"));
 const step = computed(() => {
   const part = parts.value.filter(part => part.type === "dynamic-tool").at(-1);
@@ -112,10 +113,15 @@ async function answer(requestId: string, optionId: string) {
 }
 watch(pendingRequests, requests => { if (!requests.some(request => request.requestId === answering.value)) answering.value = undefined; });
 async function stop() {
+  if (stopping.value || !canStop.value) return;
+  if (!window.confirm(`Stop this ${props.station === "worker" ? "worker" : "review"} station? The run will be cancelled.`)) return;
+  stopping.value = true;
+  actionError.value = "";
   try {
     await $fetch(`/eve/v1/session/${props.sessionId}/cancel`, { method: "POST", body: { tasks: true } });
     cancellationRequested.value = true;
   } catch { actionError.value = "Cancellation could not be confirmed. Reconnect to check the run."; }
+  finally { stopping.value = false; }
 }
 </script>
 <template>
@@ -145,7 +151,7 @@ async function stop() {
     </template>
     <fieldset v-for="request in pendingRequests" :key="request.requestId" class="decision"><legend>Awaiting decision</legend><p>{{ request.prompt }}</p><UButton v-for="option in request.options || []" :key="option.id" :color="option.style === 'danger' ? 'error' : 'primary'" :disabled="!!answering" @click="answer(request.requestId, option.id)">{{ option.label }}</UButton><p class="small muted">This decision applies to the existing station run. No option is selected automatically.</p></fieldset>
     <WorkRun v-if="childId" :session-id="childId" :station="station" :awaiting-decision="needsDecision" child @settled="childSettled = $event" @recorded="childRecorded = $event" />
-    <div v-if="!child" class="run-actions"><UButton v-if="childId && discoveryError && !childRecorded" variant="outline" @click="reconnect">Reconnect decisions</UButton><UButton v-if="canStop" color="neutral" variant="outline" @click="stop">Stop {{ station === 'worker' ? 'worker' : 'review' }}</UButton><a :href="runLink">Open run {{ sessionId }}</a></div>
+    <div v-if="!child" class="run-actions"><UButton v-if="childId && discoveryError && !childRecorded" variant="outline" @click="reconnect">Reconnect decisions</UButton><UButton v-if="canStop || stopping" color="neutral" variant="outline" :loading="stopping" :disabled="stopping" @click="stop">Stop {{ station === 'worker' ? 'worker' : 'review' }}</UButton><a :href="runLink">Open run {{ sessionId }}</a></div>
     <p v-if="cancellationRequested && canStop" role="status">Cancellation requested. Waiting for the station to stop.</p>
     <UAlert v-if="actionError" color="warning" title="Action not completed" :description="actionError" />
   </div>

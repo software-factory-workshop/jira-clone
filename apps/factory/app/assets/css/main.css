@@ -338,7 +338,7 @@ nav button span:last-child:not(:first-child) {
   border-radius: 6px;
   text-align: left;
   padding: 22px;
-  cursor: pointer;
+  cursor: default;
   transition: border-color 0.15s;
 }
 .starter-card:hover {
