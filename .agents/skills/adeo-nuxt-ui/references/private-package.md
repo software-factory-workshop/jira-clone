@@ -14,7 +14,7 @@ A GitHub account with package access and a personal access token (classic) with 
 
 ```sh
 npm login --scope=@software-factory-workshop --auth-type=legacy --registry=https://npm.pkg.github.com
-npm install @software-factory-workshop/nuxt-adeo-ds@0.1.1
+pnpm add --save-exact @software-factory-workshop/nuxt-adeo-ds@0.1.1
 ```
 
 Use existing configured credentials when available. Do not ask the user to paste a token into chat or commit a token. Git/SSH access to the repository and npm package authentication are separate.

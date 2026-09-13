@@ -23,8 +23,8 @@ export async function mergeReviewed(input:MergeInput, token?:string):Promise<Mer
   if(pr.merged&&pr.head.sha===p.headSha)return{status:'merged',reason:'Reviewed candidate was already merged.',commitSha:pr.merge_commit_sha};
   // GitHub checks the candidate SHA atomically at merge; the target SHA below is
   // checked immediately before, not as an atomic precondition. Main can advance
-  // in that gap. Accepted for the narrow low-risk class (docs Markdown and
-  // cosmetic CSS) only; anything wider needs a real merge queue, not this path.
+  // in that gap. Accepted for the narrow low-risk class (cosmetic CSS) only;
+  // anything wider needs a real merge queue, not this path.
   const current=()=>pr.state==='open'&&pr.head.sha===p.headSha&&pr.base.ref===p.targetBranch&&pr.base.sha===p.targetHeadSha&&pr.head.repo?.full_name===repository&&pr.base.repo?.full_name===repository;
   if(!current())return{status:'manual',reason:'PR or target changed since the independent review.'};
   const files:MergeFile[]=await api(`pulls/${p.number}/files?per_page=100`);

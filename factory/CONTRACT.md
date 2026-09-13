@@ -47,7 +47,8 @@ recorded result instead of a second commit.
 The sandbox holds no credentials. The host verifies the assigned task and the
 recorded checks, then publishes bounded text files through the Git Data API:
 `apps/factory/app/`, `apps/factory/tests/`, `apps/jira/app/`, `apps/jira/tests/`,
-`apps/jira/server/api/`, `apps/jira/server/utils/` and `docs/`, at most 30 files,
+`apps/jira/server/api/`, `apps/jira/server/utils/` and
+`apps/jira/server/mcp/tools/`, at most 30 files,
 500 KB per file, 2 MB total. Agent instructions, policies, workflows, dependency
 manifests, lockfiles, routing and verifier configuration are protected, with
 one exception: the exact Jira MCP integration delta validated by host code.
@@ -78,8 +79,9 @@ authoritative. Every decision is audited with its policy revision.
 
 ## Limits
 
-Sandbox: 4 vCPU, 10 minute expiry, stopped when the turn completes or is
-cancelled. Vercel reads: GET only, two fixed projects, 20 deployments, 100 build
+Sandbox: 4 vCPU, 10 minute expiry. The station stop hook stops a started sandbox
+after cancellation and, after completion, once the station has recorded its
+result. Vercel reads: GET only, two fixed projects, 20 deployments, 100 build
 events, runtime sample bounded to 10 s or 100 records; each receipt states its
 coverage. GitHub reads: bounded pagination, closed items included, a failed read
 is unavailable evidence, not an empty backlog. Model token and cost limits are

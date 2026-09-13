@@ -14,10 +14,10 @@ Inspect the app's package manager, Nuxt version, existing modules, CSS entrypoin
 The initial published version is `0.1.1`. Keep an existing consumer's version unless an upgrade is part of the task; check the package metadata and changelog before upgrading.
 
 1. Follow [private package access](references/private-package.md) when registry authentication or CI access is not already configured.
-2. Install using the app's package manager. For a new npm consumer:
+2. Install using the app's package manager. For a new package consumer:
 
    ```sh
-   npm install @software-factory-workshop/nuxt-adeo-ds@0.1.1
+   pnpm add --save-exact @software-factory-workshop/nuxt-adeo-ds@0.1.1
    ```
 
 3. Add the package to the existing layer list:

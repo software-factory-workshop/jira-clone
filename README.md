@@ -10,7 +10,7 @@ Grow a software factory with Eve, using an ADEO-branded Jira demo as its test su
 - Jira demo: https://adeo-jira-clone.vercel.app
 - Both applications use the ADEO Nuxt UI layer v0.1.1.
 
-The cockpit starts and resumes durable Eve investigations and keeps browser-local request drafts. “Create issue in GitHub” opens a prefilled issue; the user decides whether to submit it. “Go!” saves the draft and starts durable delivery. Draft storage is local to a browser, not shared team state. The task-mining station uses Vercel Connect for fixed-repository context when installed.
+The cockpit starts and resumes durable Eve investigations and keeps request drafts in shared, versioned cockpit storage. “Create issue in GitHub” opens a prefilled issue; the user decides whether to submit it. “Go!” saves the draft and starts durable delivery. Draft storage is shared team state, with version checks for concurrent edits. The task-mining station uses Vercel Connect for fixed-repository context when installed.
 
 The Jira demo has searchable synthetic issues, status and assignee filtering, list/board views, issue details, bounded creation, edits, comments, transitions and reset. Its issue and comment persistence uses Neon Postgres when `DATABASE_URL` is configured, with an explicit in-memory fallback for tests and workshops. Passport-derived accounts, a labelled fallback role matrix, bounded Jira-shaped REST routes, eleven MCP tools and a fake OAuth provider are implemented locally. The exact boundaries are documented in the headers of `apps/jira/server/utils/*.ts`. This is not full Jira parity and does not provide production Connect or OAuth registration, SAML, SCIM or complete Jira permissions.
 
@@ -49,10 +49,9 @@ at [`apps/jira/server/db/neon-schema.sql`](apps/jira/server/db/neon-schema.sql).
 | `apps/factory` | Nuxt cockpit and its Eve agent |
 | `apps/jira` | Nuxt Jira demo application |
 | `packages/project-context` | Shared stage definitions, references and labelled fixtures |
-| `factory` | Goal, project context, reflections and mining experiments |
+| `factory` | Factory contract, policies and evidence |
 | `packages/fx-sandbox-experiment` | Developer fx experiment for context calibration in Vercel Sandbox |
 | `.agents/skills/adeo-nuxt-ui` | Versioned design-system instructions |
-| `docs` | Workshop experiment, cockpit rationale and verification |
 | `vendor` | Private ADEO v0.1.1 package artifact |
 
 The factory lives with the product so a change to its instructions, tools or checks can be reviewed against the code and the evidence that motivated it. A reusable factory engine can remain an external dependency; project policy and learning belong here.
