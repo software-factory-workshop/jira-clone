@@ -97,7 +97,6 @@ onMounted(async () => {
 });
 function editorText() { return { title: title.value, request: request.value }; }
 const sectionLabel = computed(() => ({ mining: "Task mining", work: "Work" })[section.value]);
-const workCountLabel = computed(() => draftsLoaded.value ? `${drafts.value.length} saved drafts` : "Saved drafts unavailable");
 function guardNavigation(event?: Event) {
   if (!unsaved.value) return true;
   const allowed = window.confirm("You have unsaved draft text. Leave this editor without saving?");
@@ -264,10 +263,10 @@ watch([title,request],async()=>{const sequence=++issueSequence;issueUrl.value=""
           <button
             :class="{ active: section === 'work' }"
             :aria-current="section === 'work' ? 'page' : undefined"
-            :aria-label="`Work, ${workCountLabel}`"
+            aria-label="Work"
             @click="navigateSection('work', $event)"
           >
-            <UIcon name="i-lucide-inbox" aria-hidden="true" />Work <span aria-hidden="true">{{ draftsLoaded ? `${drafts.length} drafts` : "—" }}</span>
+            <UIcon name="i-lucide-inbox" aria-hidden="true" />Work
           </button>
         </nav>
         <div class="sidebar-bottom">
@@ -312,40 +311,6 @@ watch([title,request],async()=>{const sequence=++issueSequence;issueUrl.value=""
               ></AdeoPageHeader
             >
             <div class="work-grid">
-              <section class="drafts-panel panel">
-                <div class="panel-heading">
-                  <h2>Draft requests</h2>
-                  <UBadge color="neutral" variant="soft">{{ draftsLoaded ? drafts.length : "—" }}</UBadge>
-                </div>
-                <p class="muted small">Saved in the shared cockpit</p><UButton variant="ghost" size="xs" :loading="draftsLoading" :disabled="draftsLoading" @click="refreshDrafts">Refresh drafts</UButton>
-                <UAlert v-if="draftsError" color="warning" variant="soft" title="Drafts need attention" :description="draftsError">
-                  <template #actions><UButton size="xs" variant="outline" :loading="draftsLoading" @click="refreshDrafts">Retry</UButton></template>
-                </UAlert>
-                <p v-if="!draftsLoaded && !draftsError" role="status" class="muted small">Loading saved drafts…</p>
-                <div v-if="draftsLoaded && !drafts.length" class="empty-drafts">
-                  <UIcon name="i-lucide-file-pen-line" />
-                  <h3>A little context goes a long way</h3>
-                  <p>
-                    Your saved requests will live here while we shape the first
-                    factory capability.
-                  </p>
-                </div>
-                <button
-                  v-for="draft in drafts"
-                  :key="draft.id"
-                  class="draft-item"
-                  :class="{ selected: activeId === draft.id }"
-                  :aria-pressed="activeId === draft.id"
-                  @click="openDraft(draft)"
-                >
-                  <strong>{{ draft.title }}</strong
-                  ><span>{{ draft.request }}</span
-                  ><small
-                    >Draft ·
-                    {{ new Date(draft.updatedAt).toLocaleDateString() }}</small
-                  >
-                </button>
-              </section>
               <section ref="editor" class="editor panel">
                 <div class="panel-heading">
                   <h2>
