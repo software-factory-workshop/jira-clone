@@ -25,7 +25,7 @@ function safe(value) {
   for (const secret of secrets) text = text.split(secret).join('[REDACTED]');
   return text;
 }
-const out = path.join(root, 'factory/mining/runs', runName);
+const out = path.join(root, 'factory/evidence/mining/runs', runName);
 await mkdir(out, { recursive: false });
 async function credits() {
   let response;
@@ -39,7 +39,7 @@ async function credits() {
 }
 const billingBefore = await credits();
 await writeFile(path.join(out,'billing-before.json'), JSON.stringify(billingBefore,null,2));
-const prompt = await readFile(path.resolve(root, process.argv[3] || 'factory/mining/prompt.md'), 'utf8');
+const prompt = await readFile(path.resolve(root, process.argv[3] || 'factory/evidence/mining/prompt.md'), 'utf8');
 const sourceRef = process.argv[4];
 const sha = execFileSync('git', ['rev-parse', sourceRef || 'HEAD'], { cwd: root, encoding: 'utf8' }).trim();
 const deleted = new Set(execFileSync('git', ['ls-files','--deleted','-z'], {cwd:root,encoding:'utf8'}).split('\0'));

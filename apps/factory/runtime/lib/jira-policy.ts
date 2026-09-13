@@ -1,5 +1,12 @@
 import { isDeepStrictEqual } from "node:util";
 
+// Why this is an exact string splice: the worker may author Jira code but not
+// dependencies, scripts or configuration. The one integration slice it needs
+// (MCP toolkit plus zod, one config registration, the Jira test script) is
+// therefore granted as an exact semantic delta validated here, before candidate
+// commands run and again before publication. Widening it is a reviewed change
+// by the development session, never something a worker can do from inside a run.
+
 export const jiraTestCommand = "node --test tests/*.test.ts";
 export const mcpToolkitVersion = "0.21.0";
 export const mcpZodVersion = "4.6.1";

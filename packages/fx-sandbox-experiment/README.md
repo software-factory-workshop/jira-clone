@@ -17,7 +17,7 @@ pnpm mine:fx my-run
 Run names cannot overwrite an existing directory. An optional prompt path and Git revision support replay:
 
 ```sh
-pnpm --filter @jira-clone/fx-sandbox-experiment mine old-context factory/mining/prompt.md 9f22e30
+pnpm --filter @jira-clone/fx-sandbox-experiment mine old-context factory/evidence/mining/prompt.md 9f22e30
 ```
 
 Without a revision, the snapshot includes tracked and untracked nonignored working-tree files, limited to source/document extensions and excluding deleted files, environment files, the lockfile, package archives and held-out mining evaluation/run artifacts. With a revision, source comes from that Git revision. `.mining-snapshot.json` identifies the available inputs. No Git checkout, local credentials or dependencies are copied into the sandbox. Hidden source files are included; inspect them explicitly when a glob omits them.
@@ -30,11 +30,11 @@ Each run records source hashes, exact prompt, document snapshot, GitHub evidence
 
 A sandbox expires after five minutes. A shared deadline bounds startup, generation and tool continuations, and continuation approval rounds are bounded. A paused, failed or GitHub-incomplete run exits unsuccessfully and is not a useful-result baseline. The adapter currently installs the current fx binary; package versions alone do not freeze that binary. Check compatibility when replaying.
 
-Review the output with `factory/mining/evaluation.md`. It is deliberately held out from the miner along with past raw runs and comparison scores. The criteria exist even when those files are not in its snapshot; the miner should not propose creating them merely because they are withheld.
+Review the output with `factory/evidence/mining/evaluation.md`. It is deliberately held out from the miner along with past raw runs and comparison scores. The criteria exist even when those files are not in its snapshot; the miner should not propose creating them merely because they are withheld.
 
 ## What transfers to native Eve
 
-The [dated experiment report](../../factory/mining/report.md) records the context changes and their evidence. The final original and alternate prompts used identical 50-file manifests. Both recognized active work and found a useful leading proposal, according to Codex review. Remi's acceptance is still distinct from that review.
+The [dated experiment report](../../factory/evidence/mining/report.md) records the context changes and their evidence. The final original and alternate prompts used identical 50-file manifests. Both recognized active work and found a useful leading proposal, according to Codex review. Remi's acceptance is still distinct from that review.
 
 Transfer the goal, project map, current-work record, explicit exclusions and evidence requirements into native Eve. Keep GitHub failures visible and check both issue and PR inventories. The original experiment showed why an empty backlog cannot describe all active work and why hidden evaluation files must be identified as excluded.
 
@@ -54,4 +54,4 @@ node --check packages/fx-sandbox-experiment/run.mjs
 node --check packages/fx-sandbox-experiment/runtime.mjs
 ```
 
-A new paid run should answer a named question about context or access. Keep each run under its own name in `factory/mining/runs/`; the package move does not change those paths or rewrite prior evidence.
+A new paid run should answer a named question about context or access. Keep each run under its own name in `factory/evidence/mining/runs/`; the package move does not change those paths or rewrite prior evidence.

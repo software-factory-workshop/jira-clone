@@ -49,6 +49,13 @@ async function advance(request:Request,ctx:RouteHandlerArgs){
    let deliveryId:string|undefined;
    if(state.resumeAttemptedAt){
     deliveryId=resumeReceipt(await snapshotEvents((await factorySession(state.childSessionId,ctx.attachSession))),state.resumeOperationId);
+    // Send intent is recorded before the queued message. If the receipt is lost we
+    // look for the exact message in the owner's durable stream; we never resend,
+    // because a duplicate turn would make the owner do the work twice. The rare
+    // crash-before-send case is therefore left for a person after 60 s instead of
+    // guessing. Recovery paths: unpublished worker after a baseline failure ->
+    // fix the baseline, then /resume (or CLI --continue); published worker ->
+    // /revise; stopped reviewer -> start a new review; this error -> inspect.
     if(!deliveryId&&Date.now()-state.resumeAttemptedAt>60000)throw new Error('Resume acceptance is unconfirmed. No message was resent. Inspect the original owner before manual recovery.');
    }else{
     const marked=await updateDelivery(id,current=>{if(!current)throw new Error('Delivery missing');if(current.version!==claimedVersion)return{state:current,result:null};current.resumeAttemptedAt=Date.now();current.version++;return{state:current,result:structuredClone(current)};});

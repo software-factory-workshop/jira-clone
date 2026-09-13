@@ -3,8 +3,8 @@ import assert from "node:assert/strict";
 import { includeSource, manifestFor, verifyGatewayScope, scope } from "../runtime/lib/github.mjs";
 import { commandEvidence } from "../runtime/lib/command-evidence.ts";
 test("runnable snapshot includes locked and vendored inputs but excludes calibration answers and secrets",()=>{
- for(const path of ["pnpm-lock.yaml","vendor/design-system.tgz","apps/factory/agents/task-miner/agent/agent.ts","apps/factory/agents/worker/agent/agent.ts","apps/factory/agents/reviewer/agent/agent.ts","apps/factory/runtime/lib/github.mjs","apps/factory/server/workflows/delivery.ts","vendor/agent-browser-eve-0.37.1-eve.0.52.5.tgz","factory/context/goal.md"]) assert.equal(includeSource(path),true,path);
- for(const path of ["factory/mining/evals/answer.md","packages/fx-sandbox-experiment/history/run.json","apps/factory/.env.local",".git/objects/abc"]) assert.equal(includeSource(path),false,path);
+ for(const path of ["pnpm-lock.yaml","vendor/design-system.tgz","apps/factory/agents/task-miner/agent/agent.ts","apps/factory/agents/worker/agent/agent.ts","apps/factory/agents/reviewer/agent/agent.ts","apps/factory/runtime/lib/github.mjs","apps/factory/server/workflows/delivery.ts","vendor/agent-browser-eve-0.37.1-eve.0.52.5.tgz","factory/CONTRACT.md"]) assert.equal(includeSource(path),true,path);
+ for(const path of ["factory/mining/evals/answer.md","factory/evidence/mining/report.md","packages/fx-sandbox-experiment/history/run.json","apps/factory/.env.local",".git/objects/abc"]) assert.equal(includeSource(path),false,path);
 });
 test("binary source provenance hashes exact bytes",()=>{
  const content=Buffer.from([0,255,12]); const [entry]=manifestFor([{file:"vendor/test.tgz",content}]);

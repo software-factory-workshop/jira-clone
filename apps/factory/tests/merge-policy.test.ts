@@ -2,12 +2,12 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {lowRiskFiles,mergeEligibility,type MergeReview} from '../runtime/lib/merge-policy.ts';
 import {hostReviewLimitations} from '../runtime/lib/review-policy.ts';
-const doc={filename:'docs/user-guide.md',status:'added'};
+const doc={filename:'apps/jira/app/assets/colors.css',status:'modified',patch:'@@ -1,3 +1,3 @@\n .card {\n-color: red;\n+color: blue;\n }'};
 const review:MergeReview={headSha:'a'.repeat(40),baseSha:'b'.repeat(40),targetBranch:'main',verdict:'approve',findings:[],limitations:[],verification:{prepared:true,repositoryChecksPassed:true,candidateUnchanged:true}};
 const input={files:[doc],review,headSha:review.headSha,baseSha:review.baseSha,targetBranch:'main',workerSessionId:'worker',reviewerSessionId:'reviewer'};
-test('small docs changes are eligible; protected instructions, runtime, tests, APIs and renames are not',()=>{
+test('prose docs are never low risk; protected instructions, runtime, tests, APIs and renames are not',()=>{
  assert.equal(mergeEligibility(input),null);
- for(const filename of ['docs/AGENTS.md','docs/security.md','.agents/foo.md','factory/context/goal.md','apps/factory/runtime/lib/a.ts','apps/jira/server/api/a.ts','apps/jira/tests/a.test.ts','apps/jira/package.json'])assert.equal(lowRiskFiles([{...doc,filename}]),false,filename);
+ for(const filename of ['docs/user-guide.md','docs/AGENTS.md','docs/security.md','.agents/foo.md','factory/CONTRACT.md','apps/factory/runtime/lib/a.ts','apps/jira/server/api/a.ts','apps/jira/tests/a.test.ts','apps/jira/package.json'])assert.equal(lowRiskFiles([{...doc,filename}]),false,filename);
  assert.equal(lowRiskFiles([{...doc,previous_filename:'AGENTS.md'}]),false);
 });
 test('cosmetic CSS has narrow declaration-level scope, browser absence remains explicit',()=>{

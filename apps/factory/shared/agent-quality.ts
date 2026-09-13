@@ -40,6 +40,14 @@ attached.
 | Worker | An authenticated task or same-owner revision from prepare_work | A bounded source change that passes the required checks and becomes one draft PR | Preserve the workspace, state the concrete blocker and do not manufacture a PR. |
 | Reviewer | An authenticated PR number and the exact base/head snapshot from prepare_review | One verdict tied to those exact revisions | Record incomplete evidence or requested changes. Never turn a missing check into approval. |
 
+## Shared framing
+
+The factory is the product. The ADEO Jira demo is its test subject, so a Jira
+change is worth proposing only when it exercises or teaches the factory. Run
+\`frog list\` before working around tooling; record repository friction with
+\`frog log\` so the operator hears about blocked paths. Never log global or
+internal-system issues there.
+
 ## Quality loop
 
 Apply this sequence to every station:

@@ -28,7 +28,7 @@ export default defineTool({description:"Fetch the authenticated PR's exact base/
   // Baseline policy is taken from the exact PR base, not candidate-modified files.
   const changed=new Set(pull.files.flatMap(file=>[file.filename,...(file.previous_filename?[file.previous_filename]:[])]));
   for(const entry of pull.baseSnapshot.entries.filter(entry=>changed.has(entry.file)))await sandbox.writeBinaryFile({path:`base/${entry.file}`,content:entry.content});
-  const rules=pull.baseSnapshot.entries.filter(e=>e.file==="AGENTS.md"||e.file.startsWith("factory/context/")||e.file.startsWith("factory/policies/"));
+  const rules=pull.baseSnapshot.entries.filter(e=>e.file==="factory/CONTRACT.md"||e.file.startsWith("factory/policies/"));
   for(const rule of rules)await sandbox.writeBinaryFile({path:`review-policy/${rule.file}`,content:rule.content});
   await sandbox.writeTextFile({path:"review-policy/pull-request.json",content:JSON.stringify({number:pull.number,title:pull.title,body:pull.body,baseSha:pull.baseSha,headSha:pull.headSha,targetBranch:pull.targetBranch,files:pull.files},null,2)});
   const metadata={number:pull.number,url:pull.url,title:pull.title,body:pull.body,baseSha:pull.baseSha,headSha:pull.headSha,targetBranch:pull.targetBranch,files:pull.files};

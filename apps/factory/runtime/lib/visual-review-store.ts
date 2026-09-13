@@ -24,6 +24,9 @@ function artifactId(input: { sessionId: string; headSha: string; app: VisualRevi
   return createHash("sha256").update(JSON.stringify([input.sessionId, input.headSha, input.app, input.route])).digest("hex").slice(0, 32);
 }
 
+// Frames live in private Blob (BLOB_READ_WRITE_TOKEN must be available to the
+// factory service). Set FACTORY_PUBLIC_URL when PR frame links need a stable
+// public origin instead of the per-deployment VERCEL_URL.
 function origin() {
   const configured = process.env.FACTORY_PUBLIC_URL?.trim();
   if (configured) return configured.replace(/\/+$/, "");

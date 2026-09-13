@@ -7,7 +7,7 @@ import { getToken } from "@vercel/connect";
 import { readGithub } from "../lib/github.mjs";
 import { miningState } from "../lib/mining-state";
 const tool = defineTool({
- description:"Read all issues, pull requests or comments in the fixed ADEO repository. Inventories include closed work; failures never count as empty.",
+ description:"Read all issues, pull requests or comments in the fixed ADEO repository. Inventories include closed work; failures never count as empty. This tool does not return commit history, branches, check runs or CI logs; name those as unavailable evidence when a claim needs them.",
  inputSchema:z.object({resource:z.enum(["issues","pulls","issue_comments"]),number:z.number().int().positive().nullable().optional()}),
  async execute(input,ctx){
    const token=await getToken("github/jira-clone",{subject:{type:"app"}});

@@ -24,7 +24,7 @@ export function allowedWorkPath(path: string): boolean {
   if (["apps/jira/package.json", "apps/jira/nuxt.config.ts", "pnpm-lock.yaml"].includes(path)) return true;
   const jiraServer = ["apps/jira/server/api/", "apps/jira/server/utils/"].some(prefix => path.startsWith(prefix));
   const jiraMcpTools = path.startsWith("apps/jira/server/mcp/tools/");
-  if (!jiraServer && !jiraMcpTools && !["apps/factory/app/", "apps/factory/tests/", "apps/jira/app/", "apps/jira/tests/", "docs/"].some(prefix => path.startsWith(prefix))) return false;
+  if (!jiraServer && !jiraMcpTools && !["apps/factory/app/", "apps/factory/tests/", "apps/jira/app/", "apps/jira/tests/"].some(prefix => path.startsWith(prefix))) return false;
   const name = path.split("/").at(-1)!;
   if (["package.json", "pnpm-workspace.yaml", "turbo.json"].includes(name) || /^tsconfig(?:[.-].*)?\.json$/.test(name) || /\.config\.[cm]?[jt]s$/.test(name)) return false;
   if (path.split("/").some(part => ["middleware", "modules"].includes(part)) || (!jiraServer && !jiraMcpTools && path.split("/").includes("server"))) return false;

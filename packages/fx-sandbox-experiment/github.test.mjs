@@ -46,7 +46,7 @@ test('snapshot uses immutable commit tree and blobs; refuses truncated trees', a
   t.mock.restoreAll();
   t.mock.method(globalThis, 'fetch', async url => Response.json(url.endsWith('commits/main') ? { sha: commit, commit: { tree: { sha: tree } } } : { truncated: true, tree: [] }));
   await assert.rejects(loadRepository('test-token'), /incomplete/);
-  assert.equal(includeSource('factory/mining/runs/result.md'), false);
+  assert.equal(includeSource('factory/evidence/mining/runs/result.md'), false);
   assert.equal(includeSource('vendor/design-system.tgz'), false);
   assert.equal(includeSource('apps/factory/agents/worker/agent/instructions.ts'), true);
 });

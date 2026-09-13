@@ -1,3 +1,8 @@
+// The visual packet (same-route before/after frames from the exact PR base and
+// the pinned candidate) is supplementary design-review context. It cannot
+// establish semantic HTML, keyboard accessibility, correctness or hosted
+// behaviour; those remain host-owned gates. A missing or stale packet must be
+// visible, never treated as approval evidence.
 import { z } from "zod";
 
 const sha = z.string().regex(/^[a-f0-9]{40}$/);
