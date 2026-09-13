@@ -10,7 +10,7 @@ import { cockpitFailureKind, cockpitFailureMessage, type CockpitFailureKind } fr
 
 // Draft editor implementation; route pages compose this focused surface.
 const { consume } = useWorkRequest();
-const deliveryAnchor = ref<HTMLElement | null>(null);
+const router = useRouter();
 const editor = ref<HTMLElement | null>(null);
 const drafts = ref<Draft[]>([]);
 const activeId = ref<string | null>(null);
@@ -33,6 +33,10 @@ const cockpit = useCockpit();
 const draftVersions = ref<Record<string, number>>({});
 const unsaved = computed(() => isDraftDirty({ title: title.value, request: request.value }, savedSnapshot.value));
 const navigationApproved = ref(false);
+const deliveryStarting = ref(false);
+let deliveryOperationId: string | undefined;
+const requestLength = computed(() => request.value.trim().length);
+const deliveryReady = computed(() => requestLength.value >= MIN_WORK_REQUEST_LENGTH);
 
 async function refreshDrafts() {
   if (draftsLoading.value) return false;
@@ -204,14 +208,8 @@ async function focusEditor() {
   editor.value?.querySelector<HTMLElement>('input[placeholder="An ADEO issue list"]')?.focus({ preventScroll: true });
 }
 
-async function goToDelivery() {
-  await nextTick();
-  deliveryAnchor.value?.scrollIntoView({ block: "start", behavior: "smooth" });
-  deliveryAnchor.value?.focus({ preventScroll: true });
-}
-
-async function save() {
-  if (saving.value || confirmSaving.value || !title.value.trim() || !request.value.trim()) return;
+async function save(): Promise<boolean> {
+  if (saving.value || confirmSaving.value || !title.value.trim() || !request.value.trim()) return false;
   saving.value = true;
   const previousId = activeId.value;
   const id = previousId || crypto.randomUUID();
@@ -224,11 +222,54 @@ async function save() {
     savedSnapshot.value = cleanSnapshot(activeId.value, activeVersion.value, editorText());
     await refreshDrafts();
     notice.value = "Draft saved in the shared cockpit.";
+    return true;
   } catch (cause) {
     notice.value = cockpitFailureMessage(cause, "This draft");
     if (cockpitFailureKind(cause) === "unavailable") draftsError.value = cockpitFailureMessage(cause, "Shared drafts");
     await captureDraftConflict(cause);
+    return false;
   } finally { saving.value = false; }
+}
+
+async function rememberDelivery(id: string) {
+  try {
+    const row = cockpit.items.value.runs.find(item => item.id === id);
+    await cockpit.save("runs", id, { label: title.value.trim() || "Delivery loop", station: "loop" }, row?.version ?? 0);
+  } catch {
+    // Keep the authoritative delivery URL even if its history index is unavailable.
+  }
+}
+
+async function go() {
+  if (saving.value || deliveryStarting.value || confirmSaving.value || !title.value.trim() || !request.value.trim()) return;
+  if (!deliveryReady.value) {
+    notice.value = `The request needs at least ${MIN_WORK_REQUEST_LENGTH} characters before delivery can start.`;
+    return;
+  }
+  if (!await save()) return;
+
+  deliveryStarting.value = true;
+  notice.value = "Starting durable delivery…";
+  deliveryOperationId ??= crypto.randomUUID();
+  try {
+    const delivery = await $fetch<{ id: string }>("/factory/delivery", {
+      method: "POST",
+      body: {
+        operationId: deliveryOperationId,
+        title: title.value.trim(),
+        brief: request.value.trim(),
+      },
+      retry: 0,
+    });
+    await rememberDelivery(delivery.id);
+    navigationApproved.value = true;
+    await router.replace({ path: "/work/run", query: { delivery: delivery.id } });
+    deliveryOperationId = undefined;
+  } catch {
+    notice.value = "Could not confirm the loop start. Retry uses the same operation ID.";
+  } finally {
+    deliveryStarting.value = false;
+  }
 }
 
 const issueUrl = ref("");
@@ -275,7 +316,7 @@ watch([title, request], async () => {
         <UTextarea v-model="request" :rows="9" autoresize class="full-width" placeholder="I want to…" />
       </UFormField>
       <div class="editor-actions">
-        <UButton :disabled="saving || !title.trim() || !request.trim()" :loading="saving" icon="i-lucide-save" @click="save">Save draft</UButton>
+        <UButton :disabled="saving || deliveryStarting || !title.trim() || !request.trim() || !deliveryReady" :loading="saving || deliveryStarting" icon="i-lucide-play" @click="go">Go!</UButton>
         <UButton
           :disabled="!title.trim() || !request.trim() || !issueUrl"
           :to="issueUrl"
@@ -283,9 +324,10 @@ watch([title, request], async () => {
           color="neutral"
           variant="outline"
           icon="i-lucide-github"
-        >Review in GitHub</UButton>
+        >Create issue in GitHub</UButton>
       </div>
       <p v-if="notice" role="status" class="save-notice">{{ notice }}</p>
+      <p class="small muted" role="status">Go! saves the draft and starts durable delivery. The request needs at least {{ MIN_WORK_REQUEST_LENGTH }} characters ({{ requestLength }}/{{ MIN_WORK_REQUEST_LENGTH }}).</p>
       <section v-if="draftConflict" class="draft-conflict" role="alert">
         <div>
           <strong>Shared draft changed elsewhere</strong>
@@ -317,22 +359,14 @@ watch([title, request], async () => {
           </div>
         </template>
       </UModal>
-      <p class="small muted">GitHub opens a prefilled issue for you to review and submit. Saving a draft does not run an agent.</p>
+      <p class="small muted">Create issue in GitHub opens a prefilled issue for you to review and submit. Go! saves the draft and starts durable delivery.</p>
       <div class="stage-note">
         <UIcon name="i-lucide-sprout" />
         <div>
           <strong>Start with an investigation</strong>
-          <p>Task mining reads the goal, code and current GitHub work. Review a proposal, then edit the draft or start the durable delivery.</p>
+          <p>Task mining reads the goal, code and current GitHub work. Start Go! when the request is ready, then follow the live handoffs on the run page.</p>
         </div>
-      </div>
-      <div class="mobile-work-jump">
-        <UButton icon="i-lucide-arrow-down" variant="outline" @click="goToDelivery">Continue to delivery</UButton>
-        <span class="small muted">Skip the context cards and jump to the durable delivery.</span>
       </div>
     </section>
   </div>
-
-  <section ref="deliveryAnchor" aria-label="Durable delivery" class="work-actions-anchor" tabindex="-1">
-    <DeliveryLoop mode="compose" :title="title" :brief="request" @started="navigationApproved = true" />
-  </section>
 </template>
