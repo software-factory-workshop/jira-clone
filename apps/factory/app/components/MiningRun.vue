@@ -1,13 +1,17 @@
 <script setup lang="ts">
 import { useEveAgent } from "eve/vue";
-import { authorizationLink, miningProgress, parseMiningOutput, proposalDraft, terminalMiningFailure, type MiningProposal } from "../utils/mining-output";
+import { authorizationLink, miningProgress, parseMiningOutput, proposalDeliveryRequest, proposalDraft, terminalMiningFailure, type MiningProposal } from "../utils/mining-output";
 import { renderReport } from "../utils/report";
 import { copyText, shortIdentifier } from "../utils/technical-details";
 const props = defineProps<{ sessionId?: string }>();
 const emit = defineEmits<{ session: [id: string, label: string]; draft: [value: { title: string; body: string;id?:string;version?:number }]; new: [] }>();
+const route = useRoute();
+const router = useRouter();
 const focus = ref("");
 const actionError = ref("");
 const activatingKey = ref<string>();
+const startingDelivery = ref<string>();
+let pendingDelivery: { key: string; operationId: string } | undefined;
 const copiedSession = ref(false);
 const { data, events, status, error, session, send, cancel, resume, respond } = useEveAgent({
   initialSession: props.sessionId ? { sessionId: props.sessionId, streamIndex: 0 } : undefined,
@@ -52,8 +56,42 @@ async function reconnect() { try { await resume(); actionError.value = ""; } cat
 function proposalKey(proposal: MiningProposal, index: number) {
   return `proposal-${proposal.id || index}`;
 }
+function deliveryKey(proposal: MiningProposal, index: number) {
+  return `delivery-${proposalKey(proposal, index)}`;
+}
 async function useProposal(proposal: MiningProposal, index: number) {
   await activate(proposal.id, proposalKey(proposal, index));
+}
+async function startDelivery(proposal: MiningProposal, index: number) {
+  const sessionId = currentSessionId.value;
+  const key = deliveryKey(proposal, index);
+  if (!sessionId || activatingKey.value || startingDelivery.value) return;
+  startingDelivery.value = key;
+  actionError.value = "";
+  try {
+    const request = proposalDeliveryRequest({
+      proposal,
+      index,
+      sessionId,
+      revision: output.value?.revision,
+      capturedAt: output.value?.capturedAt,
+      phase: output.value?.phase || "Unknown",
+      contextGaps: output.value?.contextGaps,
+    });
+    if (pendingDelivery?.key !== key) pendingDelivery = { key, operationId: crypto.randomUUID() };
+    const response = await $fetch<{ id?: string }>("/factory/delivery", {
+      method: "POST",
+      body: { operationId: pendingDelivery.operationId, title: request.title, brief: request.body },
+      retry: 0,
+    });
+    if (!response.id) throw new Error("Durable delivery was not identified");
+    await router.replace({ query: { ...route.query, section: "work", delivery: response.id } });
+    pendingDelivery = undefined;
+  } catch {
+    actionError.value = "Could not start the durable delivery. Retry; the same request will be reused.";
+  } finally {
+    startingDelivery.value = undefined;
+  }
 }
 async function activate(proposalId?:string, key = "findings") {
  const sessionId=session.value?.sessionId||props.sessionId;if(!sessionId || activatingKey.value)return;
@@ -116,7 +154,7 @@ async function copySession(sessionId: string) {
             <h4>Acceptance criteria</h4><ul><li v-for="item in proposal.acceptanceCriteria" :key="item">{{ item }}</li></ul>
             <template v-if="proposal.uncertainties.length"><h4>Uncertainties</h4><ul><li v-for="item in proposal.uncertainties" :key="item">{{ item }}</li></ul></template>
             <ProposalFeedback :proposal-id="proposal.id" :proposal-title="proposal.title" />
-            <template #footer><div class="proposal-action"><UButton icon="i-lucide-file-pen-line" :loading="activatingKey === proposalKey(proposal, index)" :disabled="!!activatingKey" :aria-label="`Use this proposal: ${proposal.title}`" @click="useProposal(proposal, index)">Use this proposal</UButton><span class="small muted">Opens an editable draft</span></div></template>
+            <template #footer><div class="proposal-action"><UButton icon="i-lucide-file-pen-line" :loading="activatingKey === proposalKey(proposal, index)" :disabled="!!activatingKey || !!startingDelivery" :aria-label="`Edit draft: ${proposal.title}`" @click="useProposal(proposal, index)">Edit draft</UButton><UButton icon="i-lucide-workflow" variant="outline" :loading="startingDelivery === deliveryKey(proposal, index)" :disabled="!!activatingKey || !!startingDelivery" :aria-label="`Start durable delivery: ${proposal.title}`" @click="startDelivery(proposal, index)">Start durable delivery</UButton><span class="small muted">Edit first, or start the worker → review loop.</span></div></template>
           </UCard>
         </div>
         <p v-else-if="output.proposals && output.noProposalReason" class="report">{{ output.noProposalReason }}</p>

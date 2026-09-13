@@ -18,7 +18,7 @@ function sectionValue(value: unknown): CockpitSection | undefined {
   const candidate = queryValue(value);
   return sectionValues.includes(candidate as CockpitSection) ? candidate as CockpitSection : undefined;
 }
-const workActionsAnchor=ref<HTMLElement|null>(null);
+const deliveryAnchor=ref<HTMLElement|null>(null);
 const config = useRuntimeConfig();
 const route = useRoute();
 const router = useRouter();
@@ -222,10 +222,10 @@ async function focusEditor() {
   // users land in the editor rather than on the page background.
   editor.value?.querySelector<HTMLElement>('input[placeholder="An ADEO issue list"]')?.focus({ preventScroll: true });
 }
-async function goToWorkActions() {
+async function goToDelivery() {
   await nextTick();
-  workActionsAnchor.value?.scrollIntoView({ block: "start", behavior: "smooth" });
-  workActionsAnchor.value?.focus({ preventScroll: true });
+  deliveryAnchor.value?.scrollIntoView({ block: "start", behavior: "smooth" });
+  deliveryAnchor.value?.focus({ preventScroll: true });
 }
 async function save() {
   if (saving.value || confirmSaving.value || !title.value.trim() || !request.value.trim()) return;
@@ -432,18 +432,18 @@ watch([title,request],async()=>{const sequence=++issueSequence;issueUrl.value=""
                   <div>
                     <strong>Start with an investigation</strong>
                     <p>
-                      Task mining reads the goal, code and current GitHub work. Review a proposal as a draft, then explicitly choose whether to build a PR.
+                      Task mining reads the goal, code and current GitHub work. Review a proposal, then edit the draft or start the durable delivery.
                     </p>
                   </div>
                 </div>
                 <div class="mobile-work-jump">
-                  <UButton icon="i-lucide-arrow-down" variant="outline" @click="goToWorkActions">Continue to work actions</UButton>
-                  <span class="small muted">Jump to the worker, reviewer, or durable delivery.</span>
+                  <UButton icon="i-lucide-arrow-down" variant="outline" @click="goToDelivery">Continue to delivery</UButton>
+                  <span class="small muted">Skip the context cards and jump to the durable delivery.</span>
                 </div>
               </section>
             </div>
-            <section ref="workActionsAnchor" aria-label="Work actions" class="work-actions-anchor" tabindex="-1">
-              <WorkActions :title="title" :brief="request" /><DeliveryLoop :title="title" :brief="request" />
+            <section ref="deliveryAnchor" aria-label="Durable delivery" class="work-actions-anchor" tabindex="-1">
+              <WorkActions /><DeliveryLoop :title="title" :brief="request" />
             </section>
             <WorkHistory />
           </template>
