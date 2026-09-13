@@ -1,6 +1,10 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { deliveryFlow, stationFlow } from "../app/utils/observability-flow.ts";
+import { deliveryFlow, flowStatusLabels, stationFlow } from "../app/utils/observability-flow.ts";
+
+test("failed activity is named plainly instead of looking cancelled", () => {
+  assert.equal(flowStatusLabels.failed, "Failed");
+});
 
 test("delivery flow highlights the current handoff and preserves the revision loop", () => {
   const flow = deliveryFlow({

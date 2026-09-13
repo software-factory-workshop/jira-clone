@@ -2,11 +2,13 @@
 import { useEveAgent } from "eve/vue";
 import { authorizationLink, miningProgress, parseMiningOutput, proposalDraft, terminalMiningFailure, type MiningProposal } from "../utils/mining-output";
 import { renderReport } from "../utils/report";
+import { copyText, shortIdentifier } from "../utils/technical-details";
 const props = defineProps<{ sessionId?: string }>();
 const emit = defineEmits<{ session: [id: string, label: string]; draft: [value: { title: string; body: string;id?:string;version?:number }]; new: [] }>();
 const focus = ref("");
 const actionError = ref("");
 const activatingKey = ref<string>();
+const copiedSession = ref(false);
 const { data, events, status, error, session, send, cancel, resume, respond } = useEveAgent({
   initialSession: props.sessionId ? { sessionId: props.sessionId, streamIndex: 0 } : undefined,
   resume: !!props.sessionId,
@@ -29,6 +31,7 @@ const progress = computed(() => {
 const incomplete = computed(() => output.value?.phase === "Incomplete" || !!output.value?.error);
 const terminalFailure = computed(() => terminalMiningFailure({ status: status.value, events: events.value, hasReport: !!output.value?.report, awaitingAuthorization: awaitingAuthorization.value, outputError: !!output.value?.error }));
 const disconnected = computed(() => !!(session.value || props.sessionId) && !busy.value && status.value !== "resuming" && !cancelled.value && !turnEnded.value && !awaitingAuthorization.value && !output.value?.report && !output.value?.error);
+const currentSessionId = computed(() => session.value?.sessionId || props.sessionId || "");
 const reportHtml = computed(() => renderReport(output.value?.report || ""));
 const reflectionSections = computed(() => output.value?.reflection ? [
   { title: "Helpful context", values: output.value.reflection.helpfulContext },
@@ -61,6 +64,15 @@ async function activate(proposalId?:string, key = "findings") {
  finally { activatingKey.value = undefined; }
 }
 async function draft() {await activate(undefined, "findings");}
+async function copySession(sessionId: string) {
+  try {
+    if (!await copyText(sessionId)) throw new Error("Clipboard unavailable");
+    copiedSession.value = true;
+    window.setTimeout(() => { copiedSession.value = false; }, 1800);
+  } catch {
+    actionError.value = "Could not copy the session ID. Expand the link text and select it instead.";
+  }
+}
 </script>
 
 <template>
@@ -131,7 +143,8 @@ async function draft() {await activate(undefined, "findings");}
       <p v-else-if="!busy && summary" class="report">{{ summary }}</p>
       <div class="mining-actions"><UButton v-if="busy || awaitingAuthorization" variant="outline" color="neutral" @click="stop">Stop investigation</UButton><UButton v-if="error || actionError || disconnected" variant="outline" @click="reconnect">Reconnect</UButton><UButton v-if="!busy && !awaitingAuthorization && !output?.report && status !== 'resuming'" @click="emit('new')">New investigation</UButton></div>
       <fieldset v-for="request in pendingRequests" :key="request.requestId"><legend>{{ request.prompt }}</legend><UButton v-for="option in request.options || []" :key="option.id" :disabled="status === 'resuming'" @click="respond([{ requestId: request.requestId, optionId: option.id }])">{{ option.label }}</UButton></fieldset>
-      <p class="small muted session-id"><a :href="`?investigation=${session?.sessionId || sessionId}`">Open session {{ session?.sessionId || sessionId }}</a></p>
+      <p class="small muted session-id"><a :href="`?investigation=${currentSessionId}`" :aria-label="`Open investigation session ${currentSessionId}`">Open session <code>{{ shortIdentifier(currentSessionId) }}</code></a></p>
+      <details class="session-details"><summary>Session identity</summary><p><code>{{ currentSessionId }}</code><UButton size="xs" variant="ghost" @click="copySession(currentSessionId)">{{ copiedSession ? "Copied" : "Copy" }}</UButton></p></details>
     </div>
     <UAlert v-if="terminalFailure" color="error" variant="soft" title="Investigation incomplete" :description="output?.error || 'The run ended without recorded findings. Start a new investigation to try again.'" />
     <UAlert v-else-if="error && !output?.report" color="warning" variant="soft" title="Connection interrupted" description="Reconnect to check the investigation. A connection error does not establish that the run stopped." />
@@ -178,4 +191,7 @@ form > p { margin-bottom:22px; }
 .command-evidence { margin-top:18px; }
 .command-evidence pre { white-space:pre-wrap; overflow-wrap:anywhere; max-height:300px; overflow:auto; background:var(--ui-bg-muted); padding:12px; margin-top:12px; }
 .session-id { overflow-wrap:anywhere; margin-top:22px; }
+.session-details { margin-top:14px; font-size:12px; }
+.session-details summary { cursor:pointer; color:var(--ui-primary); font-weight:600; }
+.session-details p { display:flex; align-items:center; flex-wrap:wrap; gap:8px; overflow-wrap:anywhere; }
 </style>

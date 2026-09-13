@@ -1,7 +1,11 @@
 <script setup lang="ts">
 import { attentionPhases, isLoopRun, summarizeDelivery, type DeliverySummary } from "../utils/delivery-summary";
+import { cockpitFailureMessage } from "../utils/cockpit-errors";
 const cockpit = useCockpit();
 const error = ref("");
+const historyLoading = ref(false);
+const historyLoaded = ref(false);
+const lastRefreshed = ref<Date>();
 const runs = computed(() => cockpit.items.value.runs.filter((r) => r.value.station !== "mining"));
 const deliveries = ref<Record<string, { status: "loading" | "ready" | "unavailable"; summary?: DeliverySummary }>>({});
 function label(run: (typeof runs.value)[number]) {
@@ -31,12 +35,18 @@ async function loadDeliveries() {
   }));
 }
 async function refresh() {
+  if (historyLoading.value) return;
+  historyLoading.value = true;
   try {
     await cockpit.refresh("runs");
+    historyLoaded.value = true;
     error.value = "";
     await loadDeliveries();
-  } catch {
-    error.value = "Shared work history is unavailable.";
+    lastRefreshed.value = new Date();
+  } catch (cause) {
+    error.value = cockpitFailureMessage(cause, "Shared work history");
+  } finally {
+    historyLoading.value = false;
   }
 }
 function link(run: (typeof runs.value)[number]) {
@@ -53,16 +63,25 @@ function link(run: (typeof runs.value)[number]) {
     },
   };
 }
-onMounted(refresh);
+let refreshTimer: ReturnType<typeof setInterval> | undefined;
+onMounted(async () => {
+  await refresh();
+  refreshTimer = setInterval(() => void refresh(), 10000);
+});
+onBeforeUnmount(() => clearInterval(refreshTimer));
 </script>
 <template>
   <section class="panel" style="padding: 24px; margin-top: 24px">
     <div class="panel-heading">
       <h2>Recent work</h2>
-      <UButton variant="ghost" @click="refresh">Refresh</UButton>
+      <UButton variant="ghost" :loading="historyLoading" :disabled="historyLoading" @click="refresh">Refresh</UButton>
     </div>
-    <p v-if="error" role="status">{{ error }}</p>
-    <p v-if="!runs.length" class="muted">Accepted worker and review runs appear here.</p>
+    <p v-if="lastRefreshed" class="small muted" role="status">Updated {{ lastRefreshed.toLocaleTimeString() }} · refreshes automatically</p>
+    <UAlert v-if="error" color="warning" variant="soft" title="Work history needs attention" :description="error">
+      <template #actions><UButton size="xs" variant="outline" :loading="historyLoading" @click="refresh">Retry</UButton></template>
+    </UAlert>
+    <p v-if="!historyLoaded && !error" role="status" class="muted">Loading shared work history…</p>
+    <p v-if="historyLoaded && !runs.length" class="muted">Accepted worker and review runs appear here.</p>
     <ul class="work-history-list">
       <li v-for="run in runs" :key="run.id">
         <article v-if="(run.value as Record<string, unknown>).station === 'loop'" class="delivery-card" :aria-label="`Delivery: ${label(run)}`">
