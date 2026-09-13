@@ -207,6 +207,17 @@ export function moveTargets(
 }
 
 /**
+ * Drag-and-drop targets for the Kanban board: every observed column stays
+ * droppable so an illegal drop travels the same demo-only PATCH save path
+ * and surfaces the structured demoOnly 409 teaching error instead of being
+ * hidden. Contrast with `moveTargets`, which narrows keyboard/select
+ * controls to the legal next step(s). Pure; never writes.
+ */
+export function dragDropTargets(statuses: readonly string[]): string[] {
+  return statuses.filter((status) => isObservedStatus(status));
+}
+
+/**
  * Bounded synthetic priority allowlist for the demo-only save path.
  * Covers the fixture values (High, Medium) and teaches the save path; it does
  * not claim Jira parity or a production Jira data model.
