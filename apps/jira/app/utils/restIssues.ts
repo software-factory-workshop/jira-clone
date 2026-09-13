@@ -78,6 +78,11 @@ export function boardSearchUrl(
   return `/api/rest/api/3/search?startAt=${startAt}&maxResults=${maxResults}`;
 }
 
+/** Canonical comment-write URL for one demo key. */
+export function restCommentWriteUrl(key: string): string {
+  return `/api/rest/api/3/issue/${encodeURIComponent(key)}/comment`;
+}
+
 /** Canonical comment-list read URL for one demo key with bounded pagination. */
 export function restCommentsUrl(
   key: string,

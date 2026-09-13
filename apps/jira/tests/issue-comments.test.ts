@@ -9,12 +9,21 @@ import {
   resetIssues,
 } from "../server/utils/issues.ts";
 import {
+  clearCommentDraft,
+  commentDraftStorageKey,
   fetchIssueComments,
+  postIssueComment,
+  readCommentDraft,
   submitIssueComment,
+  writeCommentDraft,
   type DemoComment,
   type IssueCommentsResponse,
+  type RestCommentWriteResponse,
 } from "../app/utils/issueComments.ts";
-import { restCommentsUrl } from "../app/utils/restIssues.ts";
+import {
+  restCommentsUrl,
+  restCommentWriteUrl,
+} from "../app/utils/restIssues.ts";
 
 /** Stub JSON fetcher backed by the real demo-only server store. */
 function commentsFetch(calls: string[]) {
@@ -114,6 +123,113 @@ test("reset clears comments", () => {
   assert.equal(addComment("ADEO-1", { body: "Temporary" }).ok, true);
   resetIssues();
   assert.deepEqual(listComments("ADEO-1"), []);
+});
+
+test("canonical write URL targets POST /api/rest/api/3/issue/:key/comment", () => {
+  assert.equal(
+    restCommentWriteUrl("ADEO-1"),
+    "/api/rest/api/3/issue/ADEO-1/comment",
+  );
+  assert.equal(
+    restCommentWriteUrl("ADEO 1"),
+    "/api/rest/api/3/issue/ADEO%201/comment",
+  );
+});
+
+test("canonical write posts through the REST route and maps the bean", async () => {
+  const bean = {
+    id: "ADEO-1-comment-7",
+    body: "Canonical write",
+    author: { displayName: "Demo Member (member) · demo-only" },
+    created: "2026-09-12T00:00:02.000Z",
+    demoOnly: true as const,
+  };
+  const calls: { url: string; body: unknown }[] = [];
+  const mapped = await postIssueComment("ADEO-1", "  Canonical write  ", async (url, request) => {
+    calls.push({ url, body: request });
+    assert.deepEqual(request, { body: "  Canonical write  " });
+    const response: RestCommentWriteResponse = { comment: bean, demoOnly: true };
+    return response;
+  });
+  assert.deepEqual(calls.map((call) => call.url), [
+    "/api/rest/api/3/issue/ADEO-1/comment",
+  ]);
+  assert.deepEqual(mapped, {
+    id: bean.id,
+    body: bean.body,
+    author: bean.author.displayName,
+    createdAt: bean.created,
+    demoOnly: true,
+  });
+});
+
+test("canonical write never reports false success on a missing bean", async () => {
+  await assert.rejects(
+    postIssueComment("ADEO-1", "kept", async () => ({})),
+    /returned no comment.*draft is kept/,
+  );
+  await assert.rejects(
+    postIssueComment("ADEO-1", "kept", async () => {
+      throw new Error("Demo-only REST write failed. Your draft is kept for retry.");
+    }),
+    /Demo-only REST write failed/,
+  );
+});
+
+function memoryStore(): Storage {
+  const entries = new Map<string, string>();
+  return {
+    get length() {
+      return entries.size;
+    },
+    clear: () => entries.clear(),
+    getItem: (key: string) => entries.get(key) ?? null,
+    key: (index: number) => [...entries.keys()][index] ?? null,
+    removeItem: (key: string) => {
+      entries.delete(key);
+    },
+    setItem: (key: string, value: string) => {
+      entries.set(key, value);
+    },
+  };
+}
+
+test("per-issue drafts are isolated and survive close/reopen", () => {
+  const store = memoryStore();
+  assert.equal(commentDraftStorageKey("ADEO-1"), "adeo-demo-comment-draft:ADEO-1");
+  assert.notEqual(
+    commentDraftStorageKey("ADEO-1"),
+    commentDraftStorageKey("ADEO-2"),
+  );
+  assert.equal(readCommentDraft("ADEO-1", store), "");
+  writeCommentDraft("ADEO-1", "first draft", store);
+  writeCommentDraft("ADEO-2", "second draft", store);
+  // Reopen each dialog: the stored draft is restored per key.
+  assert.equal(readCommentDraft("ADEO-1", store), "first draft");
+  assert.equal(readCommentDraft("ADEO-2", store), "second draft");
+  // Posting clears only the posted issue.
+  clearCommentDraft("ADEO-1", store);
+  assert.equal(readCommentDraft("ADEO-1", store), "");
+  assert.equal(readCommentDraft("ADEO-2", store), "second draft");
+  // Blank drafts never accumulate storage entries.
+  writeCommentDraft("ADEO-2", "   ", store);
+  assert.equal(readCommentDraft("ADEO-2", store), "");
+});
+
+test("draft storage failures keep the in-memory draft", () => {
+  const failing: Storage = memoryStore();
+  failing.setItem = () => {
+    throw new Error("storage unavailable");
+  };
+  failing.getItem = () => {
+    throw new Error("storage unavailable");
+  };
+  failing.removeItem = () => {
+    throw new Error("storage unavailable");
+  };
+  assert.equal(readCommentDraft("ADEO-1", failing), "");
+  writeCommentDraft("ADEO-1", "kept in memory", failing);
+  clearCommentDraft("ADEO-1", failing);
 });
 
 test("submit helper keeps the draft on failure and clears it on success", async () => {

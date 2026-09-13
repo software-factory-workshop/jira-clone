@@ -1,9 +1,14 @@
 <script setup lang="ts">
 import {
+  clearCommentDraft,
   fetchIssueComments,
+  postIssueComment,
+  readCommentDraft,
   submitIssueComment,
+  writeCommentDraft,
   type DemoComment,
   type IssueCommentsResponse,
+  type RestCommentWriteResponse,
 } from "~/utils/issueComments";
 import {
   failedDetail,
@@ -148,6 +153,7 @@ const commentsLoading = ref(false);
 const commentsError = ref<string | null>(null);
 const commentsDemoOnly = ref(false);
 const commentDraft = ref("");
+const commentDraftLocal = ref(false);
 const commentSaving = ref(false);
 const commentError = ref<string | null>(null);
 const issues = ref<BoardIssue[]>([]);
@@ -238,24 +244,50 @@ async function postComment() {
     const result = await submitIssueComment(
       comments.value,
       commentDraft.value,
-      async (body) => {
-        const saved = await $fetch<{ comment: DemoComment }>(
-          `/api/issues/${key}/comments`,
-          { method: "POST", body: { body }, headers: demoHeaders() },
-        );
-        return saved.comment;
-      },
+      (body) =>
+        postIssueComment(key, body, (url, request) =>
+          $fetch<RestCommentWriteResponse>(url, {
+            method: "POST",
+            body: request,
+            headers: demoHeaders(),
+          }),
+        ),
     );
     if (selectedKey.value !== key) return;
     comments.value = result.comments;
     commentDraft.value = result.draft;
-    commentError.value = result.ok ? null : result.error;
+    if (result.ok) {
+      clearCommentDraft(key);
+      commentDraftLocal.value = false;
+      commentError.value = null;
+      // Refresh through the canonical comment-list read so the dialog
+      // renders exactly what the REST GET returns after the REST POST.
+      void loadComments(key);
+    } else {
+      writeCommentDraft(key, result.draft);
+      if (result.draft.trim() !== "") commentDraftLocal.value = true;
+      commentError.value = result.error;
+    }
   } finally {
     if (selectedKey.value === key) commentSaving.value = false;
   }
 }
 
-watch(selectedKey, (key) => {
+watch(commentDraft, (next) => {
+  // Per-issue draft retention: every keystroke is kept locally under the
+  // open issue key so the draft survives dialog close and reload. Blank
+  // drafts clear the stored entry.
+  if (selectedKey.value) writeCommentDraft(selectedKey.value, next);
+  commentDraftLocal.value = next !== "";
+});
+
+watch(selectedKey, (key, previous) => {
+  // Keep the previous issue's draft before switching: the keystroke watcher
+  // already persists it, but a programmatic draft change must not leak
+  // across issues.
+  if (previous && commentDraft.value.trim() !== "") {
+    writeCommentDraft(previous, commentDraft.value);
+  }
   detailIssue.value = null;
   detailDemoOnly.value = false;
   detailError.value = null;
@@ -264,7 +296,9 @@ watch(selectedKey, (key) => {
   commentsDemoOnly.value = false;
   commentsError.value = null;
   commentsLoading.value = false;
-  commentDraft.value = "";
+  const restored = key ? readCommentDraft(key) : "";
+  commentDraft.value = restored;
+  commentDraftLocal.value = restored !== "";
   commentError.value = null;
   commentSaving.value = false;
   if (key) {
@@ -1001,6 +1035,18 @@ await refresh();
                     :disabled="commentSaving"
                   />
                 </label>
+                <p
+                  v-if="commentDraftLocal && commentDraft"
+                  class="demo-save-hint"
+                  role="status"
+                >
+                  Locally kept draft for {{ selectedKey }} — posting
+                  clears it.
+                </p>
+                <p class="demo-save-hint">
+                  Drafts are kept locally per issue and survive dialog
+                  close or reload.
+                </p>
                 <p v-if="commentError" class="save-error" role="alert">
                   <UIcon name="i-lucide-triangle-alert" /> Demo comment
                   failed: {{ commentError }} Your draft is kept for retry.
