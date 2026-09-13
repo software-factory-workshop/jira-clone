@@ -10,7 +10,7 @@ Grow a software factory with Eve, using an ADEO-branded Jira demo as its test su
 - Jira demo: https://adeo-jira-clone.vercel.app
 - Both applications use the ADEO Nuxt UI layer v0.1.1.
 
-The cockpit starts and resumes durable Eve investigations. It also has browser-local request drafts, starter prompts, project knowledge and the factory growth path. “Review in GitHub” opens a prefilled issue; the user decides whether to submit it. Draft storage is local to a browser, not shared team state. GitHub repository context uses Vercel Connect when installed.
+The cockpit starts and resumes durable Eve investigations and keeps browser-local request drafts. “Review in GitHub” opens a prefilled issue; the user decides whether to submit it. Draft storage is local to a browser, not shared team state. The task-mining station uses Vercel Connect for fixed-repository context when installed.
 
 The Jira demo has searchable synthetic issues, status and assignee filtering, list/board views, issue details, bounded creation, edits, comments, transitions and reset. Its issue and comment persistence uses Neon Postgres when `DATABASE_URL` is configured, with an explicit in-memory fallback for tests and workshops. Passport-derived accounts, a labelled fallback role matrix, bounded Jira-shaped REST routes, eleven MCP tools and a fake OAuth provider are implemented locally. See [the current-state contract](docs/jira-current-state.md) for exact boundaries. This is not full Jira parity and does not provide production Connect or OAuth registration, SAML, SCIM or complete Jira permissions.
 
