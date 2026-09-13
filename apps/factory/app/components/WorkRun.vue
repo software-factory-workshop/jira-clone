@@ -3,6 +3,7 @@ import { useEveAgent, defaultMessageReducer, type EveMessageData } from "eve/vue
 import type { MessageStreamEvent } from "eve/client";
 import { dispatchedTask, parseStationToolResult, pendingStationRequests, matchesStationDelivery, latestStationTurn, readStationStream, type StationKind } from "../utils/work-station";
 import { authorizationLink } from "../utils/mining-output";
+import { stationFlow } from "../utils/observability-flow";
 const props = defineProps<{ sessionId: string; station: StationKind; child?: boolean; awaitingDecision?: boolean; execution?: "owner" | "dispatcher" | "direct"; rootAgent?: "worker" | "reviewer"; deliveryId?: string; operationId?: string }>();
 const emit = defineEmits<{ settled: [value: boolean]; recorded: [value: boolean] }>();
 const { data, events, status, error, resume, respond } = useEveAgent({ host: import.meta.client && props.rootAgent ? `${window.location.origin}/${props.rootAgent}` : undefined, initialSession: { sessionId: props.sessionId, streamIndex: 0 }, resume: true });
@@ -83,6 +84,20 @@ const step = computed(() => {
   return part?.toolName.replaceAll("_", " ") || "Preparing the station";
 });
 const summary = computed(() => (tailData.value || data.value).messages.filter(message => message.role === "assistant").flatMap(message => message.parts.flatMap(part => part.type === "text" ? [part.text] : [])).join("\n"));
+const toolActivities = computed(() => parts.value.filter((part): part is Extract<typeof part, { type: "dynamic-tool" }> => part.type === "dynamic-tool").map((part, index) => ({ id: `tool-${index}-${part.toolName}`, toolName: part.toolName, state: part.state })));
+const flowModel = computed(() => stationFlow({
+  station: props.station,
+  active: active.value,
+  ended: ended.value,
+  stopped: stopped.value,
+  needsDecision: needsDecision.value,
+  awaitingAuthorization: authorizations.value.length > 0,
+  result: result.value ? { verdict: result.value.station === "reviewer" ? result.value.verdict : undefined, summary: result.value.summary } : undefined,
+  taskId: taskId.value,
+  execution: props.execution,
+  child: props.child,
+  tools: toolActivities.value,
+}));
 const label = computed(() => result.value ? result.value.station === "worker" ? props.execution === "owner" ? "PR revised" : "Draft PR created" : result.value.verdict === "approve" ? "Review passed" : result.value.verdict === "changes_requested" ? "Changes requested" : "Review incomplete" : queuedForOwner.value ? "Queued for branch owner" : needsDecision.value ? "Awaiting decision" : stopped.value ? "Stopped" : awaitingChild.value ? "Station dispatched" : authorizations.value.length ? "Connection needed" : active.value ? "Running" : ended.value ? "Incomplete" : "Disconnected");
 watch(() => props.awaitingDecision, (waiting, previous) => {
   if (props.child && previous && !waiting && !result.value && !active.value) void reconnect();
@@ -111,6 +126,13 @@ async function stop() {
       <p v-else-if="awaitingChild" role="status">Waiting for the {{ station === 'worker' ? 'worker' : 'reviewer' }} session. The task has been dispatched.</p>
       <p v-else-if="active && !result && !authorizations.length && !needsDecision" role="status">{{ step }}…</p>
       <div v-for="authorization in authorizations" :key="`${authorization.name}-${authorization.stepIndex}`"><p>{{ authorization.description }}</p><p>{{ authorization.authorization?.instructions }}</p><code v-if="authorization.authorization?.userCode">{{ authorization.authorization.userCode }}</code><UButton v-if="authorizationLink(authorization.authorization?.url)" :to="authorizationLink(authorization.authorization?.url)" target="_blank" rel="noopener noreferrer">Connect {{ authorization.displayName }}</UButton></div>
+      <CockpitFlow
+        :id="`station-${sessionId}-${child ? 'child' : 'root'}`"
+        :title="`${station === 'worker' ? 'Worker' : 'Reviewer'} activity`"
+        description="Live stages derived from the Eve event stream. The highlighted action is what this station is doing now."
+        :nodes="flowModel.nodes"
+        :edges="flowModel.edges"
+      />
       <template v-if="result">
         <p>{{ result.summary }}</p>
         <template v-if="result.station === 'worker'"><UButton :to="result.publication.url" target="_blank" rel="noopener noreferrer" icon="i-lucide-git-pull-request">Open {{ execution === 'owner' ? 'PR' : 'draft PR' }} #{{ result.publication.number }}</UButton><p class="small muted">Branch {{ result.publication.branch }}<br />Head {{ result.publication.headSha }}<br />Base {{ result.publication.baseSha }}<template v-if="result.publication.targetBranch"><br />PR target {{ result.publication.targetBranch }}<span v-if="result.publication.parentPrNumber"> · parent PR #{{ result.publication.parentPrNumber }}</span></template><template v-if="result.publication.ownerSessionId"><br />Branch owner {{ result.publication.ownerSessionId }}</template></p><p class="small muted">Use the PR reviewer above for an independent review.</p></template>
