@@ -24,6 +24,83 @@ import {
 } from "~/utils/boardMove";
 
 const config = useRuntimeConfig();
+function demoErrorMessage(error: unknown, fallback: string): string {
+  if (error && typeof error === "object" && "data" in error) {
+    const message = (error as { data?: { message?: unknown } }).data?.message;
+    if (typeof message === "string" && message.trim() !== "") return message;
+  }
+  return error instanceof Error && error.message ? error.message : fallback;
+}
+
+
+const DEMO_USER_STORAGE_KEY = "adeo-demo-user";
+const DEFAULT_DEMO_USER_ID = "demo-member";
+const DEMO_ROLE_MATRIX_LABEL =
+  "Demo-only role matrix: admin (read, write, reset) · member (read, write) · viewer (read-only).";
+type DemoAccountOption = {
+  id: string;
+  label: string;
+  role: "admin" | "member" | "viewer";
+  blurb: string;
+};
+const DEMO_ACCOUNT_OPTIONS: DemoAccountOption[] = [
+  { id: "demo-admin", label: "Demo Admin", role: "admin", blurb: "read, write, reset" },
+  { id: "demo-member", label: "Demo Member", role: "member", blurb: "read, write" },
+  { id: "demo-viewer", label: "Demo Viewer", role: "viewer", blurb: "read-only" },
+];
+const demoUserId = ref(DEFAULT_DEMO_USER_ID);
+const demoAccount = ref<DemoAccountOption>(DEMO_ACCOUNT_OPTIONS[1]!);
+const demoMeError = ref<string | null>(null);
+const demoAccountItems = DEMO_ACCOUNT_OPTIONS.map((account) => ({
+  label: `${account.label} — ${account.role} · ${account.blurb}`,
+  value: account.id,
+}));
+function demoHeaders(): Record<string, string> {
+  return { "x-demo-user": demoUserId.value };
+}
+function readStoredDemoUser(): string | null {
+  try {
+    if (typeof sessionStorage === "undefined") return null;
+    return sessionStorage.getItem(DEMO_USER_STORAGE_KEY);
+  } catch {
+    return null;
+  }
+}
+async function loadMe() {
+  demoMeError.value = null;
+  try {
+    const data = await $fetch<{
+      account: { id: string; label: string; role: DemoAccountOption["role"] };
+    }>("/api/me", { headers: demoHeaders() });
+    const known = DEMO_ACCOUNT_OPTIONS.find((option) => option.id === data.account.id);
+    if (known) demoAccount.value = known;
+  } catch (error) {
+    demoMeError.value =
+      error instanceof Error ? error.message : "Could not load the demo account.";
+  }
+}
+try {
+  const stored = readStoredDemoUser();
+  if (stored && DEMO_ACCOUNT_OPTIONS.some((option) => option.id === stored)) {
+    demoUserId.value = stored;
+    const known = DEMO_ACCOUNT_OPTIONS.find((option) => option.id === stored);
+    if (known) demoAccount.value = known;
+  }
+} catch {
+  // Session-scoped demo selection stays on the default when storage is unavailable.
+}
+watch(demoUserId, (next) => {
+  const known = DEMO_ACCOUNT_OPTIONS.find((option) => option.id === next);
+  if (known) demoAccount.value = known;
+  try {
+    if (typeof sessionStorage !== "undefined") {
+      sessionStorage.setItem(DEMO_USER_STORAGE_KEY, next);
+    }
+  } catch {
+    // Demo-only preference; storage failures keep the in-memory selection.
+  }
+  void loadMe();
+});
 const view = ref("list");
 const search = ref("");
 const status = ref("All statuses");
@@ -112,10 +189,10 @@ async function loadComments(key: string) {
     if (selectedKey.value !== key) return;
     comments.value = [];
     commentsDemoOnly.value = false;
-    commentsError.value =
-      error instanceof Error
-        ? error.message
-        : "Could not load demo comments.";
+    commentsError.value = demoErrorMessage(
+      error,
+      "Could not load demo comments.",
+    );
   } finally {
     if (selectedKey.value === key) commentsLoading.value = false;
   }
@@ -133,7 +210,7 @@ async function postComment() {
       async (body) => {
         const saved = await $fetch<{ comment: DemoComment }>(
           `/api/issues/${key}/comments`,
-          { method: "POST", body: { body } },
+          { method: "POST", body: { body }, headers: demoHeaders() },
         );
         return saved.comment;
       },
@@ -181,6 +258,7 @@ async function saveStatus(
   const saved = await $fetch<{ issue: BoardIssue }>(`/api/issues/${key}`, {
     method: "PATCH",
     body: { status: next, ...(fail ? { fail: true } : {}) },
+    headers: demoHeaders(),
   });
   return saved.issue;
 }
@@ -189,6 +267,7 @@ async function savePriority(key: string, next: string): Promise<BoardIssue> {
   const saved = await $fetch<{ issue: BoardIssue }>(`/api/issues/${key}`, {
     method: "PATCH",
     body: { priority: next },
+    headers: demoHeaders(),
   });
   return saved.issue;
 }
@@ -200,10 +279,10 @@ async function refresh() {
     const data = await $fetch<{ issues: BoardIssue[] }>("/api/issues");
     issues.value = data.issues;
   } catch (error) {
-    loadError.value =
-      error instanceof Error
-        ? error.message
-        : "Could not load demo issues. Showing labelled fixtures.";
+    loadError.value = demoErrorMessage(
+      error,
+      "Could not load demo issues. Showing labelled fixtures.",
+    );
   } finally {
     loading.value = false;
   }
@@ -293,6 +372,7 @@ async function createCard() {
   try {
     const saved = await $fetch<{ issue: BoardIssue }>("/api/issues", {
       method: "POST",
+      headers: demoHeaders(),
       body: {
         title: draftTitle.value.trim(),
         type: draftType.value,
@@ -312,8 +392,7 @@ async function createCard() {
     draftDescription.value = "";
     saveNotice.value = `Demo-only create: ${saved.issue.key} added. Reload to confirm it persists on this server.`;
   } catch (error) {
-    createError.value =
-      error instanceof Error ? error.message : "Demo create failed.";
+    createError.value = demoErrorMessage(error, "Demo create failed.");
   } finally {
     createSaving.value = false;
   }
@@ -326,13 +405,13 @@ async function resetBoard() {
   try {
     const data = await $fetch<{ issues: BoardIssue[] }>("/api/issues/reset", {
       method: "POST",
+      headers: demoHeaders(),
     });
     issues.value = data.issues;
     saveNotice.value =
       "Demo board reset to labelled fixture identities. Reset only affects this demo-only store.";
   } catch (error) {
-    moveError.value =
-      error instanceof Error ? error.message : "Demo reset failed.";
+    moveError.value = demoErrorMessage(error, "Demo reset failed.");
   }
 }
 
@@ -344,6 +423,7 @@ function priorityLabel(issue: BoardIssue) {
   return `Change priority for ${issue.key}`;
 }
 
+await loadMe();
 await refresh();
 </script>
 <template>
@@ -352,8 +432,22 @@ await refresh();
       <header class="jira-header">
         <a class="brand" href="/">ADEO</a
         ><span class="product-name">Jira workspace</span
-        ><UBadge color="neutral" variant="subtle">Stage-zero shell</UBadge
-        ><UButton
+        ><UBadge color="neutral" variant="subtle">Stage-zero shell</UBadge>
+        <div class="demo-account-switcher">
+          <UBadge color="warning" variant="soft">Demo-only identity</UBadge>
+          <USelect
+            v-model="demoUserId"
+            :items="demoAccountItems"
+            value-key="value"
+            aria-label="Demo account"
+            size="sm"
+            class="demo-account-select"
+          />
+          <UBadge color="neutral" variant="subtle"
+            >{{ demoAccount.label }} · {{ demoAccount.role }}</UBadge
+          >
+        </div>
+        <UButton
           :to="config.public.factoryUrl"
           variant="outline"
           color="neutral"
@@ -395,12 +489,19 @@ await refresh();
               <strong>Synthetic demo data.</strong> Review the layout and open
               an issue. Status moves and priority edits use a labelled
               <strong>demo-only save path</strong>: they persist across reload
-              on this server and reset on redeploy. Allowed demo statuses are
-              To Do, In Progress, In Review and Done; allowed demo priorities
-              are Highest, High, Medium, Low and Lowest. No Jira transition
-              enforcement is claimed.
+              on this server and reset on redeploy. Acting as
+              <strong>{{ demoAccount.label }} ({{ demoAccount.role }})</strong
+              > — a demo-only simulation with no real login or production
+              permissions. {{ DEMO_ROLE_MATRIX_LABEL }} Unknown or blank
+              x-demo-user values are rejected before any write, while reads
+              stay available as demo reads.
             </p>
           </div>
+          <p v-if="demoMeError" class="save-error" role="alert">
+            <UIcon name="i-lucide-triangle-alert" /> Could not confirm the
+            demo identity: {{ demoMeError }} Writes still send the selected
+            demo account, and the API remains the permission authority.
+          </p>
           <div class="demo-save-bar">
             <UButton
               icon="i-lucide-plus"

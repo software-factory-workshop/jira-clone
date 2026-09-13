@@ -22,7 +22,17 @@ body {
   font-weight: 500;
 }
 .jira-header > a:last-child {
+  margin-left: 0;
+}
+.demo-account-switcher {
+  display: flex;
+  align-items: center;
+  gap: 10px;
   margin-left: auto;
+  flex-wrap: wrap;
+}
+.demo-account-select {
+  min-width: 240px;
 }
 .jira-body {
   display: grid;

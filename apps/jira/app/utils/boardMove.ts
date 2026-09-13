@@ -1,5 +1,17 @@
 /** Shared board-move helpers used by the Kanban UI and focused tests. */
 
+/** Prefer the server-provided demo message (Nuxt FetchError `data.message`) over the generic transport message. */
+function serverMessage(error: unknown, fallback: string): string {
+  if (error && typeof error === "object" && "data" in error) {
+    const message = (error as { data?: { message?: unknown } }).data?.message;
+    if (typeof message === "string" && message.trim() !== "") {
+      return message;
+    }
+  }
+  return error instanceof Error && error.message ? error.message : fallback;
+}
+
+
 export const OBSERVED_STATUSES = [
   "To Do",
   "In Progress",
@@ -129,10 +141,10 @@ export async function moveIssue(
   } catch (error) {
     return {
       ok: false,
-      error:
-        error instanceof Error
-          ? error.message
-          : "Demo-only save failed. The card stays in its original column.",
+      error: serverMessage(
+        error,
+        "Demo-only save failed. The card stays in its original column.",
+      ),
       issues: previous,
     };
   }
@@ -215,10 +227,10 @@ export async function changePriority(
   } catch (error) {
     return {
       ok: false,
-      error:
-        error instanceof Error
-          ? error.message
-          : "Demo-only save failed. The priority stays unchanged.",
+      error: serverMessage(
+        error,
+        "Demo-only save failed. The priority stays unchanged.",
+      ),
       issues: previous,
     };
   }

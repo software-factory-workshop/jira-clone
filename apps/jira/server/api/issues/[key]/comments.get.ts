@@ -1,3 +1,4 @@
+import { DEMO_ROLE_MATRIX_LABEL } from "../../../utils/demoAccounts";
 import { listComments } from "../../../utils/issues";
 
 export default defineEventHandler((event) => {
