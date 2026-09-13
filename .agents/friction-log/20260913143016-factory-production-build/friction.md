@@ -1,26 +1,40 @@
 ---
-title: 'Factory production build fails in Eve SWC step transform'
-severity: 'major'
+title: 'Stale Eve dev-host artifacts poison the local factory build'
+severity: 'minor'
 ---
 
 ### Expected Behavior
 
-`pnpm build` should build the factory application and its three Eve root-agent bundles from the current `main` tree.
+`pnpm build` should build the factory application and its three Eve root-agent bundles after local Eve development sessions.
 
 ### Current Behavior
 
-On `main` at `cc0c67d`, `pnpm --filter @jira-clone/factory build` fails while bundling the reviewer output. The Eve SWC workflow plugin reports: `Classes using "use step" methods must be declared at the top level of the module, not inside a function.`
+After an earlier Eve development session leaves ignored generated files under
+`apps/factory/.eve/dev-hosts`, `pnpm build` fails while Nuxt's Workflow/SWC
+plugin scans those already compiled Nitro host bundles. It reports:
+`Classes using "use step" methods must be declared at the top level of the module, not inside a function.`
 
-The same failure reproduces twice on the untouched baseline tree and is independent of the documentation changes. The Jira Nuxt build completes before the factory failure.
+The committed source is not the cause. On `main` at `6b12e83`, removing the
+stale `apps/factory/.eve/dev-hosts` directory made the same `pnpm build` pass;
+GitHub Actions run `34760041557` also passed on that SHA from a clean checkout.
 
 ### Possible Solution
 
-Investigate the Eve/SWC generated bundle and restore a clean factory production build without weakening the step registration checks.
+Make the local build boundary clean or isolated so stale Eve development
+artifacts cannot be fed back into Nuxt's Workflow/SWC transform. Keep the
+step-registration checks enabled.
 
 ### Minimal Reproducible Example
 
-Run `pnpm --filter @jira-clone/factory build`. The generated error points to `.eve/dev-hosts/*/nitro/dev/index.mjs`, in the `wakeUp` method containing `"use step"`. The captured baseline log is `/tmp/jira-clone-factory-baseline-build.log`.
+With stale generated output present, run `pnpm --filter @jira-clone/factory build`.
+The error points to `.eve/dev-hosts/*/nitro/dev/index.mjs`, in a generated
+method containing `"use step"`. Remove the ignored `apps/factory/.eve/dev-hosts`
+directory and rerun the command; it passes. The original failure log is
+`/tmp/jira-clone-factory-build.log`.
 
 ### Context
 
-This blocks a clean root production build. It is separate from the documentation correction and needs its own factory build investigation.
+This is local generated-state hygiene, separate from the documentation
+correction. Vercel and clean CI builds use the service-specific or clean
+checkout paths and are not blocked by this stale state. The local build should
+still be made resilient so developers do not receive a false source failure.
