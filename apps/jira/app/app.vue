@@ -30,6 +30,7 @@ import {
   assigneeOptions,
   changePriority,
   columnIssues,
+  dragDropTargets,
   filterIssues,
   moveIssue,
   moveTargets,
@@ -468,9 +469,15 @@ async function refresh() {
   }
 }
 
+const dropColumns = computed(() => dragDropTargets(statuses));
+
 async function moveCard(key: string, toStatus: string) {
   if (pendingKeys.value.includes(key)) return;
   if (!canInvokeMutation("update", workspaceCapabilities.value)) return;
+  // A drag dropped back onto its own column is a no-op: report nothing so
+  // the board never shows false success for a save that did not happen.
+  const currentStatus = issues.value.find((issue) => issue.key === key)?.status;
+  if (currentStatus !== undefined && currentStatus === toStatus) return;
   pendingKeys.value = [...pendingKeys.value, key];
   moveError.value = null;
   saveNotice.value = null;
@@ -933,7 +940,7 @@ await refresh();
           </div>
           <div v-else class="board">
             <section
-              v-for="column in statuses"
+              v-for="column in dropColumns"
               :key="column"
               class="board-column"
               :class="{ 'drop-active': dropColumn === column }"
