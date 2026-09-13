@@ -62,7 +62,7 @@ export async function loadWorkSnapshot(token: string, revision: string = "main",
   })));
   return { revision: source.revision, treeSha: source.treeSha, entries, excludedPaths: source.tree.filter(item => item.type !== "tree" && !selected.includes(item)).map(item => item.path) };
 }
-const pullSchema = z.object({ number: z.number().int().positive(), html_url: z.string().url(), title: z.string(), body: z.string().nullable(), state: z.string(), draft: z.boolean().optional(), head: z.object({ sha, ref: z.string(), repo: z.object({ full_name: z.literal(repository) }) }), base: z.object({ sha, ref: z.string(), repo: z.object({ full_name: z.literal(repository) }) }) });
+const pullSchema = z.object({ number: z.number().int().positive(), html_url: z.string().url(), title: z.string(), body: z.string().nullable(), state: z.string(), merged: z.boolean().optional(), merge_commit_sha: sha.nullable().optional(), draft: z.boolean().optional(), head: z.object({ sha, ref: z.string(), repo: z.object({ full_name: z.literal(repository) }) }), base: z.object({ sha, ref: z.string(), repo: z.object({ full_name: z.literal(repository) }) }) });
 export async function readPull(token: string, number: number, signal?: AbortSignal) {
   z.number().int().positive().parse(number);
   const pr = pullSchema.parse((await request(token, `pulls/${number}`, signal)).data);
