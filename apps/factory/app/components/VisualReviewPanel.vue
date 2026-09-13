@@ -55,6 +55,10 @@ function safeHttpUrl(value: string | undefined) {
 function frameLabel(artifact: VisualReviewArtifact, phase: VisualReviewFrame["phase"]) {
   return `${artifact.app} ${phase} state for ${artifact.route}`;
 }
+
+function frameCaption(frame: VisualReviewFrame | undefined, phase: VisualReviewFrame["phase"]) {
+  return frame?.source === "base" ? "Base design" : frame?.source === "head" ? "Candidate design" : phase === "before" ? "Before" : "After";
+}
 </script>
 
 <template>
@@ -95,14 +99,14 @@ function frameLabel(artifact: VisualReviewArtifact, phase: VisualReviewFrame["ph
           </div>
           <div class="visual-review-frames">
             <figure v-for="phase in ['before', 'after'] as const" :key="phase">
-              <figcaption>{{ phase === 'before' ? 'Before' : 'After' }}</figcaption>
+              <figcaption>{{ frameCaption(frameFor(artifact, phase), phase) }}</figcaption>
               <a v-if="safeFrameUrl(frameFor(artifact, phase))" :href="safeFrameUrl(frameFor(artifact, phase))" target="_blank" rel="noopener noreferrer">
                 <img :src="safeFrameUrl(frameFor(artifact, phase))" :alt="frameLabel(artifact, phase)" loading="lazy" />
               </a>
               <span v-else class="visual-review-missing-frame">Not captured</span>
             </figure>
           </div>
-          <p class="visual-review-capture">Frame source is bound to <code>{{ artifact.headSha }}</code> · captured {{ artifact.capturedAt }}</p>
+          <p class="visual-review-capture">Base <code>{{ artifact.baseSha }}</code> · candidate <code>{{ artifact.headSha }}</code> · captured {{ artifact.capturedAt }}</p>
         </UCard>
       </div>
 

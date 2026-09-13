@@ -84,14 +84,38 @@ export async function storeVisualArtifact(input: {
     const frame = input.frames[phase];
     if (!frame) continue;
     if (frame.route !== input.route) throw new Error("Visual frames must use the same route.");
+    const expectedSource = phase === "before" ? "base" : "head";
+    const expectedSourceSha = phase === "before" ? input.baseSha : input.headSha;
+    if (frame.source && frame.source !== expectedSource) throw new Error(`The ${phase} visual frame is bound to the wrong source.`);
+    if (frame.sourceSha && frame.sourceSha !== expectedSourceSha) throw new Error(`The ${phase} visual frame is bound to the wrong revision.`);
     const image = parseImage(frame.dataUrl);
     const path = framePath(id, phase, image.mediaType);
     await put(path, image.content, { access: "private", addRandomSuffix: false, allowOverwrite: true, contentType: image.mediaType });
     stored[phase] = { path, sha256: image.sha256, mediaType: image.mediaType };
-    output[phase] = { phase, url: frameUrl(id, token, phase), sha256: image.sha256, mediaType: image.mediaType };
+    output[phase] = { phase, source: frame.source || expectedSource, sourceSha: frame.sourceSha || expectedSourceSha, url: frameUrl(id, token, phase), sha256: image.sha256, mediaType: image.mediaType };
   }
   await put(manifestPath(id), JSON.stringify({ version: 1, artifactId: id, tokenHash: createHash("sha256").update(token).digest("hex"), frames: stored } satisfies VisualArtifactManifest), { access: "private", addRandomSuffix: false, allowOverwrite: true, contentType: "application/json" });
   return { id, app: input.app, origin: input.origin, route: input.route, baseSha: input.baseSha, headSha: input.headSha, targetBranch: input.targetBranch, capturedAt: input.capturedAt, ...output };
+}
+
+export async function storeBrowserComparison(input: {
+  app: VisualReviewApp;
+  beforeObservation?: BrowserObservation;
+  afterObservation?: BrowserObservation;
+  baseSha: string;
+  headSha: string;
+  targetBranch: string;
+}): Promise<VisualReviewArtifact | undefined> {
+  const before = input.beforeObservation?.frames?.before;
+  const after = input.afterObservation?.frames?.after;
+  if (!before && !after) return undefined;
+  if (input.beforeObservation && input.beforeObservation.headSha !== input.baseSha) throw new Error("The base visual observation is bound to a different revision.");
+  if (input.afterObservation && input.afterObservation.headSha !== input.headSha) throw new Error("The candidate visual observation is bound to a different revision.");
+  if (input.beforeObservation && input.afterObservation && input.beforeObservation.sessionId !== input.afterObservation.sessionId) throw new Error("Visual observations must use the same reviewer session.");
+  const route = before?.route || after?.route;
+  if (!route) return undefined;
+  if (before && after && before.route !== after.route) throw new Error("Visual frames must use the same route.");
+  return storeVisualArtifact({ app: input.app, origin: input.afterObservation?.origin || input.beforeObservation!.origin, route, baseSha: input.baseSha, headSha: input.headSha, targetBranch: input.targetBranch, sessionId: input.afterObservation?.sessionId || input.beforeObservation!.sessionId, capturedAt: new Date().toISOString(), frames: { before, after } });
 }
 
 export async function storeBrowserObservation(input: {
@@ -100,9 +124,7 @@ export async function storeBrowserObservation(input: {
   baseSha: string;
   targetBranch: string;
 }): Promise<VisualReviewArtifact | undefined> {
-  const observationFrames = input.observation.frames;
-  if (!observationFrames || !Object.keys(observationFrames).length || !input.observation.route) return undefined;
-  return storeVisualArtifact({ app: input.app, origin: input.observation.origin, route: input.observation.route, baseSha: input.baseSha, headSha: input.observation.headSha, targetBranch: input.targetBranch, sessionId: input.observation.sessionId, capturedAt: new Date().toISOString(), frames: observationFrames });
+  return storeBrowserComparison({ app: input.app, afterObservation: input.observation, baseSha: input.baseSha, headSha: input.observation.headSha, targetBranch: input.targetBranch });
 }
 
 export async function readVisualFrame(id: string, token: string, phase: string) {
@@ -118,4 +140,3 @@ export async function readVisualFrame(id: string, token: string, phase: string) 
   if (!response?.stream || response.statusCode !== 200) return undefined;
   return { stream: response.stream, mediaType: frame.mediaType, sha256: frame.sha256 };
 }
-
