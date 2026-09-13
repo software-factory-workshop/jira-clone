@@ -218,10 +218,26 @@ export function classifyDeliveryError(error: unknown): ClassifiedDeliveryError {
 
 type EventSession = {
   getStreamTailIndex(): Promise<number>;
-  getEventStream(options: { startIndex: number }): Promise<ReadableStream<unknown>>;
+  getEventStream(options: { startIndex: number; signal?: AbortSignal }): Promise<ReadableStream<unknown>>;
 };
 
-type ObservationOptions = { idleTimeoutMs?: number; maxEvents?: number };
+export interface EventSnapshot extends Array<unknown> {
+  observation: { lastEventIndex: number; lastEventAt?: string };
+}
+
+type ObservationOptions = { idleTimeoutMs?: number; maxEvents?: number; startIndex?: number };
+
+function eventAt(event: unknown) {
+  const record = recordValue(event);
+  const meta = recordValue(record?.meta);
+  const value = stringValue(meta?.at) ?? stringValue(record?.at);
+  return value && !Number.isNaN(Date.parse(value)) ? value : undefined;
+}
+
+function observedEvents(events: unknown[], observation: EventSnapshot['observation']): EventSnapshot {
+  Object.defineProperty(events, 'observation', { value: observation, enumerable: false });
+  return events as EventSnapshot;
+}
 
 async function cancelReader(reader: ReadableStreamDefaultReader<unknown>) {
   await reader.cancel().catch(() => undefined);
@@ -241,9 +257,11 @@ async function readWithIdleTimeout(reader: ReadableStreamDefaultReader<unknown>,
   }
 }
 
-export async function snapshotEvents(session: EventSession, options: ObservationOptions = {}) {
+export async function snapshotEvents(session: EventSession, options: ObservationOptions = {}): Promise<EventSnapshot> {
   const maxEvents = options.maxEvents ?? MAX_OBSERVATION_EVENTS;
   const idleTimeoutMs = options.idleTimeoutMs ?? OBSERVATION_IDLE_TIMEOUT_MS;
+  const startIndex = options.startIndex ?? 0;
+  if (!Number.isSafeInteger(startIndex) || startIndex < 0) throw new DeliveryObservationError('observation_partial', 'The delivery observation cursor is invalid; no partial result accepted.');
   let tail: number;
   try {
     tail = await session.getStreamTailIndex();
@@ -251,18 +269,19 @@ export async function snapshotEvents(session: EventSession, options: Observation
     throw new DeliveryProviderError(error);
   }
   if (!Number.isInteger(tail) || tail < -1) throw new DeliveryObservationError('observation_partial', 'Eve returned an invalid stream tail; no partial result accepted.');
-  if (tail + 1 > maxEvents) throw new DeliveryObservationError('observation_limit', `Session history exceeds the ${maxEvents}-event delivery observation limit; no partial result accepted.`);
+  if (tail < startIndex) return observedEvents([], { lastEventIndex: tail });
+  if (tail - startIndex + 1 > maxEvents) throw new DeliveryObservationError('observation_limit', `Session history exceeds the ${maxEvents}-event delivery observation limit; no partial result accepted.`);
 
   let stream: ReadableStream<unknown>;
   try {
-    stream = await session.getEventStream({ startIndex: 0 });
+    stream = await session.getEventStream({ startIndex, signal: AbortSignal.timeout(idleTimeoutMs * (maxEvents + 1)) });
   } catch (error) {
     throw new DeliveryProviderError(error);
   }
   const reader = stream.getReader();
   const events: unknown[] = [];
   try {
-    for (let index = 0; index <= tail; index += 1) {
+    for (let index = startIndex; index <= tail; index += 1) {
       let item: ReadableStreamReadResult<unknown>;
       try {
         item = await readWithIdleTimeout(reader, idleTimeoutMs);
@@ -274,7 +293,7 @@ export async function snapshotEvents(session: EventSession, options: Observation
       if (item.done) throw new DeliveryObservationError('observation_partial', 'Session observation ended before the captured Eve stream tail; no partial result accepted.');
       events.push(item.value);
     }
-    return events;
+    return observedEvents(events, { lastEventIndex: tail, lastEventAt: eventAt(events.at(-1)) });
   } finally {
     await cancelReader(reader);
   }

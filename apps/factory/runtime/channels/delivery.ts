@@ -12,7 +12,7 @@ import { factoryAuth } from '../lib/route-auth';
 import { stationOperation } from './stations';
 import { deliveryRequest,newDelivery,operationFor,transition,terminal,applyReview,referenceState,claimAdvance,commitAdvance,requestResume,beginRevision,admissionRecoveryAction,recordAdmissionFailure,retryAdmission,type Delivery } from '../lib/delivery-state';
 import { listDeliveryReceipts,readDelivery,updateDelivery } from '../lib/delivery-store';
-import { classifyDeliveryError,snapshotEvents,childIn,hostResult,stoppedWithoutResult,eventsForDelivery,modelUsageFromEvents,resumeMessage,resumeReceipt,type ClassifiedDeliveryError } from '../lib/delivery-events';
+import { classifyDeliveryError,snapshotEvents,childIn,hostResult,stoppedWithoutResult,eventsForDelivery,modelUsageFromEvents,resumeMessage,resumeReceipt,type ClassifiedDeliveryError, type EventSnapshot } from '../lib/delivery-events';
 import { readPull,readBranch,WorkError,workBranch } from '../lib/work-github';
 import { repository } from '../lib/github.mjs';
 import { reconcileManuallyMergedDelivery } from '../lib/delivery-reconcile';
@@ -24,6 +24,10 @@ async function existing(id:string){const saved=await readDelivery(id);if(!saved)
 function classifiedResponse(failure: ClassifiedDeliveryError, state?: Delivery){
  const recovery=failure.code.startsWith('observation_')&&state ? {method:'POST',path:`/factory/delivery/${state.id}/resume`,body:{},description:'Retry observation of the same session. The failed phase and owner are preserved.'} : failure.code==='provider_unavailable'&&state ? {method:'POST',path:`/factory/delivery/${state.id}/advance`,body:{},description:'Retry the same delivery operation after the provider recovers.'} : undefined;
  return Response.json({...(state?{deliveryId:state.id,phase:state.phase,state:state.state,failedPhase:state.failedPhase}:{}),error:{code:failure.code,kind:failure.kind,message:failure.message,retryable:failure.retryable},...(recovery?{recovery}:{})},{status:failure.status});
+}
+function rememberObservation(state: Delivery, snapshot: EventSnapshot) {
+ if(!snapshot.length)return;
+ state.observation={lastEventIndex:snapshot.observation.lastEventIndex,lastEventAt:snapshot.observation.lastEventAt||state.observation.lastEventAt||new Date().toISOString()};
 }
 function protectedRoute(fn:(request:Request,args:RouteHandlerArgs)=>Promise<Response>){return async(request:Request,args:RouteHandlerArgs)=>{const auth=await routeAuth(request,factoryAuth);if(auth instanceof Response)return auth;try{return await fn(request,args);}catch(error){return classifiedResponse(classifyDeliveryError(error));}};}
 async function checkCurrent(p:NonNullable<Delivery['publication']>){
@@ -48,7 +52,9 @@ async function advance(request:Request,ctx:RouteHandlerArgs){
    if(!state.childSessionId||state.publication||!state.resumeOperationId)throw new Error('Recovery requires the original unpublished worker.');
    let deliveryId:string|undefined;
    if(state.resumeAttemptedAt){
-    deliveryId=resumeReceipt(await snapshotEvents((await factorySession(state.childSessionId,ctx.attachSession))),state.resumeOperationId);
+    const snapshot=await snapshotEvents((await factorySession(state.childSessionId,ctx.attachSession)),{startIndex:0});
+    rememberObservation(state,snapshot);
+    deliveryId=resumeReceipt(snapshot,state.resumeOperationId);
     // Send intent is recorded before the queued message. If the receipt is lost we
     // look for the exact message in the owner's durable stream; we never resend,
     // because a duplicate turn would make the owner do the work twice. The rare
@@ -77,9 +83,15 @@ async function advance(request:Request,ctx:RouteHandlerArgs){
    transition(state,station==='worker'?'working':station==='reviewer'?'reviewing':'revising',{reason:`${station} execution accepted by the host.`});
   }else{
    if(!state.sessionId)throw new Error('Delivery session receipt missing');
-   let events=await snapshotEvents((await factorySession(state.sessionId,ctx.attachSession)));
+   const startIndex=state.observation.lastEventIndex+1;
+   let snapshot=await snapshotEvents((await factorySession(state.sessionId,ctx.attachSession)),{startIndex});
+   let events: unknown[]=snapshot;
    if(!state.childSessionId)state.childSessionId=childIn(events);
-   if(state.childSessionId&&state.childSessionId!==state.sessionId)events=await snapshotEvents((await factorySession(state.childSessionId,ctx.attachSession)));
+   if(state.childSessionId&&state.childSessionId!==state.sessionId){
+    snapshot=await snapshotEvents((await factorySession(state.childSessionId,ctx.attachSession)),{startIndex});
+    events=snapshot;
+   }
+   rememberObservation(state,snapshot);
    const owner=state.childSessionId||state.sessionId;
    if(state.deliveryId)events=eventsForDelivery(events,state.deliveryId);
    const usage=modelUsageFromEvents(events,{attachFactorySha:true});

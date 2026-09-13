@@ -37,6 +37,7 @@ test('new work has a canonical projection and an admission receipt', () => {
   assert.equal(state.state, 'queued');
   assert.equal(state.phase, 'worker_starting');
   assert.equal(state.attempt, 1);
+  assert.deepEqual(state.observation, { lastEventIndex: -1, lastEventAt: state.createdAt });
   assert.equal(receipt?.from, null);
   assert.equal(receipt?.to, 'worker_starting');
   assert.equal(receipt?.state, 'dispatched');
