@@ -9,6 +9,7 @@ import {
 } from "@jira-clone/context";
 import { stationLinkSchema } from "./utils/work-station";
 import { describeStarter, starterDraft, type StarterCard } from "./utils/starters";
+import { applySaveReceipt, cleanSnapshot, destinationLabel, isDraftDirty, type DraftDestination, type ProposalPayload } from "./utils/draft-guard";
 const {data:manifest}=useFetch<{repository:typeof initialRepository;references:typeof initialReferences;stages:typeof initialStages;starterRequests:typeof initialStarters}>("/factory/cockpit",{server:false});
 const repository=computed(()=>manifest.value?.repository??initialRepository);
 const references=computed(()=>manifest.value?.references??initialReferences);
@@ -24,10 +25,15 @@ const drafts = ref<Draft[]>([]);
 const activeId = ref<string | null>(null);
 const activeVersion=ref(0);
 const saving=ref(false);
+const confirmSaving=ref(false);
 const title = ref("");
 const request = ref("");
 const notice = ref("");
 const editor = ref<HTMLElement | null>(null);
+const savedSnapshot = ref(cleanSnapshot(null, 0, { title: "", request: "" }));
+const pendingDestination = ref<DraftDestination | null>(null);
+const draftSwitchError = ref("");
+const unsaved = computed(() => isDraftDirty({ title: title.value, request: request.value }, savedSnapshot.value));
 const selectedReference = ref(initialReferences[0]!);
 const {
   data: github,
@@ -49,42 +55,117 @@ onMounted(async () => {
     try { legacy=parseDrafts(JSON.parse(localStorage.getItem(storageKey)||"[]")); } catch { /* Retain inaccessible legacy data. */ }
     await cockpit.migrate("drafts",legacy.map(d=>({id:d.id,value:{title:d.title,request:d.request}})));
     await refreshDrafts();
+    savedSnapshot.value=cleanSnapshot(activeId.value,activeVersion.value,editorText());
   } catch { notice.value="Shared drafts are unavailable. Keep your work and retry; browser drafts remain untouched."; }
 });
-async function chooseStarter(card: StarterCard) {
-  const draft = starterDraft(card);
-  activeStarterTitle.value = card.starter.title;
-  activeId.value = null;
-  activeVersion.value = 0;
-  title.value = draft.title;
-  request.value = draft.body;
+function editorText() { return { title: title.value, request: request.value }; }
+async function applyDestination(destination: DraftDestination) {
+  pendingDestination.value = null;
+  draftSwitchError.value = "";
+  if (destination.kind === "starter") {
+    const draft = starterDraft(destination.card);
+    activeStarterTitle.value = destination.card.starter.title;
+    activeId.value = null;
+    activeVersion.value = 0;
+    title.value = draft.title;
+    request.value = draft.body;
+  } else if (destination.kind === "proposal") {
+    activeStarterTitle.value = destination.value.id ? null : destination.value.title;
+    activeId.value = destination.value.id ?? null;
+    activeVersion.value = destination.value.version ?? 0;
+    title.value = destination.value.title;
+    request.value = destination.value.body;
+  } else if (destination.kind === "draft") {
+    activeStarterTitle.value = null;
+    activeId.value = destination.draft.id;
+    activeVersion.value = draftVersions.value[destination.draft.id] ?? 0;
+    title.value = destination.draft.title;
+    request.value = destination.draft.request;
+  } else {
+    activeStarterTitle.value = null;
+    activeId.value = null;
+    activeVersion.value = 0;
+    title.value = "";
+    request.value = "";
+  }
+  savedSnapshot.value = cleanSnapshot(activeId.value, activeVersion.value, editorText());
   section.value = "work";
   notice.value = "";
   await focusEditor();
 }
-async function compose(starter?: { title: string; body: string;id?:string;version?:number }) {
-  activeStarterTitle.value = starter && !starter.id ? starter.title : null;
-  activeId.value = starter?.id??null;
-  activeVersion.value=starter?.version??0;
-  title.value = starter?.title || "";
-  request.value = starter?.body || "";
-  section.value = "work";
-  notice.value = "";
-  await focusEditor();
+function maybeLeave(destination: DraftDestination) {
+  // Keep Editing must be able to return to the exact text, draft identity
+  // and focus, so the selected destination stays parked while deciding.
+  draftSwitchError.value = "";
+  if (isDraftDirty(editorText(), savedSnapshot.value)) { pendingDestination.value = destination; return; }
+  void applyDestination(destination);
+}
+async function chooseStarter(card: StarterCard) {
+  maybeLeave({ kind: "starter", card });
+}
+async function compose(starter?: ProposalPayload) {
+  maybeLeave(starter ? { kind: "proposal", value: starter } : { kind: "new" });
 }
 async function openDraft(draft: Draft) {
-  activeStarterTitle.value = null;
-  activeId.value = draft.id;
-  activeVersion.value=draftVersions.value[draft.id]??0;
-  title.value = draft.title;
-  request.value = draft.request;
-  notice.value = "";
-  await focusEditor();
+  maybeLeave({ kind: "draft", draft });
+}
+const keepEditingToken = ref(0);
+async function keepEditing() {
+  pendingDestination.value = null;
+  draftSwitchError.value = "";
+  // UModal returns focus to its trigger on close; keep reasserting the
+  // Title input briefly so Keep editing resumes where the user left off.
+  const token = ++keepEditingToken.value;
+  const deadline = Date.now() + 1500;
+  let settled = false;
+  while (!settled && Date.now() < deadline && token === keepEditingToken.value) {
+    await focusEditor();
+    settled = true;
+    for (let calm = 0; calm < 6; calm++) {
+      await new Promise(resolve => setTimeout(resolve, 100));
+      if (token !== keepEditingToken.value) return;
+      const titleInput = editor.value?.querySelector('input[placeholder="An ADEO issue list"]');
+      if (document.activeElement === titleInput) continue;
+      settled = false;
+      break;
+    }
+  }
+}
+async function discardAndContinue() {
+  const destination = pendingDestination.value;
+  if (!destination) return;
+  await applyDestination(destination);
+}
+async function saveAndContinue() {
+  const destination = pendingDestination.value;
+  if (!destination || confirmSaving.value || saving.value) return;
+  if (!title.value.trim() || !request.value.trim()) {
+    draftSwitchError.value = "Add a title and a request before saving, or discard to continue without saving.";
+    return;
+  }
+  confirmSaving.value = true;
+  const previousId = activeId.value;
+  const id = previousId || crypto.randomUUID();
+  try {
+    const saved = await cockpit.save("drafts", id, { title: title.value.trim(), request: request.value.trim() }, activeVersion.value);
+    // The shared API confirms first; only then does the editor move on.
+    // A delayed receipt for another draft cannot claim this editor.
+    const applied = applySaveReceipt({ activeId: activeId.value, activeVersion: activeVersion.value }, previousId, { id, version: saved.version });
+    activeId.value = applied.activeId;
+    activeVersion.value = applied.activeVersion;
+    await refreshDrafts();
+    notice.value = "Draft saved in the shared cockpit.";
+    await applyDestination(destination);
+  } catch {
+    draftSwitchError.value = "Could not save. This draft may have changed elsewhere. Your text is retained; reload shared drafts before retrying.";
+  } finally { confirmSaving.value = false; }
 }
 async function focusEditor() {
   await nextTick();
   editor.value?.scrollIntoView({ block: "start", behavior: "instant" });
-  editor.value?.querySelector("input")?.focus({ preventScroll: true });
+  // UInput renders a native input; prefer the Title control so keyboard
+  // users land in the editor rather than on the page background.
+  editor.value?.querySelector<HTMLElement>('input[placeholder="An ADEO issue list"]')?.focus({ preventScroll: true });
 }
 async function goToWorkActions() {
   await nextTick();
@@ -92,13 +173,17 @@ async function goToWorkActions() {
   workActionsAnchor.value?.focus({ preventScroll: true });
 }
 async function save() {
-  if (saving.value || !title.value.trim() || !request.value.trim()) return;
+  if (saving.value || confirmSaving.value || !title.value.trim() || !request.value.trim()) return;
   saving.value=true;
-  const id=activeId.value||crypto.randomUUID();
+  const previousId=activeId.value;
+  const id=previousId||crypto.randomUUID();
   try {
     const saved=await cockpit.save("drafts",id,{title:title.value.trim(),request:request.value.trim()},activeVersion.value);
-    activeVersion.value=saved.version;
-    activeId.value=id;await refreshDrafts();notice.value="Draft saved in the shared cockpit.";
+    // A delayed receipt for another draft cannot claim this editor.
+    const applied=applySaveReceipt({activeId:activeId.value,activeVersion:activeVersion.value},previousId,{id,version:saved.version});
+    activeId.value=applied.activeId;activeVersion.value=applied.activeVersion;
+    savedSnapshot.value=cleanSnapshot(activeId.value,activeVersion.value,editorText());
+    await refreshDrafts();notice.value="Draft saved in the shared cockpit.";
   } catch { notice.value="Could not save. This draft may have changed elsewhere. Your text is retained; reload shared drafts before retrying."; }finally{saving.value=false;}
 }
 const issueUrl=ref("");let issueSequence=0;
@@ -221,8 +306,9 @@ watch([title,request],async()=>{const sequence=++issueSequence;issueUrl.value=""
                   <h2>
                     {{ activeId ? "Review your request" : "A new request" }}
                   </h2>
-                  <UBadge color="secondary" variant="soft">Draft</UBadge>
+                  <UBadge :color="unsaved ? 'warning' : 'secondary'" variant="soft">{{ unsaved ? "Unsaved changes" : "Draft" }}</UBadge>
                 </div>
+                <p v-if="unsaved" role="status" class="small unsaved-hint">You have unsaved changes. Choosing another starter or draft will ask before replacing this text.</p>
                 <UFormField label="Title" name="title" required
                   ><UInput
                     v-model="title"
@@ -260,6 +346,22 @@ watch([title,request],async()=>{const sequence=++issueSequence;issueUrl.value=""
                 <p v-if="notice" role="status" class="save-notice">
                   {{ notice }}
                 </p>
+                <UModal
+                  :open="!!pendingDestination"
+                  title="Unsaved draft changes"
+                  :description="pendingDestination ? `You have unsaved changes. Save and continue to ${destinationLabel(pendingDestination)}, discard the changes, or keep editing.` : 'You have unsaved changes.'"
+                  @update:open="(value) => { if (!value) void keepEditing(); }"
+                >
+                  <template #body>
+                    <p class="small muted">Your current title and request are kept while you decide. Saving replaces the editor only after the shared cockpit confirms.</p>
+                    <p v-if="draftSwitchError" role="alert" class="small confirm-error">{{ draftSwitchError }}</p>
+                    <div class="confirm-actions">
+                      <UButton icon="i-lucide-save" :loading="confirmSaving" :disabled="confirmSaving" @click="saveAndContinue">Save and continue</UButton>
+                      <UButton variant="outline" color="neutral" :disabled="confirmSaving" @click="discardAndContinue">Discard changes</UButton>
+                      <UButton variant="ghost" color="neutral" :disabled="confirmSaving" @click="keepEditing">Keep editing</UButton>
+                    </div>
+                  </template>
+                </UModal>
                 <p class="small muted">
                   GitHub opens a prefilled issue for you to review and submit.
                   Saving a draft does not run an agent.

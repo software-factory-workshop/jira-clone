@@ -522,3 +522,15 @@ nav button span:last-child:not(:first-child) {
 .work-actions-anchor {
   scroll-margin-top: 24px;
 }
+
+.unsaved-hint {
+  color: #8a5a00;
+}
+.confirm-error {
+  color: #a61e26;
+}
+.confirm-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
