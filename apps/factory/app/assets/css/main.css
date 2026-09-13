@@ -343,7 +343,7 @@ nav button span:last-child:not(:first-child) {
   font-weight: 600;
   margin: 16px 0 8px;
 }
-.starter-card p {
+.starter-card .starter-body {
   color: #75818a;
   font-size: 12px;
   line-height: 1.6;
@@ -485,4 +485,40 @@ nav button span:last-child:not(:first-child) {
   .brand {
     font-size: 22px;
   }
+}
+
+.starter-card.active {
+  border-color: #007f8c;
+  box-shadow: 0 0 0 1px #007f8c;
+}
+.starter-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.starter-note {
+  color: #485a65;
+  font-size: 12px;
+  line-height: 1.6;
+  margin-top: 12px;
+}
+.starter-next {
+  margin-top: 8px;
+}
+.starter-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 16px;
+}
+.starter-active {
+  color: #007f8c;
+  font-size: 12px;
+  font-weight: 600;
+  display: block;
+  margin-top: 12px;
+}
+.work-actions-anchor {
+  scroll-margin-top: 24px;
 }

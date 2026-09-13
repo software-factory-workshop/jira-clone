@@ -8,11 +8,15 @@ import {
   type Draft,
 } from "@jira-clone/context";
 import { stationLinkSchema } from "./utils/work-station";
+import { describeStarter, starterDraft, type StarterCard } from "./utils/starters";
 const {data:manifest}=useFetch<{repository:typeof initialRepository;references:typeof initialReferences;stages:typeof initialStages;starterRequests:typeof initialStarters}>("/factory/cockpit",{server:false});
 const repository=computed(()=>manifest.value?.repository??initialRepository);
 const references=computed(()=>manifest.value?.references??initialReferences);
 const stages=computed(()=>manifest.value?.stages??initialStages);
 const starterRequests=computed(()=>manifest.value?.starterRequests??initialStarters);
+const starterCards=computed(()=>starterRequests.value.map((starter)=>describeStarter(starter)));
+const activeStarterTitle=ref<string|null>(null);
+const workActionsAnchor=ref<HTMLElement|null>(null);
 const config = useRuntimeConfig();
 const route = useRoute();
 const section = ref((stationLinkSchema.safeParse(route.query).success || route.query.delivery) ? "work" : "mining");
@@ -47,7 +51,19 @@ onMounted(async () => {
     await refreshDrafts();
   } catch { notice.value="Shared drafts are unavailable. Keep your work and retry; browser drafts remain untouched."; }
 });
+async function chooseStarter(card: StarterCard) {
+  const draft = starterDraft(card);
+  activeStarterTitle.value = card.starter.title;
+  activeId.value = null;
+  activeVersion.value = 0;
+  title.value = draft.title;
+  request.value = draft.body;
+  section.value = "work";
+  notice.value = "";
+  await focusEditor();
+}
 async function compose(starter?: { title: string; body: string;id?:string;version?:number }) {
+  activeStarterTitle.value = starter && !starter.id ? starter.title : null;
   activeId.value = starter?.id??null;
   activeVersion.value=starter?.version??0;
   title.value = starter?.title || "";
@@ -57,6 +73,7 @@ async function compose(starter?: { title: string; body: string;id?:string;versio
   await focusEditor();
 }
 async function openDraft(draft: Draft) {
+  activeStarterTitle.value = null;
   activeId.value = draft.id;
   activeVersion.value=draftVersions.value[draft.id]??0;
   title.value = draft.title;
@@ -68,6 +85,11 @@ async function focusEditor() {
   await nextTick();
   editor.value?.scrollIntoView({ block: "start", behavior: "instant" });
   editor.value?.querySelector("input")?.focus({ preventScroll: true });
+}
+async function goToWorkActions() {
+  await nextTick();
+  workActionsAnchor.value?.scrollIntoView({ block: "start", behavior: "smooth" });
+  workActionsAnchor.value?.focus({ preventScroll: true });
 }
 async function save() {
   if (saving.value || !title.value.trim() || !request.value.trim()) return;
@@ -317,28 +339,45 @@ watch([title,request],async()=>{const sequence=++issueSequence;issueUrl.value=""
                 </div>
               </aside>
             </div>
-            <WorkActions :title="title" :brief="request" /><DeliveryLoop :title="title" :brief="request" /><WorkHistory />
-            <section class="starters">
+            <section class="starters" aria-label="Starting points">
               <h2>Start with a concrete problem</h2>
               <p class="muted">
-                Examples to edit, not work already in progress.
+                Shipped slices are labelled. Using a shipped card drafts an extension in the editor above, including its next step — it does not reload the already-shipped work.
               </p>
               <div class="starter-grid">
-                <button
-                  v-for="starter in starterRequests"
-                  :key="starter.title"
+                <article
+                  v-for="card in starterCards"
+                  :key="card.starter.title"
                   class="starter-card"
-                  @click="compose(starter)"
+                  :class="{ active: activeStarterTitle === card.starter.title, shipped: card.meta.state === 'shipped' }"
                 >
-                  <UIcon :name="starter.icon" />
-                  <h3>{{ starter.title }}</h3>
-                  <p>{{ starter.body }}</p>
-                  <span
-                    >Use this starting point <UIcon name="i-lucide-arrow-right"
-                  /></span>
-                </button>
+                  <div class="starter-top">
+                    <UIcon :name="card.starter.icon || 'i-lucide-sparkles'" />
+                    <UBadge :color="card.meta.state === 'shipped' ? 'success' : 'primary'" variant="soft">{{ card.meta.badge }}</UBadge>
+                  </div>
+                  <h3>{{ card.starter.title }}</h3>
+                  <p class="starter-body">{{ card.starter.body }}</p>
+                  <p class="starter-note">{{ card.meta.note }}</p>
+                  <p class="starter-next small muted">Next: {{ card.meta.next }}</p>
+                  <div class="starter-actions">
+                    <UButton
+                      size="xs"
+                      :variant="activeStarterTitle === card.starter.title ? 'soft' : 'solid'"
+                      :aria-pressed="activeStarterTitle === card.starter.title"
+                      icon="i-lucide-arrow-right"
+                      @click="chooseStarter(card)"
+                      >{{ activeStarterTitle === card.starter.title ? "In the editor" : "Use this starting point" }}</UButton
+                    ><UButton size="xs" variant="ghost" icon="i-lucide-pencil" title="Edits the draft currently in the editor above, not this card." @click="focusEditor()">Edit active draft</UButton
+                    ><UButton size="xs" variant="ghost" icon="i-lucide-git-pull-request" @click="goToWorkActions()">Work actions</UButton>
+                  </div>
+                  <span v-if="activeStarterTitle === card.starter.title" class="starter-active" role="status">Active in the draft editor</span>
+                </article>
               </div>
             </section>
+            <section ref="workActionsAnchor" aria-label="Work actions" class="work-actions-anchor" tabindex="-1">
+              <WorkActions :title="title" :brief="request" /><DeliveryLoop :title="title" :brief="request" />
+            </section>
+            <WorkHistory />
           </template>
           <template v-else-if="section === 'knowledge'">
             <AdeoPageHeader
