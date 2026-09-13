@@ -1,4 +1,5 @@
 import { defineDynamic } from "eve";
+import { useLogger } from "evlog/eve";
 import { stationOf } from "../lib/station-access";
 import { defineTool } from "eve/tools";
 import { z } from "zod";
@@ -12,7 +13,11 @@ const tool = defineTool({
   inputSchema:z.object({}),
   async *execute(_,ctx) {
     const prior=miningState.get();
-    if(prior.revision) { yield {phase:"Context prepared",...prior}; return; }
+    const log=useLogger(ctx);
+    if(prior.revision) {
+      log.set({factory:{stage:"prepare_context",outcome:"already_prepared",revision:prior.revision,fileCount:prior.files.length}});
+      yield {phase:"Context prepared",...prior}; return;
+    }
     verifyScope(await getVercelOidcToken());
     yield {phase:"Preparing repository context and dependencies"};
     const token=await getToken("github/jira-clone",{subject:{type:"app"}});
@@ -20,6 +25,7 @@ const tool = defineTool({
     miningState.update(s=>({...s,sandboxStarted:true}));
     const result=await prepareRepository(sandbox,token,ctx.abortSignal);
     miningState.update(s=>({...s,...result}));
+    log.set({factory:{stage:"prepare_context",outcome:result.prepared?"prepared":"incomplete",revision:result.revision,fileCount:result.files.length,commandCount:result.commands.length}});
     yield {phase:result.prepared?"Context prepared":"Context incomplete",...result};
   },
   toModelOutput(output) {

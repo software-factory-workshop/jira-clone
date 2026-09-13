@@ -1,4 +1,5 @@
 import { defineDynamic } from "eve";
+import { useLogger } from "evlog/eve";
 import { stationOf } from "../lib/station-access";
 import { defineTool } from "eve/tools";
 import { z } from "zod";
@@ -27,6 +28,7 @@ const tool = defineTool({
   if(gaps.length) sections.push(`## Context gaps\n\n${gaps.map(g=>`- ${g}`).join("\n")}`);
   miningState.update(s=>({...s,recorded:true}));
   const result={phase:gaps.length?"Incomplete":"Complete",report:sections.join("\n\n"),revision:state.revision,repository,model,team:scope.team,capturedAt,elapsedMs:Date.now()-Date.parse(state.startedAt),files:state.files,githubReads:state.githubReads.map(r=>({...r,count:r.items.length,items:undefined})),vercelReads:state.vercelReads,commands:state.commands,contextGaps:gaps,proposals,noProposalReason:input.noProposalReason,reflection:input.reflection,executionSurface:"native-eve",source:"git-revision"};
+  useLogger(ctx).set({factory:{stage:"record_findings",outcome:gaps.length?"incomplete":"complete",proposalCount:proposals.length,contextGapCount:gaps.length,githubReadCount:state.githubReads.length,vercelReadCount:state.vercelReads.length}});
   return result;
  },
  toModelOutput(output){return {type:"text",value:`${output.phase}: original findings and trusted evidence recorded in the cockpit. Briefly invite the user to review; do not rewrite the report.`};}

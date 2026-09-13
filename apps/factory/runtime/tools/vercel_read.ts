@@ -1,4 +1,5 @@
 import { defineDynamic } from "eve";
+import { useLogger } from "evlog/eve";
 import { stationOf } from "../lib/station-access";
 import { defineTool } from "eve/tools";
 import { getToken } from "@vercel/connect";
@@ -21,6 +22,7 @@ const tool = defineTool({
           : "Vercel machine access was not configured, expired, denied or returned invalid evidence. Configure the app-scoped factory/jira-clone-machine connector; no user sign-in or empty successful result is inferred." };
     }
     miningState.update(state => ({ ...state, vercelReads: [...state.vercelReads, receipt] }));
+    useLogger(ctx).set({vercel:{project:input.project,resource:input.resource,complete:receipt.complete,count:receipt.items.length,...(input.deploymentId?{deploymentId:input.deploymentId}:{})}});
     return receipt;
   },
 });

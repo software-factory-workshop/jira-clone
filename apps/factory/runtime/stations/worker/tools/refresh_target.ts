@@ -1,5 +1,6 @@
 import { jiraLockfile, jiraManifest, jiraNuxtConfig } from "../../../lib/jira-policy";
 import { defineTool } from "eve/tools";
+import { useLogger } from "evlog/eve";
 import { z } from "zod";
 import { getToken } from "@vercel/connect";
 import { requireStation } from "../../../lib/station-access";
@@ -11,11 +12,11 @@ import { prepareRepository } from "../../../lib/prepare-context";
 import { manifestFor } from "../../../lib/github.mjs";
 export default defineTool({description:"Refresh your own workspace against its latest target branch with a three-way merge. Preserves your source edits, exposes real conflict markers for resolution, and invalidates previous checks. Never writes the target branch.",inputSchema:z.object({}).strict(),
  async execute(_,ctx){
-  requireStation(ctx,"worker");const state=workState.get();if(!state.prepared||state.recorded)throw new Error("Prepare the active unpublished operation first.");
+  requireStation(ctx,"worker");const log=useLogger(ctx);const state=workState.get();if(!state.prepared||state.recorded)throw new Error("Prepare the active unpublished operation first.");
   const token=await getToken("github/jira-clone",{subject:{type:"app"}});
   if(state.publication){const pr=await readPull(token,state.publication.number,ctx.abortSignal);if(pr.head.sha!==state.publication.headSha||pr.base.ref!==state.targetBranch)throw new WorkError("stale_head","Owned PR changed; preserving current workspace.");}
   const targetHead=await readBranch(token,state.targetBranch,ctx.abortSignal);
-  if(targetHead===state.targetHeadSha)return{phase:"Target unchanged",targetHeadSha:targetHead};
+  if(targetHead===state.targetHeadSha){log.set({factory:{station:"worker",stage:"refresh_target",outcome:"unchanged",targetHeadSha:targetHead}});return{phase:"Target unchanged",targetHeadSha:targetHead};}
   const sandbox=await ctx.getSandbox();const changes=await collectChanges(sandbox,state.baseline,true,state.jiraManifest,state.jiraNuxtConfig,state.jiraLockfile);
   await assertRefreshCoverage(token,state.targetHeadSha,state.revision,targetHead,ctx.abortSignal);
   const [base,ours,theirs]=await Promise.all([loadWorkSnapshot(token,state.targetHeadSha,ctx.abortSignal),loadWorkSnapshot(token,state.revision,ctx.abortSignal),loadWorkSnapshot(token,targetHead,ctx.abortSignal)]);
@@ -37,6 +38,7 @@ export default defineTool({description:"Refresh your own workspace against its l
    workState.update(s=>({...s,commands:[...s.commands,...setup.commands],contextGaps:setup.contextGaps}));
   }catch(error){workState.update(s=>({...s,contextGaps:[`Merged source retained; dependency setup interrupted: ${error instanceof Error?error.message:"unknown error"}`]}));}
 
+  log.set({factory:{station:"worker",stage:"refresh_target",outcome:merged.conflicts.length?"conflicts":"refreshed",targetBranch:state.targetBranch,targetHeadSha:targetHead,conflictCount:merged.conflicts.length,setupComplete}});
   return{phase:merged.conflicts.length?"Resolve conflicts":"Target refreshed",targetBranch:state.targetBranch,targetHeadSha:targetHead,conflicts:merged.conflicts,required:"Resolve listed conflicts in your own source, then run verify_work again. No target branch was written.",setupComplete};
  }
 });
