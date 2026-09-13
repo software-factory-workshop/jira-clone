@@ -12,7 +12,8 @@ import {
 export const MAX_OBSERVATION_EVENTS = 30_000;
 export const OBSERVATION_IDLE_TIMEOUT_MS = 10_000;
 
-export type DeliveryFailureKind = 'observation' | 'provider' | 'auth' | 'input' | 'target' | 'conflict' | 'unknown';
+export const deliveryFailureKindValues = ['observation', 'provider', 'auth', 'input', 'target', 'conflict', 'unknown'] as const;
+export type DeliveryFailureKind = (typeof deliveryFailureKindValues)[number];
 
 export interface ClassifiedDeliveryError {
   code: string;

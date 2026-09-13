@@ -96,6 +96,9 @@ onBeforeUnmount(() => clearInterval(refreshTimer));
             <h3>{{ deliveryFor(run.id)?.summary?.title ?? label(run) }}</h3>
             <UBadge v-if="deliveryFor(run.id)?.status === 'ready'" :color="deliveryFor(run.id)?.summary?.phaseColor" variant="soft">{{ deliveryFor(run.id)?.summary?.phaseLabel }}</UBadge>
             <UBadge v-else color="neutral" variant="soft">{{ deliveryFor(run.id)?.status === "loading" ? "Checking…" : "Delivery" }}</UBadge>
+            <UBadge v-if="deliveryFor(run.id)?.status === 'ready' && deliveryFor(run.id)?.summary?.phase === 'blocked' && deliveryFor(run.id)?.summary?.failureKind" :color="deliveryFor(run.id)?.summary?.failureRetryable ? 'warning' : 'neutral'" variant="soft">
+              {{ deliveryFor(run.id)?.summary?.failureKind }} · {{ deliveryFor(run.id)?.summary?.failureRetryable ? 'retryable' : 'not retryable' }}
+            </UBadge>
           </div>
           <p v-if="deliveryFor(run.id)?.status === 'loading'" role="status" class="muted small">Checking delivery status…</p>
           <template v-else-if="deliveryFor(run.id)?.status === 'ready' && deliveryFor(run.id)?.summary">

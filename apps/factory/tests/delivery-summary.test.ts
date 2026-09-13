@@ -94,9 +94,11 @@ test("the long observation bound applies to the error path only", () => {
 });
 
 test("terminal attention cards keep a bounded reason while active cards do not need a line", () => {
-  const blocked = summarizeDelivery({ id: "delivery-blocked", phase: "blocked", error: "Delivery is blocked" }, "History label", now);
+  const blocked = summarizeDelivery({ id: "delivery-blocked", phase: "blocked", error: "Delivery is blocked", failure: { kind: "provider", retryable: true } }, "History label", now);
   assert.equal(blocked?.phaseLabel, "Blocked");
   assert.equal(blocked?.attentionReason, "Delivery is blocked");
+  assert.equal(blocked?.failureKind, "provider");
+  assert.equal(blocked?.failureRetryable, true);
   assert.equal(attentionPhases.has(blocked?.phase ?? ""), true);
   const reviewing = summarizeDelivery({ id: "delivery-reviewing", phase: "reviewing", error: "Delivery is blocked" }, "History label", now);
   assert.equal(reviewing?.attentionReason, "Delivery is blocked");

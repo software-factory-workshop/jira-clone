@@ -14,6 +14,7 @@ interface Delivery {
   sessionId?: string;
   childSessionId?: string;
   reviewerSessionId?: string;
+  failure?: { kind: string; retryable: boolean };
   failedPhase?: string;
   publication?: { number: number; url: string; targetBranch?: string; headSha?: string; targetHeadSha?: string };
   review?: { verdict: string; summary: string; baseSha?: string; headSha?: string; targetBranch?: string; visualReview?: VisualReviewPacket };
@@ -225,7 +226,12 @@ onBeforeUnmount(() => {
         <p class="delivery-eyebrow"><UIcon name="i-lucide-workflow" aria-hidden="true" /> Durable workflow</p>
         <h2>Build and review loop</h2>
       </div>
-      <UBadge :color="phaseInfo.color" variant="soft">{{ phaseInfo.label }}</UBadge>
+      <div class="delivery-heading-badges">
+        <UBadge :color="phaseInfo.color" variant="soft">{{ phaseInfo.label }}</UBadge>
+        <UBadge v-if="run?.phase === 'blocked' && run.failure" :color="run.failure.retryable ? 'warning' : 'neutral'" variant="soft">
+          {{ run.failure.kind }} · {{ run.failure.retryable ? 'retryable' : 'not retryable' }}
+        </UBadge>
+      </div>
     </div>
     <p class="delivery-path-label">Durable execution</p>
     <p class="delivery-intro">The worker creates a PR, an independent agent reviews it, and findings return to the branch owner. Choose this path when you want the handoffs and revision loop to remain visible while the workflow continues after you leave the page.</p>
@@ -282,6 +288,7 @@ onBeforeUnmount(() => {
 <style scoped>
 .delivery-panel { padding: 24px; margin-top: 24px; }
 .delivery-heading { margin-bottom: 8px; }
+.delivery-heading-badges { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .delivery-heading h2 { margin: 0; font-size: 22px; font-weight: 600; text-wrap: balance; }
 .delivery-eyebrow { display: flex; align-items: center; gap: 7px; margin: 0 0 7px; color: var(--ui-primary); font-size: 10px; font-weight: 700; letter-spacing: 1.2px; text-transform: uppercase; }
 .delivery-intro { max-width: 850px; margin: 0; color: var(--ui-text-muted); line-height: 1.65; }

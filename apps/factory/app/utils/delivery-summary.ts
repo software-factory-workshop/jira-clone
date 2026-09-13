@@ -9,6 +9,7 @@ const deliverySnapshotSchema = z.object({
   error: z.string().optional(),
   review: z.object({ summary: z.string().optional() }).passthrough().optional(),
   mergeDecision: z.object({ reason: z.string().optional() }).passthrough().optional(),
+  failure: z.object({ kind: z.string().min(1), retryable: z.boolean() }).passthrough().optional(),
   request: z.object({ title: z.string().optional() }).passthrough().optional(),
   publication: z.object({
     number: z.number().int().positive(),
@@ -29,6 +30,8 @@ export interface DeliverySummary {
   prNumber?: number;
   prUrl?: string;
   attentionReason?: string;
+  failureKind?: string;
+  failureRetryable?: boolean;
 }
 
 const phaseLabels: Record<string, { label: string; color: DeliveryBadgeColor }> = {
@@ -128,6 +131,7 @@ export function summarizeDelivery(value: unknown, fallbackTitle?: string, now: D
     prNumber,
     prUrl,
     ...(attentionReason ? { attentionReason } : {}),
+    ...(snapshot.failure ? { failureKind: snapshot.failure.kind, failureRetryable: snapshot.failure.retryable } : {}),
   };
 }
 

@@ -90,6 +90,14 @@ test('legacy projections are upgraded without changing the durable phase', () =>
 
 test('transitions update the projection and produce an attributed receipt', () => {
   const state = delivery();
+  state.failure = {
+    code: 'provider_unavailable',
+    kind: 'provider',
+    message: 'The provider is unavailable.',
+    status: 502,
+    retryable: true,
+    preservePhase: true,
+  };
   const receipt = transition(state, 'working', {
     actor: 'workflow',
     reason: 'The worker execution was accepted by the host.',
@@ -102,6 +110,7 @@ test('transitions update the projection and produce an attributed receipt', () =
   assert.equal(state.history.at(-1)?.receiptId, receipt?.receiptId);
   assert.equal(receipt?.expectedVersion, 1);
   assert.equal(receipt?.state, 'dispatched');
+  assert.deepEqual(receipt?.failure, state.failure);
   deliveryReceiptSchema.parse(receipt);
 });
 
