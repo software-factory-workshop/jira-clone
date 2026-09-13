@@ -6,6 +6,7 @@ const error = ref("");
 const historyLoading = ref(false);
 const historyLoaded = ref(false);
 const lastRefreshed = ref<Date>();
+const route = useRoute();
 const runs = computed(() => cockpit.items.value.runs.filter((r) => r.value.station !== "mining"));
 const deliveries = ref<Record<string, { status: "loading" | "ready" | "unavailable"; summary?: DeliverySummary }>>({});
 function label(run: (typeof runs.value)[number]) {
@@ -63,6 +64,10 @@ function link(run: (typeof runs.value)[number]) {
     },
   };
 }
+function isSelected(run: (typeof runs.value)[number]) {
+  const value = run.value as Record<string, unknown>;
+  return value.station === "loop" ? route.query.delivery === run.id : route.query.run === run.id;
+}
 let refreshTimer: ReturnType<typeof setInterval> | undefined;
 onMounted(async () => {
   await refresh();
@@ -106,10 +111,10 @@ onBeforeUnmount(() => clearInterval(refreshTimer));
               variant="outline"
               icon="i-lucide-git-pull-request"
               >Open PR #{{ deliveryFor(run.id)?.summary?.prNumber }}</UButton>
-            <NuxtLink :to="link(run)">Open delivery</NuxtLink>
+            <NuxtLink :to="link(run)" :class="{ selected: isSelected(run) }" :aria-current="isSelected(run) ? 'page' : undefined">Open delivery</NuxtLink>
           </div>
         </article>
-        <NuxtLink v-else :to="link(run)">{{ (run.value as Record<string, unknown>).label }} · {{ (run.value as Record<string, unknown>).station }}</NuxtLink>
+        <NuxtLink v-else :to="link(run)" :class="{ selected: isSelected(run) }" :aria-current="isSelected(run) ? 'page' : undefined">{{ (run.value as Record<string, unknown>).label }} · {{ (run.value as Record<string, unknown>).station }}</NuxtLink>
       </li>
     </ul>
   </section>
@@ -153,5 +158,10 @@ onBeforeUnmount(() => clearInterval(refreshTimer));
   color: var(--ui-primary);
   text-decoration: underline;
   font-size: 12px;
+}
+.work-history-list > li > a.selected,
+.delivery-actions a.selected {
+  font-weight: 650;
+  text-decoration-thickness: 2px;
 }
 </style>

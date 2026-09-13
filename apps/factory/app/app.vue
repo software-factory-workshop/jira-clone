@@ -402,6 +402,7 @@ watch([title,request],async()=>{const sequence=++issueSequence;issueUrl.value=""
                   :key="draft.id"
                   class="draft-item"
                   :class="{ selected: activeId === draft.id }"
+                  :aria-pressed="activeId === draft.id"
                   @click="openDraft(draft)"
                 >
                   <strong>{{ draft.title }}</strong
@@ -502,6 +503,10 @@ watch([title,request],async()=>{const sequence=++issueSequence;issueUrl.value=""
                     </p>
                   </div>
                 </div>
+                <div class="mobile-work-jump">
+                  <UButton icon="i-lucide-arrow-down" variant="outline" @click="goToWorkActions">Continue to work actions</UButton>
+                  <span class="small muted">Skip the context cards and jump to the worker, reviewer, or durable delivery.</span>
+                </div>
               </section>
               <aside class="context-panel">
                 <div class="panel-heading">
@@ -512,6 +517,7 @@ watch([title,request],async()=>{const sequence=++issueSequence;issueUrl.value=""
                   v-for="reference in references.slice(0, 3)"
                   :key="reference.id"
                   class="reference-link"
+                  :aria-pressed="selectedReference.id === reference.id"
                   @click="selectReference(reference)"
                 >
                   <UIcon :name="reference.icon" />
@@ -618,6 +624,7 @@ watch([title,request],async()=>{const sequence=++issueSequence;issueUrl.value=""
                   :key="reference.id"
                   class="reference-link"
                   :class="{ selected: selectedReference.id === reference.id }"
+                  :aria-pressed="selectedReference.id === reference.id"
                   @click="selectReference(reference)"
                 >
                   <UIcon :name="reference.icon" />

@@ -51,7 +51,7 @@ function choose(id: string) {
       <div class="panel-heading"><h2>Recent investigations</h2><UButton icon="i-lucide-plus" variant="ghost" aria-label="New investigation" @click="fresh" /></div>
       <p class="small muted">The shared cockpit remembers the session links. Eve keeps each run and its findings.</p>
       <p v-if="!history.length" class="muted">Your first investigation will appear here.</p>
-      <button v-for="item in history" :key="item.id" class="history-item" :class="{ selected: selected === item.id }" @click="choose(item.id)">
+      <button v-for="item in history" :key="item.id" class="history-item" :class="{ selected: selected === item.id }" :aria-pressed="selected === item.id" :aria-current="selected === item.id ? 'page' : undefined" @click="choose(item.id)">
         <UIcon name="i-lucide-search" /><span>{{ item.label }}<small>{{ new Date(item.createdAt).toLocaleString() }}</small></span>
       </button>
       <div class="stage-note"><UIcon name="i-lucide-git-branch" /><p>Each run reads a pinned revision of <strong>jira-clone</strong>, plus current GitHub work and Vercel deployment evidence. Checks run in a disposable sandbox.</p></div>
