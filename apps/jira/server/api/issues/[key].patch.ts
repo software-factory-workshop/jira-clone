@@ -13,8 +13,19 @@ import {
  * guarded by the explicit demo-only `DEMO_TRANSITIONS` matrix: illegal
  * moves return a structured demoOnly 409 with `actor` and `allowedFrom`
  * and write nothing. Unknown keys stay 404, unknown statuses stay 400.
- * This guard is a teaching default, not verified Jira workflow parity or
- * production authorization.
+ * Title, assignee and description edits share this same single save path
+ * (the detail dialog's only write route): they validate through the shared
+ * `updateIssue` store, so blank titles/assignees stay 400 and the
+ * deterministic `fail` path writes nothing. This guard is a teaching
+ * default, not verified Jira workflow parity or production authorization.
+ *
+ * Write-path note: the detail dialog saves summary/assignee/description
+ * here rather than through the canonical REST PUT because this route
+ * already carries the dialog's status/priority saves, one PATCH then
+ * covers every detail field with one envelope and one failure contract
+ * (the REST PUT rejects status, so it would split the dialog across two
+ * routes). Both routes share the same `updateIssue` store boundary, so a
+ * PATCH save reads back identically through the REST GET detail read.
  */
 export default defineEventHandler(async (event) => {
   const actor = authorizeAppWrite(
@@ -41,11 +52,20 @@ export default defineEventHandler(async (event) => {
   const body = await readBody<{
     status?: unknown;
     priority?: unknown;
+    title?: unknown;
+    assignee?: unknown;
+    description?: unknown;
     fail?: unknown;
   }>(event);
   const result = await updatePersistentIssue(
     key,
-    { status: body?.status, priority: body?.priority },
+    {
+      status: body?.status,
+      priority: body?.priority,
+      title: body?.title,
+      assignee: body?.assignee,
+      description: body?.description,
+    },
     { fail: body?.fail === true },
   );
   if (!result.ok) {

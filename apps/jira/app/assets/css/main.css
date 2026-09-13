@@ -454,3 +454,9 @@ tr:hover td {
   gap: 12px;
   margin-top: 16px;
 }
+
+.detail-fields {
+  display: grid;
+  gap: 12px;
+  margin: 12px 0;
+}
