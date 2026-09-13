@@ -84,6 +84,7 @@ test("work actions keep same-owner revision distinct from a new child contributi
   assert.deepEqual(workerRequest("contribute", draft, "2"), { path: "/factory/stations/worker", body: { parentPrNumber: 2, title: "Fix feedback", brief: "Preserve the selected proposal" } });
   assert.throws(() => workerRequest("revise", draft, "https://github.com/other/repo/pull/2"));
   assert.throws(() => workerRequest("contribute", { ...draft, title: "" }, "2"));
+  assert.throws(() => workerRequest("create", { title: "Task", brief: "Too short" }, ""), /at least 20 characters/);
 });
 
 test("unavailable ownership does not suggest silently taking the branch", () => {

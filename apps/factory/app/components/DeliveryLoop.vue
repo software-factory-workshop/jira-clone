@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { deliveryFlow } from "../utils/observability-flow";
 import { describeDeliveryPhase, formatDeliveryUpdatedAt } from "../utils/delivery-summary";
+import { MIN_WORK_REQUEST_LENGTH } from "../utils/work-station";
 
 const props = defineProps<{ title: string; brief: string }>();
 
@@ -27,6 +28,7 @@ const router = useRouter();
 const run = ref<Delivery>();
 const error = ref("");
 const working = ref(false);
+const stopping = ref(false);
 const revision = ref("");
 let operationId: string | undefined;
 let timer: ReturnType<typeof setTimeout> | undefined;
@@ -50,6 +52,8 @@ const flowModel = computed(() => deliveryFlow({
 const phaseInfo = computed(() => run.value ? describeDeliveryPhase(run.value.phase) : { label: "Workflow blueprint", color: "neutral" as const });
 const phaseDetail = computed(() => run.value?.error || run.value?.mergeDecision?.reason || run.value?.review?.summary || "The durable workflow is observing the next station.");
 const updatedLabel = computed(() => formatDeliveryUpdatedAt(run.value?.updatedAt));
+const briefLength = computed(() => props.brief.trim().length);
+const briefReady = computed(() => briefLength.value >= MIN_WORK_REQUEST_LENGTH);
 
 async function remember(value: Delivery) {
   try {
@@ -112,13 +116,16 @@ async function resume() {
 }
 
 async function cancel() {
-  if (!run.value) return;
+  if (!run.value || working.value || stopping.value) return;
   if (!window.confirm("Stop this delivery? The workflow will be cancelled.")) return;
+  stopping.value = true;
   clearTimeout(timer);
   try {
     run.value = await $fetch<Delivery>(`/factory/delivery/${encodeURIComponent(run.value.id)}/cancel`, { method: "POST", retry: 0 });
   } catch {
     error.value = "Cancellation is unconfirmed. Reconnect to check the same run.";
+  } finally {
+    stopping.value = false;
   }
 }
 
@@ -165,7 +172,8 @@ onBeforeUnmount(() => {
       </div>
       <UBadge :color="phaseInfo.color" variant="soft">{{ phaseInfo.label }}</UBadge>
     </div>
-    <p class="delivery-intro">The worker creates a PR, an independent agent reviews it, and findings return to the branch owner. This map makes the workflow’s current handoff visible while it continues after you leave the page.</p>
+    <p class="delivery-path-label">Durable execution</p>
+    <p class="delivery-intro">The worker creates a PR, an independent agent reviews it, and findings return to the branch owner. Choose this path when you want the handoffs and revision loop to remain visible while the workflow continues after you leave the page.</p>
 
     <ClientOnly>
       <CockpitFlow
@@ -190,12 +198,13 @@ onBeforeUnmount(() => {
     <p v-if="run?.review" class="delivery-note">{{ run.review.summary }}</p>
 
     <div class="delivery-actions">
-      <UButton :disabled="!title.trim() || brief.trim().length < 20 || working" :loading="working && !run" icon="i-lucide-play" @click="start">Start delivery from this draft</UButton>
+      <UButton :disabled="!title.trim() || !briefReady || working || stopping" :loading="working && !run" icon="i-lucide-play" @click="start">Start durable delivery</UButton>
       <UButton v-if="run?.publication" :to="run.publication.url" target="_blank" rel="noopener noreferrer" variant="outline" icon="i-lucide-git-pull-request">Open PR #{{ run.publication.number }}</UButton>
       <UButton v-if="run && (run.phase === 'blocked' || (run.phase === 'human_review' && !run.publication))" variant="outline" :disabled="working" icon="i-lucide-rotate-ccw" @click="resume">Resume observation</UButton>
       <UButton v-else-if="run" variant="outline" :loading="working" icon="i-lucide-refresh-cw" @click="refresh">Refresh status</UButton>
-      <UButton v-if="run && !stopped.has(run.phase)" variant="ghost" color="neutral" @click="cancel">Stop delivery</UButton>
+      <UButton v-if="run && !stopped.has(run.phase)" variant="ghost" color="neutral" :loading="stopping" :disabled="working || stopping" @click="cancel">Stop delivery</UButton>
     </div>
+    <p class="delivery-requirement" :class="{ ready: briefReady }" role="status">A durable delivery needs at least {{ MIN_WORK_REQUEST_LENGTH }} characters in the brief ({{ briefLength }}/{{ MIN_WORK_REQUEST_LENGTH }}).</p>
     <p v-if="error" class="delivery-error" role="alert">{{ error }}</p>
 
     <div v-if="run && ['ready', 'human_review', 'blocked', 'needs_revision'].includes(run.phase)" class="revision-request">
@@ -213,6 +222,9 @@ onBeforeUnmount(() => {
 .delivery-heading h2 { margin: 0; font-size: 22px; font-weight: 600; text-wrap: balance; }
 .delivery-eyebrow { display: flex; align-items: center; gap: 7px; margin: 0 0 7px; color: var(--ui-primary); font-size: 10px; font-weight: 700; letter-spacing: 1.2px; text-transform: uppercase; }
 .delivery-intro { max-width: 850px; margin: 0; color: var(--ui-text-muted); line-height: 1.65; }
+.delivery-path-label { margin: 18px 0 6px; color: var(--ui-primary); font-size: 10px; font-weight: 700; letter-spacing: 1.1px; text-transform: uppercase; }
+.delivery-requirement { margin: 10px 0 0; color: #a33d37; font-size: 12px; }
+.delivery-requirement.ready { color: #28765b; }
 .flow-loading { display: grid; min-height: 180px; margin: 24px 0; place-items: center; border: 1px solid var(--ui-border); border-radius: 8px; color: var(--ui-text-muted); font-size: 12px; }
 .delivery-live { display: flex; align-items: center; gap: 11px; margin: 20px 0 0; padding: 12px 14px; border: 1px solid #dce9e9; border-radius: 6px; background: #f5fbfb; }
 .delivery-live-dot { width: 9px; height: 9px; flex-shrink: 0; border-radius: 50%; background: #a6b5b8; }

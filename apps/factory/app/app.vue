@@ -7,7 +7,7 @@ import {
   parseDrafts,
   type Draft,
 } from "@jira-clone/context";
-import { stationLinkSchema } from "./utils/work-station";
+import { MIN_WORK_REQUEST_LENGTH, stationLinkSchema } from "./utils/work-station";
 import { describeStarter, starterDraft, type StarterCard } from "./utils/starters";
 import { applySaveReceipt, cleanSnapshot, destinationLabel, isDraftDirty, type DraftDestination, type ProposalPayload } from "./utils/draft-guard";
 import { cockpitFailureKind, cockpitFailureMessage, type CockpitFailureKind } from "./utils/cockpit-errors";
@@ -404,7 +404,7 @@ watch([title,request],async()=>{const sequence=++issueSequence;issueUrl.value=""
                   label="What do you want to achieve?"
                   name="request"
                   required
-                  help="Include the user, the outcome and any constraints that matter."
+                  :help="`Include the user, the outcome and any constraints that matter. Worker and delivery runs need at least ${MIN_WORK_REQUEST_LENGTH} characters.`"
                   ><UTextarea
                     v-model="request"
                     :rows="9"
@@ -554,7 +554,6 @@ watch([title,request],async()=>{const sequence=++issueSequence;issueUrl.value=""
                       icon="i-lucide-arrow-right"
                       @click="chooseStarter(card)"
                       >{{ activeStarterTitle === card.starter.title ? "In the editor" : "Use this starting point" }}</UButton
-                    ><UButton size="xs" variant="ghost" icon="i-lucide-pencil" title="Edits the draft currently in the editor above, not this card." @click="focusEditor()">Edit active draft</UButton
                     ><UButton size="xs" variant="ghost" icon="i-lucide-git-pull-request" @click="goToWorkActions()">Work actions</UButton>
                   </div>
                   <span v-if="activeStarterTitle === card.starter.title" class="starter-active" role="status">Active in the draft editor</span>

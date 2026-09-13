@@ -5,7 +5,7 @@ import { mkdtemp,mkdir,writeFile,rm,symlink } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { execFileSync } from "node:child_process";
-import { stationOf,requireStation,stationRequest,workerRequest } from "../runtime/lib/station-access.ts";
+import { MIN_WORK_REQUEST_LENGTH, stationOf,requireStation,stationRequest,workerRequest } from "../runtime/lib/station-access.ts";
 import { collectChangesCommand,validateCollectedChanges,changesDigest } from "../runtime/lib/work-changes.ts";
 import { approvalBlockers, hostReviewLimitations } from "../runtime/lib/review-policy.ts";
 const op="22222222-2222-4222-8222-222222222222";
@@ -15,6 +15,7 @@ test("station privileges come only from immutable initiator auth, not current de
  const review={session:{auth:{initiator:{attributes:{factoryStation:"reviewer",factoryRequest:JSON.stringify({operationId:op,prNumber:3})}}}}};
  assert.throws(()=>requireStation(review,"worker"));assert.deepEqual(stationRequest(review),{operationId:op,prNumber:3});
  assert.throws(()=>workerRequest.parse({operationId:op,title:"Task",brief:"A bounded requested task",factoryStation:"worker"}));
+ assert.throws(()=>workerRequest.parse({operationId:op,title:"Task",brief:"x".repeat(MIN_WORK_REQUEST_LENGTH - 1)}));
 });
 test("change collector finds edits additions deletions and ignores unchanged binary files",async()=>{
  const root=await mkdtemp(join(tmpdir(),"station-diff-"));

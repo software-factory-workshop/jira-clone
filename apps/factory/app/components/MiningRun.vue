@@ -6,6 +6,7 @@ const props = defineProps<{ sessionId?: string }>();
 const emit = defineEmits<{ session: [id: string, label: string]; draft: [value: { title: string; body: string;id?:string;version?:number }]; new: [] }>();
 const focus = ref("");
 const actionError = ref("");
+const activatingKey = ref<string>();
 const { data, events, status, error, session, send, cancel, resume, respond } = useEveAgent({
   initialSession: props.sessionId ? { sessionId: props.sessionId, streamIndex: 0 } : undefined,
   resume: !!props.sessionId,
@@ -45,15 +46,21 @@ async function start() {
 }
 async function stop() { try { await cancel(); } catch { actionError.value = "Cancellation could not be confirmed. Reconnect to check the run."; } }
 async function reconnect() { try { await resume(); actionError.value = ""; } catch { actionError.value = "Could not reconnect to this investigation."; } }
-async function useProposal(proposal: MiningProposal, _index: number) {
-  await activate(proposal.id);
+function proposalKey(proposal: MiningProposal, index: number) {
+  return `proposal-${proposal.id || index}`;
 }
-async function activate(proposalId?:string) {
- const sessionId=session.value?.sessionId||props.sessionId;if(!sessionId)return;
+async function useProposal(proposal: MiningProposal, index: number) {
+  await activate(proposal.id, proposalKey(proposal, index));
+}
+async function activate(proposalId?:string, key = "findings") {
+ const sessionId=session.value?.sessionId||props.sessionId;if(!sessionId || activatingKey.value)return;
+ activatingKey.value = key;
+ actionError.value = "";
  try {const response=await $fetch<{item:{id:string;version:number;value:{title:string;request:string}}}>("/factory/cockpit/activate",{method:"POST",body:{sessionId,proposalId},retry:0});emit("draft",{id:response.item.id,version:response.item.version,title:response.item.value.title,body:response.item.value.request});}
  catch {actionError.value="Could not activate this proposal. Retry; no work agent was started.";}
+ finally { activatingKey.value = undefined; }
 }
-async function draft() {await activate();}
+async function draft() {await activate(undefined, "findings");}
 </script>
 
 <template>
@@ -97,7 +104,7 @@ async function draft() {await activate();}
             <h4>Acceptance criteria</h4><ul><li v-for="item in proposal.acceptanceCriteria" :key="item">{{ item }}</li></ul>
             <template v-if="proposal.uncertainties.length"><h4>Uncertainties</h4><ul><li v-for="item in proposal.uncertainties" :key="item">{{ item }}</li></ul></template>
             <ProposalFeedback :proposal-id="proposal.id" :proposal-title="proposal.title" />
-            <template #footer><div class="proposal-action"><UButton icon="i-lucide-file-pen-line" :aria-label="`Use this proposal: ${proposal.title}`" @click="useProposal(proposal, index)">Use this proposal</UButton><span class="small muted">Opens an editable draft</span></div></template>
+            <template #footer><div class="proposal-action"><UButton icon="i-lucide-file-pen-line" :loading="activatingKey === proposalKey(proposal, index)" :disabled="!!activatingKey" :aria-label="`Use this proposal: ${proposal.title}`" @click="useProposal(proposal, index)">Use this proposal</UButton><span class="small muted">Opens an editable draft</span></div></template>
           </UCard>
         </div>
         <p v-else-if="output.proposals && output.noProposalReason" class="report">{{ output.noProposalReason }}</p>
@@ -106,7 +113,7 @@ async function draft() {await activate();}
           <template #header><h3>Reflection</h3></template>
           <section v-for="section in reflectionSections" :key="section.title"><h4>{{ section.title }}</h4><ul v-if="section.values.length"><li v-for="item in section.values" :key="item">{{ item }}</li></ul><p v-else class="muted">None recorded.</p></section>
         </UCard>
-        <div class="mining-actions"><UButton v-if="!output.proposals?.length && !output.noProposalReason" icon="i-lucide-file-pen-line" @click="draft">Use findings in a draft</UButton><UButton variant="outline" color="neutral" @click="emit('new')">New investigation</UButton></div>
+        <div class="mining-actions"><UButton v-if="!output.proposals?.length && !output.noProposalReason" icon="i-lucide-file-pen-line" :loading="activatingKey === 'findings'" :disabled="!!activatingKey" @click="draft">Use findings in a draft</UButton><UButton variant="outline" color="neutral" @click="emit('new')">New investigation</UButton></div>
         <details class="evidence"><summary>Source evidence · {{ output.files?.length ?? 0 }} files</summary>
           <p v-if="output.revision"><a :href="`https://github.com/software-factory-workshop/jira-clone/tree/${output.revision}`" target="_blank" rel="noopener noreferrer">Revision {{ output.revision?.slice(0, 12) }}</a></p>
           <p v-for="(read, index) in output.githubReads" :key="index">{{ read.resource }}: {{ read.count ?? 'Unknown number of' }} items · {{ read.complete ? 'complete inventory' : 'incomplete' }} · {{ read.capturedAt }}</p>
