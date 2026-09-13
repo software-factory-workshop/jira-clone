@@ -13,7 +13,6 @@ import { storeBrowserObservation } from '../../../lib/visual-review-store';
 export const reviewSchema=z.object({verdict:z.enum(["approve","changes_requested","incomplete"]),summary:z.string().min(10).max(3000),findings:z.array(z.object({severity:z.enum(["blocking","nonblocking"]),path:z.string(),line:z.number().int().positive().optional(),message:z.string(),evidence:z.string()})).max(15),limitations:z.array(z.string()).max(10)}).strict();
 export default defineTool({description:"Record an independent structured review of the exact fetched PR head. Rechecks remote head before recording; does not submit a GitHub review or merge.",inputSchema:reviewSchema,
  async execute(input,ctx){
-<<<<<<< HEAD
   requireStation(ctx,"reviewer");const log=useLogger(ctx);const state=workState.get();if(state.recorded)throw new Error("This exact-head review is already recorded.");if(!state.pull)throw new Error("Prepare the exact PR first.");const targetBranch=state.pull.targetBranch||'main';
   const browser=reviewBrowser.get();const browserEvidenceComplete=browserRequirements(state.pull.files).every(app=>browserComplete(browser.observations[`http://127.0.0.1:${app==='jira'?3001:3000}`],state.pull!.headSha,ctx.session.id));
   const hostLimitations=hostReviewLimitations(state.pull.files,browserEvidenceComplete);
