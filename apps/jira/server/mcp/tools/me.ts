@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { restMyself } from "../../utils/jiraRest.ts";
+import { mcpBearerAuthority, restMyself, toRestUser } from "../../utils/jiraRest.ts";
 
 /**
  * Demo-only read-only MCP tool: current demo user.
@@ -11,8 +11,29 @@ import { restMyself } from "../../utils/jiraRest.ts";
  * (`demo-admin`, `demo-member`, `demo-viewer`, or the explicit default when
  * omitted). There is no auth claim and no raw Passport token is accepted
  * here: Passport identities arrive only via the platform-injected request
- * header on the HTTP route.
+ * header on the HTTP route. When the MCP request carries an
+ * `Authorization: Bearer` demo OAuth token, the server-derived bearer
+ * account (read scope required) is authoritative and a failed bearer never
+ * falls through to the demoUser fallback.
  */
+/**
+ * Live MCP request headers for this tool call. The toolkit passes the
+ * request-scoped `extra` second argument (SDK `RequestHandlerExtra` with
+ * `requestInfo.headers` built per HTTP request by the streamable-HTTP
+ * transport); unknown shapes mean no bearer was sent. Pure; never writes.
+ */
+function requestHeadersOf(extra: unknown): unknown {
+  if (!extra || typeof extra !== "object" || Array.isArray(extra)) {
+    return null;
+  }
+  const requestInfo = (extra as Record<string, unknown>)["requestInfo"];
+  if (!requestInfo || typeof requestInfo !== "object" || Array.isArray(requestInfo)) {
+    return null;
+  }
+  const headers = (requestInfo as Record<string, unknown>)["headers"];
+  return headers && typeof headers === "object" ? headers : null;
+}
+
 export default defineMcpTool({
   name: "me",
   description:
@@ -26,7 +47,17 @@ export default defineMcpTool({
       ),
   },
   annotations: { readOnlyHint: true, openWorldHint: false },
-  handler: async ({ demoUser }) => {
+  handler: async ({ demoUser }, extra) => {
+    // A present MCP `authorization` request header is authoritative: the
+    // server-derived bearer account (read scope required) wins and a
+    // failed bearer never falls through to the demoUser fallback.
+    const authority = mcpBearerAuthority(requestHeadersOf(extra), "read");
+    if (authority) {
+      if (!authority.ok) {
+        throw createError({ statusCode: authority.statusCode, message: authority.error });
+      }
+      return toRestUser(authority.data);
+    }
     const result = restMyself(demoUser);
     if (!result.ok) {
       throw createError({ statusCode: result.statusCode, message: result.error });

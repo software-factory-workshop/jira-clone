@@ -25,13 +25,13 @@ ADEO demo store, so the Jira MCP toolkit can wrap stable contracts 1:1.
 
 | Adapter route | Contract |
 | --- | --- |
-| `GET /api/rest/api/3/myself` | Resolves the request through the shared request-to-application-account resolver to a Jira-shaped demo user plus a read `permissions` summary (`canCreate/canUpdate/canComment/canReset`). A present Passport identity maps through the explicit claims/groups role mapping (default viewer); otherwise the labelled synthetic `x-demo-user` fallback applies (explicit `demo-member` default). Reads stay open to read-only accounts. The response distinguishes `identitySource` passport versus demoFallback and never exposes the raw token. |
-| `GET /api/rest/api/3/project/KAN` | Observed reference project (id `10000`, `My Kanban Space`, simplified next-gen software). Other keys stay 404. |
-| `GET /api/rest/api/3/project/KAN/statuses` | Observed statuses per observed issue type (`Epic`, `Subtask`, `Task`, `Story`, `Feature`, `Bug` × `To Do`, `In Progress`, `In Review`, `Done`). An observed list, not a transition graph. |
-| `GET /api/rest/api/3/issue/:key` | Jira-like bean: `key`, `fields.summary` (= demo title), `issuetype`, `status`, `priority`, `assignee`, `description`, project ref. Unknown keys stay 404. |
-| `GET /api/rest/api/3/search` | List-lite slice of the whole demo store with `startAt` (default 0, integer ≥ 0) and `maxResults` (default 25, integer 1–50) plus `total`. |
-| `GET /api/rest/api/3/issue/:key/comment` | Comment list for one issue with the same `startAt`/`maxResults` bounds. Unknown keys stay 404. |
-| `GET /api/rest/api/3/issue/:key/transitions` | Allowed targets derived from the same `DEMO_TRANSITIONS` matrix that guards `PATCH /api/issues/:key`, so adapter and save path agree. |
+| `GET /api/rest/api/3/myself` | Resolves the request through the shared request-to-application-account resolver to a Jira-shaped demo user plus a read `permissions` summary (`canCreate/canUpdate/canComment/canReset`). A present `Authorization: Bearer` demo OAuth token is enforced instead (valid token with `read` scope required) and reports the server-derived bearer account; otherwise a present Passport identity maps through the explicit claims/groups role mapping (default viewer), else the labelled synthetic `x-demo-user` fallback applies (explicit `demo-member` default). Reads stay open to read-only accounts. The response distinguishes `identitySource` passport versus demoFallback and never exposes the raw token. |
+| `GET /api/rest/api/3/project/KAN` | Observed reference project (id `10000`, `My Kanban Space`, simplified next-gen software). Other keys stay 404. A present `Authorization: Bearer` demo OAuth token is enforced fail-closed (`read` scope required). |
+| `GET /api/rest/api/3/project/KAN/statuses` | Observed statuses per observed issue type (`Epic`, `Subtask`, `Task`, `Story`, `Feature`, `Bug` × `To Do`, `In Progress`, `In Review`, `Done`). An observed list, not a transition graph. A present `Authorization: Bearer` demo OAuth token is enforced fail-closed (`read` scope required). |
+| `GET /api/rest/api/3/issue/:key` | Jira-like bean: `key`, `fields.summary` (= demo title), `issuetype`, `status`, `priority`, `assignee`, `description`, project ref. Unknown keys stay 404. A present `Authorization: Bearer` demo OAuth token is enforced fail-closed (`read` scope required). |
+| `GET /api/rest/api/3/search` | List-lite slice of the whole demo store with `startAt` (default 0, integer ≥ 0) and `maxResults` (default 25, integer 1–50) plus `total`. A present `Authorization: Bearer` demo OAuth token is enforced fail-closed (valid token with `read` scope required) and never falls through to the demo read. |
+| `GET /api/rest/api/3/issue/:key/comment` | Comment list for one issue with the same `startAt`/`maxResults` bounds. Unknown keys stay 404. A present `Authorization: Bearer` demo OAuth token is enforced fail-closed (`read` scope required). |
+| `GET /api/rest/api/3/issue/:key/transitions` | Allowed targets derived from the same `DEMO_TRANSITIONS` matrix that guards `PATCH /api/issues/:key`, so adapter and save path agree. A present `Authorization: Bearer` demo OAuth token is enforced fail-closed (`read` scope required). |
 
 Any `jql`/`JQL` query parameter (any casing) is rejected with a labelled
 demoOnly 400 naming unsupported; it is never silently ignored. Out-of-range
@@ -61,7 +61,12 @@ malformed/unknown identity semantics as the native routes). Every HTTP write
 route reads only the trusted `x-vercel-oidc-passport-token` header plus the
 existing explicit `x-demo-user` fallback, authorizes before mutation, returns
 `actor` and `identitySource` metadata, and preserves the deterministic
-`{fail:true}` no-write behavior.
+`{fail:true}` no-write behavior. Every read route enforces the shared
+`authorizeBearerRead` gate when an `Authorization: Bearer` demo OAuth token
+is present (valid token with `read` scope required; invalid, revoked,
+expired and deactivated bearers fail closed with 401/403 and never fall
+through to the demo read), while requests without the header keep the
+labelled local demo behavior.
 
 | Adapter route | Contract |
 | --- | --- |
@@ -76,7 +81,7 @@ The Jira MCP toolkit wraps these contracts 1:1 without new server
 behavior: `me` → myself, `getProject`/`getProjectStatuses` → project routes,
 `getIssue` → issue route, `listIssues` → search-lite (exposing
 `startAt`/`maxResults`, never `jql`), `listComments` → comment route,
-`getAllowedTransitions` → transitions route, plus `createIssue` → issue
+`getAllowedTransitions` → transitions route, plus `createIssue` �� issue
 creation, `updateIssue` → issue update, `addComment` → comment creation,
 `transitionIssue` → transitions. JQL, project mutation, Passport/OAuth,
 SAML, SCIM, durable persistence, and full Jira compatibility stay out of

@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { mcpWriteIdentity, restUpdateIssue } from "../../utils/jiraRest.ts";
+import { mcpBearerIdentity, mcpWriteIdentity, restUpdateIssue } from "../../utils/jiraRest.ts";
 
 /**
  * Demo-only write MCP tool: bounded Jira-shaped field update.
@@ -11,8 +11,29 @@ import { mcpWriteIdentity, restUpdateIssue } from "../../utils/jiraRest.ts";
  * transitionIssue tool; any other unknown field, unknown key or invalid
  * value writes nothing. Accepts the explicit labelled `demoUser` fallback
  * because the raw Passport header only exists on the HTTP request boundary;
- * this tool runs without Passport auth.
+ * this tool runs without Passport auth. When the MCP request carries an
+ * `Authorization: Bearer` demo OAuth token, the server-derived bearer
+ * account (write scope required) is authoritative and a failed bearer
+ * never falls through to the demoUser fallback.
  */
+/**
+ * Live MCP request headers for this tool call. The toolkit passes the
+ * request-scoped `extra` second argument (SDK `RequestHandlerExtra` with
+ * `requestInfo.headers` built per HTTP request by the streamable-HTTP
+ * transport); unknown shapes mean no bearer was sent. Pure; never writes.
+ */
+function requestHeadersOf(extra: unknown): unknown {
+  if (!extra || typeof extra !== "object" || Array.isArray(extra)) {
+    return null;
+  }
+  const requestInfo = (extra as Record<string, unknown>)["requestInfo"];
+  if (!requestInfo || typeof requestInfo !== "object" || Array.isArray(requestInfo)) {
+    return null;
+  }
+  const headers = (requestInfo as Record<string, unknown>)["headers"];
+  return headers && typeof headers === "object" ? headers : null;
+}
+
 export default defineMcpTool({
   name: "updateIssue",
   description:
@@ -38,11 +59,12 @@ export default defineMcpTool({
       ),
   },
   annotations: { readOnlyHint: false, openWorldHint: false },
-  handler: async ({ issueKey, fields, demoUser, fail }) => {
+  handler: async ({ issueKey, fields, demoUser, fail }, extra) => {
+    const toolBearer = mcpBearerIdentity(requestHeadersOf(extra));
     const result = restUpdateIssue(mcpWriteIdentity(demoUser), issueKey, {
       fields,
       fail,
-    });
+    }, toolBearer ? { bearer: toolBearer } : undefined);
     if (!result.ok) {
       throw createError({ statusCode: result.statusCode, message: result.error });
     }

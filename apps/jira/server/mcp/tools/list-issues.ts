@@ -3,6 +3,7 @@ import {
   REST_DEFAULT_MAX_RESULTS,
   REST_DEFAULT_START_AT,
   REST_MAX_MAX_RESULTS,
+  mcpBearerAuthority,
   restSearch,
 } from "../../utils/jiraRest.ts";
 
@@ -12,8 +13,29 @@ import {
  * Wraps `GET /api/rest/api/3/search` 1:1 with bounded `startAt`
  * (integer >= 0, default 0) and `maxResults` (integer 1..50, default 25).
  * There is no JQL engine in this slice: any `jql` input is rejected with a
- * labelled demoOnly 400, never silently ignored. Never writes.
+ * labelled demoOnly 400, never silently ignored. When the MCP request
+ * carries an `Authorization: Bearer` demo OAuth token it is enforced
+ * fail-closed (read scope required) and never falls through to demo
+ * identity. Never writes.
  */
+/**
+ * Live MCP request headers for this tool call. The toolkit passes the
+ * request-scoped `extra` second argument (SDK `RequestHandlerExtra` with
+ * `requestInfo.headers` built per HTTP request by the streamable-HTTP
+ * transport); unknown shapes mean no bearer was sent. Pure; never writes.
+ */
+function requestHeadersOf(extra: unknown): unknown {
+  if (!extra || typeof extra !== "object" || Array.isArray(extra)) {
+    return null;
+  }
+  const requestInfo = (extra as Record<string, unknown>)["requestInfo"];
+  if (!requestInfo || typeof requestInfo !== "object" || Array.isArray(requestInfo)) {
+    return null;
+  }
+  const headers = (requestInfo as Record<string, unknown>)["headers"];
+  return headers && typeof headers === "object" ? headers : null;
+}
+
 export default defineMcpTool({
   name: "listIssues",
   description:
@@ -42,7 +64,11 @@ export default defineMcpTool({
       ),
   },
   annotations: { readOnlyHint: true, openWorldHint: false },
-  handler: async ({ startAt, maxResults, jql }) => {
+  handler: async ({ startAt, maxResults, jql }, extra) => {
+    const authority = mcpBearerAuthority(requestHeadersOf(extra), "read");
+    if (authority && !authority.ok) {
+      throw createError({ statusCode: authority.statusCode, message: authority.error });
+    }
     const query: Record<string, unknown> = {};
     if (startAt !== undefined) query["startAt"] = String(startAt);
     if (maxResults !== undefined) query["maxResults"] = String(maxResults);
