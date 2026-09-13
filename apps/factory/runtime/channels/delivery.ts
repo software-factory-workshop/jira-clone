@@ -10,13 +10,14 @@ import { updateCockpit } from '../lib/cockpit-store';
 import { changeRecord } from '../../shared/cockpit';
 import { factoryAuth } from '../lib/route-auth';
 import { stationOperation } from './stations';
-import { deliveryRequest,newDelivery,operationFor,transition,terminal,applyReview,referenceState,claimAdvance,commitAdvance,requestResume,beginRevision,type Delivery } from '../lib/delivery-state';
+import { deliveryRequest,newDelivery,operationFor,transition,terminal,applyReview,referenceState,claimAdvance,commitAdvance,requestResume,beginRevision,admissionRecoveryAction,recordAdmissionFailure,retryAdmission,type Delivery } from '../lib/delivery-state';
 import { listDeliveryReceipts,readDelivery,updateDelivery } from '../lib/delivery-store';
 import { snapshotEvents,childIn,hostResult,stoppedWithoutResult,eventsForDelivery,resumeMessage,resumeReceipt } from '../lib/delivery-events';
 import { readPull,readBranch,WorkError,workBranch } from '../lib/work-github';
 import { visualReviewPacketSchema } from '../lib/visual-review';
 const publication=z.object({number:z.number().int().positive(),url:z.string().url(),headSha:z.string().regex(/^[a-f0-9]{40}$/),targetHeadSha:z.string().regex(/^[a-f0-9]{40}$/),targetBranch:z.string(),ownerSessionId:z.string(),branch:z.string()});
 const review=z.object({verdict:z.enum(['approve','changes_requested','incomplete']),summary:z.string(),headSha:z.string(),baseSha:z.string(),targetBranch:z.string(),findings:z.array(z.object({severity:z.string(),path:z.string(),message:z.string(),evidence:z.string()})),limitations:z.array(z.string()),visualReview:visualReviewPacketSchema.optional(),verification:z.object({prepared:z.boolean(),repositoryChecksPassed:z.boolean(),candidateUnchanged:z.boolean()}).optional()});
+function admissionFailureResponse(state: Delivery){return Response.json({deliveryId:state.id,phase:state.phase,state:state.state,error:state.error||'Outer workflow admission failed.',recovery:admissionRecoveryAction(state.id,state.request)},{status:503});}
 async function existing(id:string){const saved=await readDelivery(id);if(!saved)throw new Error('Delivery not found');return saved.state;}
 function protectedRoute(fn:(request:Request,args:RouteHandlerArgs)=>Promise<Response>){return async(request:Request,args:RouteHandlerArgs)=>{const auth=await routeAuth(request,factoryAuth);if(auth instanceof Response)return auth;try{return await fn(request,args);}catch(error){return Response.json({error:error instanceof Error?error.message:'Delivery failed'},{status:400});}};}
 async function checkCurrent(p:NonNullable<Delivery['publication']>){
@@ -87,7 +88,11 @@ export default defineChannel({routes:[
  POST('/factory/delivery',protectedRoute(async(request)=>{
   const auth=await routeAuth(request,factoryAuth);if(auth instanceof Response)return auth;
   const input=deliveryRequest.parse(await request.json());const fresh=newDelivery(auth.principalId,input);
-  const state=await updateDelivery(fresh.id,current=>{if(current&&JSON.stringify(current.request)!==JSON.stringify(input))throw new Error('Operation ID reused with a different task');return{state:current||fresh,result:current||fresh};});await updateCockpit(doc=>doc.runs[state.id]||changeRecord(doc,'runs',state.id,{label:state.request.title,station:'loop',operationId:state.request.operationId},0));await ensureDeliveryDriver(state.id,request);return Response.json(await existing(state.id),{status:202});
+  const state=await updateDelivery(fresh.id,current=>{if(current&&JSON.stringify(current.request)!==JSON.stringify(input))throw new Error('Operation ID reused with a different task');if(current)retryAdmission(current);return{state:current||fresh,result:current||fresh};});await updateCockpit(doc=>doc.runs[state.id]||changeRecord(doc,'runs',state.id,{label:state.request.title,station:'loop',operationId:state.request.operationId},0));
+  try{await ensureDeliveryDriver(state.id,request);}catch(error){
+   try{const blocked=await updateDelivery(state.id,current=>{if(!current)throw new Error('Delivery disappeared during outer workflow admission.');if(current.phase==='worker_starting')recordAdmissionFailure(current,error);return{state:current,result:current};});return admissionFailureResponse(blocked);}catch{ return Response.json({deliveryId:state.id,phase:state.phase,state:state.state,error:'Outer workflow admission failed and recovery could not be confirmed. Retry the original POST with the same operationId, then inspect this delivery ID.',recovery:admissionRecoveryAction(state.id,input)},{status:503});}
+  }
+  return Response.json(await existing(state.id),{status:202});
  })),
  GET('/factory/delivery/:id',protectedRoute(async(_,ctx)=>Response.json(await existing(ctx.params.id)))),
  GET('/factory/delivery/:id/receipts',protectedRoute(async(_,ctx)=>{await existing(ctx.params.id);return Response.json(await listDeliveryReceipts(ctx.params.id));})),
