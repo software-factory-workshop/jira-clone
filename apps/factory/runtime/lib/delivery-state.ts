@@ -4,6 +4,7 @@ import { createHash } from 'node:crypto';
 import { z } from 'zod';
 import { workerRequest } from './station-access.ts';
 import type { VisualReviewPacket } from './visual-review.ts';
+import { deliveryFailureKindValues, type ClassifiedDeliveryError } from './delivery-events.ts';
 
 export const deliveryRequest = workerRequest.extend({
   // Bounds same-owner repair rounds after blocking review findings. It is not a
@@ -85,6 +86,7 @@ export interface DeliveryReceipt {
   reason: string;
   expectedVersion: number;
   recordedAt: string;
+  failure?: ClassifiedDeliveryError;
 }
 
 export interface DeliveryAdmissionFailure {
@@ -105,6 +107,14 @@ export const deliveryReceiptSchema = z.object({
   reason: z.string().max(1000),
   expectedVersion: z.number().int().nonnegative(),
   recordedAt: z.string().datetime(),
+  failure: z.object({
+    code: z.string().min(1).max(240),
+    kind: z.enum(deliveryFailureKindValues),
+    message: z.string().max(700),
+    status: z.number().int().min(100).max(599),
+    retryable: z.boolean(),
+    preservePhase: z.boolean(),
+  }).optional(),
 });
 
 export interface Delivery {
@@ -153,6 +163,7 @@ export interface Delivery {
   resumeAttemptedAt?: number;
   resumeOperationId?: string;
   resumeRequests?: Record<string, boolean>;
+  failure?: ClassifiedDeliveryError;
   failedPhase?: Phase;
   admissionFailure?: DeliveryAdmissionFailure;
   revisionRequests?: Record<string, string>;
@@ -249,6 +260,7 @@ function receiptFor(state: Delivery, from: Phase | null, to: Phase, options: Req
     reason: options.reason,
     expectedVersion,
     recordedAt: new Date().toISOString(),
+    ...(state.failure ? { failure: state.failure } : {}),
   };
 }
 

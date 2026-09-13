@@ -95,6 +95,7 @@ async function advance(request:Request,ctx:RouteHandlerArgs){
   }
  }catch(error){
   failure=classifyDeliveryError(error);
+  state.failure=failure;
   state.error=failure.message;
   if(failure.kind==='observation'){
    state.failedPhase=startedPhase;
