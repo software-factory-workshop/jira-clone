@@ -1,4 +1,13 @@
 import { z } from 'zod';
+import {
+  parseDeliveryIds,
+  parseEventType,
+  parseFactoryEvent,
+  parseMessageReceivedEvent,
+  parseSubagentCalledEvent,
+  parseSuccessfulActionResultEvent,
+  successfulActionResultEventSchema,
+} from './factory-protocol.ts';
 
 export const MAX_OBSERVATION_EVENTS = 30_000;
 export const OBSERVATION_IDLE_TIMEOUT_MS = 10_000;
@@ -130,26 +139,20 @@ export async function snapshotEvents(session: EventSession, options: Observation
   }
 }
 
-export const resultEvent = z.object({
-  type: z.literal('action.result'),
-  data: z.object({
-    status: z.literal('completed'),
-    result: z.object({ kind: z.literal('tool-result'), toolName: z.string(), isError: z.literal(false).optional(), output: z.unknown() }),
-  }),
-});
+export const resultEvent = successfulActionResultEventSchema;
 
 export function childIn(events: unknown[]) {
   for (const event of [...events].reverse()) {
-    const parsed = z.object({ type: z.literal('subagent.called'), data: z.object({ childSessionId: z.string() }) }).safeParse(event);
-    if (parsed.success) return parsed.data.data.childSessionId;
+    const parsed = parseSubagentCalledEvent(event);
+    if (parsed) return parsed.childSessionId;
   }
 }
 
 export function hostResult(events: unknown[], tool: string, sessionId: string, operationId?: string) {
   for (const event of [...events].reverse()) {
-    const parsed = resultEvent.safeParse(event);
-    if (!parsed.success) continue;
-    const envelope = parsed.data.data.result;
+    const parsed = parseSuccessfulActionResultEvent(event);
+    if (!parsed) continue;
+    const envelope = parsed.data.result;
     let value = envelope.output;
     if (envelope.toolName !== tool) {
       if (tool !== 'publish_work' || envelope.toolName !== 'prepare_work') continue;
@@ -164,16 +167,16 @@ export function hostResult(events: unknown[], tool: string, sessionId: string, o
 
 export function stoppedWithoutResult(events: unknown[]) {
   for (const event of [...events].reverse()) {
-    const parsed = z.object({ type: z.string() }).safeParse(event);
-    if (!parsed.success) continue;
-    if (['turn.cancelled', 'turn.failed', 'session.failed', 'turn.completed'].includes(parsed.data.type)) return parsed.data.type;
-    if (['turn.started', 'message.received'].includes(parsed.data.type)) return null;
+    const parsed = parseEventType(event);
+    if (!parsed) continue;
+    if (['turn.cancelled', 'turn.failed', 'session.failed', 'turn.completed'].includes(parsed.type)) return parsed.type;
+    if (['turn.started', 'message.received'].includes(parsed.type)) return null;
   }
   return null;
 }
 
 export function eventsForDelivery(events: unknown[], deliveryId: string) {
-  return events.filter(event => z.object({ meta: z.object({ deliveryIds: z.array(z.string()) }) }).safeParse(event).data?.meta.deliveryIds.includes(deliveryId));
+  return events.filter(event => parseDeliveryIds(event)?.includes(deliveryId));
 }
 
 export function resumeMessage(operationId: string) {
@@ -182,7 +185,7 @@ export function resumeMessage(operationId: string) {
 
 export function resumeReceipt(events: unknown[], operationId: string) {
   for (const event of events) {
-    const parsed = z.object({ type: z.literal('message.received'), data: z.object({ message: z.literal(resumeMessage(operationId)) }), meta: z.object({ deliveryIds: z.array(z.string()).min(1) }) }).safeParse(event);
-    if (parsed.success) return parsed.data.meta.deliveryIds[0];
+    const parsed = parseMessageReceivedEvent(event);
+    if (parsed?.data.message === resumeMessage(operationId) && parsed.event.meta?.deliveryIds?.length) return parsed.event.meta.deliveryIds[0];
   }
 }
