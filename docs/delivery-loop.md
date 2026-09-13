@@ -56,3 +56,30 @@ If the original worker stopped before publication because a factory baseline che
 Recovery records send intent before queueing. If the receipt is lost, the loop looks for the exact recovery message in the owner's durable stream and recovers its delivery ID; it does not send twice. An uncertain intent without a receipt stops for manual inspection after a minute. This deliberately leaves the rare crash-before-send case unresolved instead of guessing whether another message is safe.
 
 The cockpit run regression fixtures live under `apps/factory/tests/fixtures/`. They are selected real event excerpts from the earlier ownership proof, so worker snapshots can execute the tests without exposing the intentionally excluded mining history.
+
+## Reconcile a manually merged delivery
+
+When GitHub merges a reviewed PR outside the factory (for example the
+comments delivery for PR #35, whose reviewer recorded an
+incomplete-but-nonblocking browser-evidence review), the saved delivery keeps
+its reviewed phase — typically `human_review` with `mergeDecision.status`
+`manual`. The cockpit now offers a factory-only manual-merge check on stopped
+deliveries (`human_review`, `ready`, `blocked`) that already record a
+publication and an independent review.
+
+The operator copies the exact PR head SHA, target branch and optional merge
+commit from the GitHub PR page into `apps/factory/app/utils/delivery-reconcile.ts`'s
+`reconcileManuallyMergedDelivery` projection. It reports eligible only when
+the saved phase is stopped, the recorded review is bound to the exact
+published head and target, the reviewer is independent of the branch owner,
+the verdict carries no blocking findings, and the supplied GitHub evidence
+confirms the same PR number merged with the same head and target. Closed but
+unmerged, renumbered, changed-head and retargeted PRs fail closed with the
+saved delivery unchanged. Active loops, cancelled deliveries and
+`needs_revision` never reconcile; child-PR targets reconcile against their
+own recorded branch.
+
+This check is read-only: it preserves review evidence, one-writer ownership,
+stale-head fences and terminal history, and never merges code or bypasses
+review. Marking the saved delivery `merged` still requires a separately
+reviewed factory change.
