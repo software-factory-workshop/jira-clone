@@ -19,7 +19,7 @@ interface Delivery {
   review?: { verdict: string; summary: string; baseSha?: string; headSha?: string; targetBranch?: string; visualReview?: VisualReviewPacket };
   mergeDecision?: { status: string; reason: string };
   error?: string;
-  request?: { title?: string };
+  request?: { title?: string; brief?: string };
   history: Array<{ phase: string; at?: string; sessionId?: string; headSha?: string }>;
 }
 interface ReconciliationResult { eligible: boolean; reason: string; commitSha?: string }
@@ -229,6 +229,10 @@ onBeforeUnmount(() => {
     </div>
     <p class="delivery-path-label">Durable execution</p>
     <p class="delivery-intro">The worker creates a PR, an independent agent reviews it, and findings return to the branch owner. Choose this path when you want the handoffs and revision loop to remain visible while the workflow continues after you leave the page.</p>
+    <div v-if="run?.request?.brief" class="delivery-brief">
+      <p class="delivery-brief-label">Agent brief</p>
+      <p class="delivery-brief-text">{{ run.request.brief }}</p>
+    </div>
 
     <ClientOnly>
       <CockpitFlow
@@ -281,6 +285,9 @@ onBeforeUnmount(() => {
 .delivery-heading h2 { margin: 0; font-size: 22px; font-weight: 600; text-wrap: balance; }
 .delivery-eyebrow { display: flex; align-items: center; gap: 7px; margin: 0 0 7px; color: var(--ui-primary); font-size: 10px; font-weight: 700; letter-spacing: 1.2px; text-transform: uppercase; }
 .delivery-intro { max-width: 850px; margin: 0; color: var(--ui-text-muted); line-height: 1.65; }
+.delivery-brief { margin-top: 18px; padding: 14px 16px; border-left: 3px solid var(--ui-primary); background: #f5fbfb; }
+.delivery-brief-label { margin: 0 0 5px; color: var(--ui-primary); font-size: 10px; font-weight: 700; letter-spacing: 1.1px; text-transform: uppercase; }
+.delivery-brief-text { margin: 0; color: var(--ui-text); line-height: 1.6; white-space: pre-wrap; }
 .delivery-path-label { margin: 18px 0 6px; color: var(--ui-primary); font-size: 10px; font-weight: 700; letter-spacing: 1.1px; text-transform: uppercase; }
 .delivery-requirement { margin: 10px 0 0; color: #a33d37; font-size: 12px; }
 .delivery-requirement.ready { color: #28765b; }
