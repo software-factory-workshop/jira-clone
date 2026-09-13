@@ -37,8 +37,9 @@ function assertEnvelope(value: unknown) {
     DEMO_ROLE_MATRIX_LABEL,
   );
   assert.equal((value as { boundary: unknown }).boundary, REST_BOUNDARY);
-  assert.match(REST_BOUNDARY, /GET-only/);
+  assert.match(REST_BOUNDARY, /bounded writes/);
   assert.match(REST_BOUNDARY, /no JQL/i);
+  assert.match(REST_BOUNDARY, /not full Jira parity/);
 }
 
 test("myself maps the resolved demo account with the demo envelope", () => {
