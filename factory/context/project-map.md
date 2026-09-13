@@ -1,6 +1,6 @@
 # Project map for an investigation
 
-Source review: 12 September 2026, updated during the Eve station delivery. Recheck the files below against the run snapshot. This is a navigation aid, not proof that a deployed route works today.
+Source review: 13 September 2026, updated during the Jira current-state review. Recheck the files below against the run snapshot. This is a navigation aid, not proof that a deployed route works today.
 
 | Question | Start here | What the source currently supports |
 | --- | --- | --- |

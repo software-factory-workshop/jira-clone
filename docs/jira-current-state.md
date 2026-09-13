@@ -1,6 +1,6 @@
 # Jira demo current state
 
-Checked 13 September 2026 against `main` at `cc0c67d7a10df4ae3e5170e4644094f3c896c4fc`.
+Checked 13 September 2026 against the Jira implementation at `cc0c67d7a10df4ae3e5170e4644094f3c896c4fc`; the documentation and implementation are now synchronized on `main`.
 
 The ADEO Jira application is a bounded demo slice. It is no longer a fixture-only shell. It still uses synthetic seed data and a demo-only in-memory store. "Implemented" below means present in the source and covered by local tests. It does not mean hosted browser evidence or production Jira compatibility.
 
