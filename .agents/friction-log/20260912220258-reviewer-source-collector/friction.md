@@ -1,6 +1,7 @@
 ---
 title: 'Reviewer source collector treats generated .swc as changed binary'
 severity: 'major'
+issue: 'software-factory-workshop/jira-clone#84'
 ---
 
 ### Expected Behavior

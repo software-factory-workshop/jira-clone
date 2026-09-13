@@ -1,6 +1,7 @@
 ---
 title: 'CI attempts Eve sandbox-template prewarming without Vercel identity'
 severity: 'minor'
+issue: 'software-factory-workshop/jira-clone#77'
 ---
 
 ## Expected Behavior

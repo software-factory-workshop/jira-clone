@@ -1,6 +1,7 @@
 ---
 title: 'Worker PR body repeats prompts and exposes execution boilerplate'
 severity: 'minor'
+issue: 'software-factory-workshop/jira-clone#82'
 ---
 
 ## Expected Behavior

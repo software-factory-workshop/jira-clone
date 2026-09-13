@@ -1,6 +1,7 @@
 ---
 title: 'Historical tool errors label an active mining investigation incomplete'
 severity: 'minor'
+issue: 'software-factory-workshop/jira-clone#71'
 ---
 
 ## Expected Behavior

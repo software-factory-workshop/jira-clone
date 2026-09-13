@@ -1,6 +1,7 @@
 ---
 title: 'Reviewer approval gate trusts model-controlled limitations'
 severity: 'major'
+issue: 'software-factory-workshop/jira-clone#76'
 ---
 
 ## Expected Behavior

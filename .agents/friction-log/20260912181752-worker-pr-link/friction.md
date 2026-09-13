@@ -1,6 +1,7 @@
 ---
 title: 'Worker PR link text is invisible on its primary button'
 severity: 'minor'
+issue: 'software-factory-workshop/jira-clone#78'
 ---
 
 ## Expected Behavior

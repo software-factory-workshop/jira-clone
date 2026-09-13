@@ -1,6 +1,7 @@
 ---
 title: 'Cockpit dynamic collection routes overlap Eve action routes'
 severity: 'minor'
+issue: 'software-factory-workshop/jira-clone#79'
 ---
 
 ### Expected Behavior

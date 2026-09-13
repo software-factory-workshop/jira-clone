@@ -1,6 +1,7 @@
 ---
 title: 'Task-mining fx adapter pauses before the authorized GitHub read'
 severity: 'minor'
+issue: 'software-factory-workshop/jira-clone#68'
 ---
 
 ## Expected Behavior

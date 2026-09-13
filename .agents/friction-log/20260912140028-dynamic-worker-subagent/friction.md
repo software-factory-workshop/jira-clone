@@ -1,6 +1,7 @@
 ---
 title: 'Dynamic worker subagent omitted despite successful build'
 severity: 'minor'
+issue: 'software-factory-workshop/jira-clone#73'
 ---
 
 ## Expected Behavior

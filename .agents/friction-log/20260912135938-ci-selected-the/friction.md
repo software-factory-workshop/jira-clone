@@ -1,6 +1,7 @@
 ---
 title: 'CI selected the Node output preset during Vercel route verification'
 severity: 'minor'
+issue: 'software-factory-workshop/jira-clone#72'
 ---
 
 ## Expected Behavior

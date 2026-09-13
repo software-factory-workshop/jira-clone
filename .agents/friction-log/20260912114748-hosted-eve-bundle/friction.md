@@ -1,6 +1,7 @@
 ---
 title: 'Hosted Eve bundle omits ACP bridge bootstrap assets'
 severity: 'minor'
+issue: 'software-factory-workshop/jira-clone#69'
 ---
 
 ## Expected Behavior

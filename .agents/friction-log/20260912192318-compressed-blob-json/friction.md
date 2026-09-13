@@ -1,6 +1,7 @@
 ---
 title: 'Compressed Blob JSON reads yield weak ETags that cannot satisfy conditional writes'
 severity: 'major'
+issue: 'software-factory-workshop/jira-clone#80'
 ---
 
 ## Expected Behavior

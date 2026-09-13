@@ -1,6 +1,7 @@
 ---
 title: 'Cockpit labels a disconnected mining stream as stopped'
 severity: 'minor'
+issue: 'software-factory-workshop/jira-clone#70'
 ---
 
 ## Expected Behavior

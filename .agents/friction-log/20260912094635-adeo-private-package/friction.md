@@ -1,6 +1,7 @@
 ---
 title: 'ADEO private package requires a package-read credential'
 severity: 'minor'
+issue: 'software-factory-workshop/jira-clone#67'
 ---
 
 ## Expected Behavior

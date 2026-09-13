@@ -1,6 +1,7 @@
 ---
 title: 'Generic Eve client import breaks the Nuxt production browser build'
 severity: 'minor'
+issue: 'software-factory-workshop/jira-clone#75'
 ---
 
 ## Expected Behavior

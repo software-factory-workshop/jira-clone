@@ -1,6 +1,7 @@
 ---
 title: 'Factory tests import mining history excluded from worker snapshots'
 severity: 'major'
+issue: 'software-factory-workshop/jira-clone#81'
 ---
 
 ## Expected Behavior

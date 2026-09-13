@@ -1,6 +1,7 @@
 ---
 title: 'Eve 0.52.5 compiler rejects the official agent-browser extension mount'
 severity: 'major'
+issue: 'software-factory-workshop/jira-clone#83'
 ---
 
 ## Expected Behavior

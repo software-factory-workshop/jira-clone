@@ -1,6 +1,7 @@
 ---
 title: 'Cockpit stops before delayed background child dispatch event'
 severity: 'minor'
+issue: 'software-factory-workshop/jira-clone#74'
 ---
 
 ## Expected Behavior
