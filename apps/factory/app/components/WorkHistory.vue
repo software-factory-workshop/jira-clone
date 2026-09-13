@@ -2,6 +2,7 @@
 import { attentionPhases, isLoopRun, summarizeDelivery, type DeliverySummary } from "../utils/delivery-summary";
 import { cockpitFailureMessage } from "../utils/cockpit-errors";
 const cockpit = useCockpit();
+const props = withDefaults(defineProps<{ showHeading?: boolean }>(), { showHeading: true });
 const error = ref("");
 const historyLoading = ref(false);
 const historyLoaded = ref(false);
@@ -52,8 +53,9 @@ async function refresh() {
 }
 function link(run: (typeof runs.value)[number]) {
   const value = run.value as Record<string, unknown>;
-  if (value.station === "loop") return { query: { delivery: run.id } };
+  if (value.station === "loop") return { path: "/work/run", query: { delivery: run.id } };
   return {
+    path: "/work/run",
     query: {
       station: String(value.station),
       run: run.id,
@@ -77,7 +79,7 @@ onBeforeUnmount(() => clearInterval(refreshTimer));
 </script>
 <template>
   <section class="panel" style="padding: 24px; margin-top: 24px">
-    <div class="panel-heading">
+    <div v-if="props.showHeading" class="panel-heading">
       <h2>Recent work</h2>
       <UButton variant="ghost" :loading="historyLoading" :disabled="historyLoading" @click="refresh">Refresh</UButton>
     </div>

@@ -16,7 +16,7 @@ let copyTimer: ReturnType<typeof setTimeout> | undefined;
 const childSettled = ref(false);
 const deliveryStarted = ref(false);
 const queuedForOwner = computed(() => !!props.deliveryId && !deliveryStarted.value);
-const runLink = computed(() => `?${new URLSearchParams({ station: props.station, ...(props.rootAgent?{rootAgent:props.rootAgent}:{}), run: props.sessionId, ...(props.execution ? { execution: props.execution } : {}), ...(props.deliveryId ? { deliveryId: props.deliveryId } : {}), ...(props.operationId ? { operationId: props.operationId } : {}) })}`);
+const runLink = computed(() => `/work/run?${new URLSearchParams({ station: props.station, ...(props.rootAgent?{rootAgent:props.rootAgent}:{}), run: props.sessionId, ...(props.execution ? { execution: props.execution } : {}), ...(props.deliveryId ? { deliveryId: props.deliveryId } : {}), ...(props.operationId ? { operationId: props.operationId } : {}) })}`);
 const childRecorded = ref(false);
 const cancellationRequested = ref(false);
 const stopping = ref(false);

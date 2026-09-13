@@ -85,7 +85,7 @@ async function startDelivery(proposal: MiningProposal, index: number) {
       retry: 0,
     });
     if (!response.id) throw new Error("Durable delivery was not identified");
-    await router.replace({ query: { ...route.query, section: "work", delivery: response.id } });
+    await router.replace({ path: "/work/run", query: { delivery: response.id } });
     pendingDelivery = undefined;
   } catch {
     actionError.value = "Could not start the durable delivery. Retry; the same request will be reused.";
