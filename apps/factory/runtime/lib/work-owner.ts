@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { WorkError,workBranch } from "./work-github.ts";
+import { parseSuccessfulActionResultEvent } from "./factory-protocol.ts";
 const publication=z.object({branch:z.string(),number:z.number(),headSha:z.string(),ownerSessionId:z.string(),targetBranch:z.string(),targetHeadSha:z.string()});
 export function ownerFromBody(body:string) {
  const id=body.match(/(?:Factory-Owner: |Native Eve session: )(wrun_[A-Za-z0-9]+)/)?.[1];
@@ -8,9 +9,11 @@ export function ownerFromBody(body:string) {
 }
 // Only host-emitted successful tool results count. Text, user messages and PR body do not grant ownership.
 export function ownerPublication(event:unknown,ownerId:string,number:number,branch:string) {
- const parsed=z.object({type:z.literal("action.result"),data:z.object({status:z.literal("completed"),result:z.object({kind:z.literal("tool-result"),toolName:z.literal("publish_work"),isError:z.literal(false).optional(),output:z.object({station:z.literal("worker"),sessionId:z.literal(ownerId),revisionProtocol:z.literal(1),publication})})})}).safeParse(event);
- if(!parsed.success)return null;
- const result=parsed.data.data.result.output;
+ const parsed=parseSuccessfulActionResultEvent(event);
+ if(!parsed||parsed.data.result.toolName!=="publish_work")return null;
+ const output=z.object({station:z.literal("worker"),sessionId:z.literal(ownerId),revisionProtocol:z.literal(1),publication}).safeParse(parsed.data.result.output);
+ if(!output.success)return null;
+ const result=output.data;
  if(result.publication.number!==number||result.publication.ownerSessionId!==ownerId||result.publication.branch!==branch||branch!==workBranch(ownerId))return null;
  return result.publication;
 }
