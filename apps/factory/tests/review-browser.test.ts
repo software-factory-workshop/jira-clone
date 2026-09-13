@@ -1,8 +1,36 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
+import {ContextContainer,contextStorage} from '../node_modules/eve/dist/src/context/container.js';
+import {registerDefinitionSource} from '../node_modules/eve/dist/src/internal/authored-definition/source-identity.js';
+import {find,snapshot} from '@agent-browser/eve/tools';
+import browserEvidenceHook from '../agents/reviewer/agent/hooks/browser-evidence.ts';
 import {browserComplete,browserOrigin,browserRequirements,type BrowserObservation,visualComparisonComplete,visualObservationComplete} from '../runtime/lib/review-browser.ts';
 import {hostReviewLimitations} from '../runtime/lib/review-policy.ts';
+import {reviewBrowser} from '../runtime/lib/review-browser.ts';
+
+registerDefinitionSource(`tool:${snapshot.description}`,{kind:'tool',name:'browser__snapshot'});
+registerDefinitionSource(`tool:${find.description}`,{kind:'tool',name:'browser__find'});
+
+const actionResult=(toolName:string,output:unknown,eventId:string)=>({
+ type:'action.result',
+ meta:{id:eventId},
+ data:{status:'completed',result:{kind:'tool-result',callId:eventId,toolName,output}}
+});
+
+const hookContext={session:{id:'reviewer'}} as Parameters<NonNullable<typeof browserEvidenceHook.events>['action.result']>[1];
 const evidence:BrowserObservation={origin:'http://127.0.0.1:3001',headSha:'candidate',sessionId:'reviewer',snapshot:true,interaction:true,keyboard:true,screenshot:true,afterInteraction:true,eventIds:['1','2','3','4','5']};
+
+test('reviewer hook records a successful find action as browser interaction evidence',async()=>{
+ const origin='http://127.0.0.1:3001';
+ await contextStorage.run(new ContextContainer(),async()=>{
+  reviewBrowser.update(state=>({...state,targets:{[origin]:'candidate'}}));
+  const onActionResult=browserEvidenceHook.events!['action.result']!;
+  await onActionResult(actionResult('browser__snapshot',{origin,snapshot:'button Submit'},'snapshot-1') as never,hookContext);
+  await onActionResult(actionResult('browser__find',{action:'click',by:'role',query:'button',name:'Submit'},'find-1') as never,hookContext);
+  assert.equal(reviewBrowser.get().observations[origin]?.interaction,true);
+ });
+});
+
 test('browser evidence must include real interaction, keyboard and observed result for this candidate and session',()=>{
  assert.equal(browserComplete(evidence,'candidate','reviewer'),true);
  for(const field of ['snapshot','interaction','keyboard','screenshot','afterInteraction'] as const)assert.equal(browserComplete({...evidence,[field]:false},'candidate','reviewer'),false);
