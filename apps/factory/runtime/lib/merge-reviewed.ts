@@ -1,6 +1,9 @@
 import { getToken } from '@vercel/connect';
 import { repository } from './github.mjs';
 import { mergeEligibility,type MergeFile,type MergeReview,type MergeDecision } from './merge-policy.ts';
+import { changeResource } from './cedar/model.ts';
+import { factoryDeliveryDriverPrincipal } from './cedar/guard.ts';
+import { runFactoryOperation, type FactoryDecisionAudit } from './cedar/operation-runner.ts';
 
 export interface MergeInput {
  publication:{number:number;headSha:string;targetHeadSha:string;targetBranch:string;ownerSessionId:string};
@@ -9,6 +12,7 @@ export interface MergeInput {
 // GitHub remains the final authority: exact candidate SHA, green checks, no forced merges.
 export async function mergeReviewed(input:MergeInput, token?:string):Promise<MergeDecision>{
  token ||= await getToken('github/jira-clone',{subject:{type:'app'}});
+ let authorization:FactoryDecisionAudit|undefined;
  async function api(path:string,method='GET',body?:unknown,graphql=false){
   const response=await fetch(graphql?'https://api.github.com/graphql':`https://api.github.com/repos/${repository}/${path}`,{method,headers:{Authorization:`Bearer ${token}`,Accept:'application/vnd.github+json','Content-Type':'application/json'},body:body?JSON.stringify(body):undefined,redirect:'error',signal:AbortSignal.timeout(20000)});
   if(!response.ok)throw new Error(`GitHub merge check returned HTTP ${response.status}`);
@@ -30,12 +34,27 @@ export async function mergeReviewed(input:MergeInput, token?:string):Promise<Mer
   if(!checks.check_runs.length&&!status.statuses.length||checks.check_runs.some((c:any)=>c.status!=='completed')||status.statuses.some((s:any)=>s.state!=='success'))return{status:'waiting',reason:'Waiting for all GitHub checks to pass.'};
   if(pr.mergeable===null)return{status:'waiting',reason:'GitHub is calculating mergeability.'};
   if(pr.mergeable===false||!['clean','unstable','blocked'].includes(pr.mergeable_state))return{status:'manual',reason:'Candidate cannot be safely merged into its reviewed target.'};
-  // Publication creates drafts; readiness is a code-owned decision after the gate passes.
-  if(pr.draft)await api('', 'POST',{query:'mutation($id:ID!){markPullRequestReadyForReview(input:{pullRequestId:$id}){pullRequest{id}}}',variables:{id:pr.node_id}},true);
-  const latest=await api(`pulls/${p.number}`);
-  if(latest.mergeable_state!=='clean')return{status:'waiting',reason:'Waiting for GitHub merge requirements to be satisfied.'};
-  if(latest.head.sha!==p.headSha||latest.base.sha!==p.targetHeadSha||latest.base.ref!==p.targetBranch||latest.state!=='open')return{status:'manual',reason:'Candidate or target advanced before merge.'};
-  const result=await api(`pulls/${p.number}/merge`,'PUT',{sha:p.headSha,merge_method:'merge'});
-  return result.merged?{status:'merged',reason:'Low-risk candidate merged after independent verification and green GitHub checks.',commitSha:result.sha}:{status:'manual',reason:'GitHub refused to merge the candidate.'};
- }catch(error){return{status:'manual',reason:error instanceof Error?error.message:'Merge could not be verified.'};}
+  const candidate=changeResource({id:String(p.number),taskId:p.ownerSessionId,candidateSha:p.headSha,baseSha:p.targetHeadSha,branch:p.targetBranch,expectedRevision:p.targetHeadSha});
+  const evidence={id:`merge:${p.number}:${p.headSha}:${p.targetHeadSha}`,source:'factory.merge-policy',complete:true,candidateSha:p.headSha};
+  const authorized=await runFactoryOperation({
+   operationId:`merge:${p.number}:${p.headSha}:${p.targetHeadSha}`,
+   principal:factoryDeliveryDriverPrincipal(),
+   action:'merge_change',
+   input:{pullRequest:String(p.number),targetBranch:p.targetBranch},
+   resource:candidate,
+   context:{expectedRevision:p.targetHeadSha,candidateSha:p.headSha,baseSha:p.targetHeadSha,verifiedSha:p.headSha,reviewedSha:input.review.headSha,branch:p.targetBranch,lane:'merge',budget:0,riskClass:'low',evidence},
+   onAudit:audit=>{authorization=audit;},
+   execute:async()=>{
+    // Publication creates drafts; readiness is a code-owned decision after the Cedar gate passes.
+    if(pr.draft)await api('', 'POST',{query:'mutation($id:ID!){markPullRequestReadyForReview(input:{pullRequestId:$id}){pullRequest{id}}}',variables:{id:pr.node_id}},true);
+    const latest=await api(`pulls/${p.number}`);
+    if(latest.mergeable_state!=='clean')return{status:'waiting' as const,reason:'Waiting for GitHub merge requirements to be satisfied.'};
+    if(latest.head.sha!==p.headSha||latest.base.sha!==p.targetHeadSha||latest.base.ref!==p.targetBranch||latest.state!=='open')return{status:'manual' as const,reason:'Candidate or target advanced before merge.'};
+    const result=await api(`pulls/${p.number}/merge`,'PUT',{sha:p.headSha,merge_method:'merge'});
+    return result.merged?{status:'merged' as const,reason:'Low-risk candidate merged after independent verification and green GitHub checks.',commitSha:result.sha}:{status:'manual' as const,reason:'GitHub refused to merge the candidate.'};
+   },
+   isSuccess:result=>result.status==='merged',
+  });
+  return {...authorized.output,authorization:authorized.audit};
+ }catch(error){return{status:'manual',reason:error instanceof Error?error.message:'Merge could not be verified.',...(authorization?{authorization}:{})};}
 }
