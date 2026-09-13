@@ -1,10 +1,16 @@
 export default defineNuxtConfig({
-  modules: ["workflow/nuxt", "./modules/station-routes"],
+  modules: ["evlog/nuxt", "workflow/nuxt", "./modules/station-routes"],
   vite: { optimizeDeps: { include: ["eve/vue"] } },
   extends: ["@software-factory-workshop/nuxt-adeo-ds"],
   css: ["~/assets/css/main.css"],
   compatibilityDate: "2026-09-12",
   devtools: { enabled: false },
+  evlog: {
+    env: { service: "adeo-factory-cockpit" },
+    redact: true,
+    transport: { enabled: true },
+    exclude: ["/_nuxt/**", "/api/_evlog/ingest"],
+  },
   app: {
     head: {
       title: "Factory cockpit · ADEO",
