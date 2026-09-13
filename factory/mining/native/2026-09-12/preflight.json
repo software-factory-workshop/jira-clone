@@ -1,0 +1,473 @@
+{
+  "revision": "315ea2e497ce2a5756caec83157e816af325e71e",
+  "files": [
+    {
+      "file": ".agents/friction-log/20260912122142-native-node-test/friction.md",
+      "bytes": 938,
+      "sha256": "9f8ee62a89e3297cc3ab0a7d30d16ac21d131bc3078f2e38ce1f5d3a661d065e"
+    },
+    {
+      "file": ".agents/friction-log/20260912122142-pinned-zod-string/friction.md",
+      "bytes": 913,
+      "sha256": "49064a95cb484d385b000f0c6c885525a45ed9aa2090e2a8223ea50f3bc9041a"
+    },
+    {
+      "file": "apps/factory/agent/lib/command-evidence.ts",
+      "bytes": 397,
+      "sha256": "e8eb71ff5d3c99a752972d8116d2391e9786716966a917b1ddf061c633304c2e"
+    },
+    {
+      "file": "apps/factory/agent/lib/github-input.mjs",
+      "bytes": 609,
+      "sha256": "fda8d9a21e30b91f452168892cef5af5f30dbfd155d8bde0cedb129acabd006a"
+    },
+    {
+      "file": "apps/factory/agent/lib/github.d.mts",
+      "bytes": 701,
+      "sha256": "69dde1073eda98a116684a03c64e08ba5348abd393294a282b0d07595c28f3b2"
+    },
+    {
+      "file": "apps/factory/agent/lib/github.mjs",
+      "bytes": 4160,
+      "sha256": "ced8012fd34f776fcb676e8d0fb620e6a7684d95cf31e79200fd9342079b91dc"
+    },
+    {
+      "file": "apps/factory/agent/lib/mining-state.ts",
+      "bytes": 884,
+      "sha256": "0abb376e6c0a2cd0236e39f81072e7ac8d62495c02cc41ba3f977414a60fdbba"
+    },
+    {
+      "file": "apps/factory/agent/lib/prepare-context.ts",
+      "bytes": 1792,
+      "sha256": "e9679528623029b988b658138b55cc1022bababe5560640f01d7b2e67eb66188"
+    },
+    {
+      "file": "apps/factory/agent/sandbox.ts",
+      "bytes": 264,
+      "sha256": "d72154fca4a80b2f321d4010a096cab7225799dd05712ab90c3aa71897ada7e5"
+    },
+    {
+      "file": "apps/factory/agent/tools/bash.ts",
+      "bytes": 973,
+      "sha256": "50bb866ef3c63166b0b9972bb3eb5d2e68276d309180cc75384fd25a53eda06f"
+    },
+    {
+      "file": "apps/factory/agent/tools/github_read.ts",
+      "bytes": 792,
+      "sha256": "7da86802a714f5466098d7de22e3fba0158b1d8d1f82980634cb2f8a83be93b4"
+    },
+    {
+      "file": "apps/factory/agent/tools/glob.ts",
+      "bytes": 42,
+      "sha256": "b4e6b821a41515b50cdda45c6d5a05a18b93a628c5ecca96436fbd76a30353a6"
+    },
+    {
+      "file": "apps/factory/agent/tools/grep.ts",
+      "bytes": 42,
+      "sha256": "9f2bc9e240f68b3135d4a2dd34c17ace36f885058a8e6c10eb747b5c9eccdffb"
+    },
+    {
+      "file": "apps/factory/agent/tools/prepare_context.ts",
+      "bytes": 1064,
+      "sha256": "f7d483963f0ee407654c82f1ab2de00b1c1379d15a6657ee80e39651a9af7da0"
+    },
+    {
+      "file": "apps/factory/agent/tools/read_file.ts",
+      "bytes": 47,
+      "sha256": "c8873b55468593f4ca7fe679f61476165fcef9ad6ddf07e6019991c7791c2cec"
+    },
+    {
+      "file": "apps/factory/agent/tools/record_findings.ts",
+      "bytes": 3378,
+      "sha256": "da2fda60060fb36fa5817115c1114ac2d24773a272a5f669b904660b4cd45868"
+    },
+    {
+      "file": "apps/factory/app/utils/mining-output.ts",
+      "bytes": 2276,
+      "sha256": "58ba29f5481ff9dbb344e9befdb28afc2630f8c490f73d113b0861f5720e6875"
+    },
+    {
+      "file": "apps/factory/server/api/cockpit.get.ts",
+      "bytes": 261,
+      "sha256": "36f00492119bf3c1a7efa1a849055b9e40cd6fbd9f2afa45efa4887128e8646f"
+    },
+    {
+      "file": "apps/factory/server/api/cockpit/drafts.post.ts",
+      "bytes": 644,
+      "sha256": "614e7a92707e3973d79f54968df1b69da20513914ffb6202a6058547cf639ea2"
+    },
+    {
+      "file": "apps/factory/server/api/cockpit/drafts.put.ts",
+      "bytes": 683,
+      "sha256": "244d2c89dd3814fb8d96e57b41a342c4f7112e2e3881e7dccc0bd401c75cbec4"
+    },
+    {
+      "file": "apps/factory/server/api/cockpit/drafts/[id].delete.ts",
+      "bytes": 810,
+      "sha256": "a1378048e0c51f5533327615ef8dbbf015cea0196308dee275e8b0eb66866180"
+    },
+    {
+      "file": "apps/factory/server/api/cockpit/issue-link.post.ts",
+      "bytes": 619,
+      "sha256": "41809384dfc44af6ffdcd3c9618e63dd760a85368650b452fda0bc21a50b55e6"
+    },
+    {
+      "file": "apps/factory/server/utils/cockpit-api.ts",
+      "bytes": 9245,
+      "sha256": "c251fe8a88035d5630e307f29b8440912d246034e0303b454dbbd8aeec0c909a"
+    },
+    {
+      "file": "apps/factory/tests/cockpit-api.test.ts",
+      "bytes": 7711,
+      "sha256": "61a54a3641c2725f4e91d8a6121f0547bcc11e4bb4c8f949d7d7fa59073ecbbf"
+    },
+    {
+      "file": "apps/factory/tests/mining-output.test.ts",
+      "bytes": 2571,
+      "sha256": "b5f37ed0be1a9881801070d431c874b3d5fc5edbbf6c8ff418c8ba5f86b9605b"
+    },
+    {
+      "file": "apps/factory/tests/native-context.test.ts",
+      "bytes": 1373,
+      "sha256": "2d9e559b26b0d42f3c479167898509e435977be9cd20a46f6136570fb0bbfe3f"
+    },
+    {
+      "file": "docs/cockpit-api.md",
+      "bytes": 2937,
+      "sha256": "99f9059fd9e364fc813ebd88cbd9cdeadda632d879a007d117634030b29596de"
+    },
+    {
+      "file": ".agents/friction-log/20260912094635-adeo-private-package/friction.md",
+      "bytes": 810,
+      "sha256": "8546b934de4c5bf450398d5318ee5fbce6172729789fcf4ef3fa3ba91a2da9cf"
+    },
+    {
+      "file": ".agents/friction-log/20260912104654-task-mining-fx/friction.md",
+      "bytes": 2387,
+      "sha256": "e7b627959e2bcb4c554219ac3eaede835d31b0088a39c905ecff133e47db30f0"
+    },
+    {
+      "file": ".agents/friction-log/20260912114748-hosted-eve-bundle/friction.md",
+      "bytes": 1551,
+      "sha256": "b668cf0a50170ee695911ea1b61ef3de6e37559a5fea2730451769e23c9d27c3"
+    },
+    {
+      "file": ".agents/friction-log/20260912120345-cockpit-labels-a/friction.md",
+      "bytes": 752,
+      "sha256": "376a6b01593aba4a3490845784d79907ddfee224cd93551a1b5c0b93efcfdf68"
+    },
+    {
+      "file": ".agents/friction-log/README.md",
+      "bytes": 1388,
+      "sha256": "a851652cb3a26f0daba1dc07c990d46a4c98f79b4be3d14da96d2049b4793bad"
+    },
+    {
+      "file": ".agents/friction-log/config.json",
+      "bytes": 54,
+      "sha256": "622c722ddf6b328b38b9fc703327dac95ca490115068840dce74dfbcd2a59447"
+    },
+    {
+      "file": ".agents/skills/adeo-nuxt-ui/SKILL.md",
+      "bytes": 5070,
+      "sha256": "4dde7c54f022560405e6e1e0de3a0f4b49882b419aa2e723be5ee12ef0f7a428"
+    },
+    {
+      "file": ".agents/skills/adeo-nuxt-ui/agents/openai.yaml",
+      "bytes": 109,
+      "sha256": "6f8c4822add18fad340335f596702864b6c9b8f6f894456def50856ffca8bd47"
+    },
+    {
+      "file": ".agents/skills/adeo-nuxt-ui/references/components.md",
+      "bytes": 3444,
+      "sha256": "2f4974b83a7fe6d93afd38e94e3e087aa282e3f23c791fc88301ab3e1c720f03"
+    },
+    {
+      "file": ".agents/skills/adeo-nuxt-ui/references/private-package.md",
+      "bytes": 2963,
+      "sha256": "044ce2e09e9c92e67b6cdd26f26379ff12ccdb8e9e9e7de8f079a65a70515960"
+    },
+    {
+      "file": ".github/ISSUE_TEMPLATE/friction.yml",
+      "bytes": 1036,
+      "sha256": "6ca7ae13790f3b6d279bf812881ccb36934c5357bb76be22eb2d7c0b904fc55d"
+    },
+    {
+      "file": ".github/workflows/check.yml",
+      "bytes": 1176,
+      "sha256": "a33a31581d9c87099d89466da8fe3282233c9942db4a838a9b7d7c2a4873484c"
+    },
+    {
+      "file": ".gitignore",
+      "bytes": 91,
+      "sha256": "d72307891adc07e68ab82a2940ce6ba3099a238d7f5e915e337a1d3056b43bcc"
+    },
+    {
+      "file": ".npmrc",
+      "bytes": 63,
+      "sha256": "aa2af2b2b1b553ec10228b6cc1042d464e1874b16dadafbbd70b2beeef72f0fd"
+    },
+    {
+      "file": "AGENTS.md",
+      "bytes": 1121,
+      "sha256": "db3dc80868bc15f9a5edb0da7e8abd2d26c7eeaf360b0526e7a9ae66b4640fd7"
+    },
+    {
+      "file": "README.md",
+      "bytes": 3837,
+      "sha256": "8240ec82a513d9778cd6b271c0787571afc2dc4ae9cf4cebebb56bd1554029b4"
+    },
+    {
+      "file": "apps/factory/.gitignore",
+      "bytes": 14,
+      "sha256": "6fe16e5e5dad9408c6a9082604c816d8067641ae1b5e59aceb90eb51c1088c63"
+    },
+    {
+      "file": "apps/factory/agent/agent.ts",
+      "bytes": 266,
+      "sha256": "600dbbf715c4c7fca713f16661d878fa51e664bb6af893596efc0c92998cd2a7"
+    },
+    {
+      "file": "apps/factory/agent/channels/eve.ts",
+      "bytes": 1350,
+      "sha256": "3436e010e1ccb23678bb01613cae7cd938ba78be88e346ef493abda6bc885c82"
+    },
+    {
+      "file": "apps/factory/agent/instructions.md",
+      "bytes": 2688,
+      "sha256": "1321ea30d45df9e9f2d599384fe601f2166e92d81b471b454f6ef8faa0809c62"
+    },
+    {
+      "file": "apps/factory/app/app.vue",
+      "bytes": 16658,
+      "sha256": "f509ccb998128a468bda968b1c9e717789eca27a09272f2d209ee0504a6008f0"
+    },
+    {
+      "file": "apps/factory/app/assets/css/main.css",
+      "bytes": 8125,
+      "sha256": "668f029ece4d9b001171f567359c33513abaf3b6fb1f09f0bcbdb5798e041d63"
+    },
+    {
+      "file": "apps/factory/app/components/MiningRun.vue",
+      "bytes": 11276,
+      "sha256": "2239cd0c7a92133c1c1c8615436ae03cd76c386126a827f810ab7afccd3bd233"
+    },
+    {
+      "file": "apps/factory/app/components/MiningStation.vue",
+      "bytes": 3812,
+      "sha256": "4798281ac75d589bc5f72f85e9f3398be81c9469f2966950bc36a06ea77e6035"
+    },
+    {
+      "file": "apps/factory/app/utils/report.ts",
+      "bytes": 287,
+      "sha256": "7ec08798a7c2381f8fbeadeda5cbc369ace61dcda82e70ecc31361fc1fbc6818"
+    },
+    {
+      "file": "apps/factory/nuxt.config.ts",
+      "bytes": 627,
+      "sha256": "c7353b698afccf2426e0c675c77d53905d29b2e1fa6c1158e1095f75755cbf11"
+    },
+    {
+      "file": "apps/factory/package.json",
+      "bytes": 929,
+      "sha256": "1849388b681cfbee2c24f5528b60ba83581f5ea5a7edc8d3aaa4b9e583eb3331"
+    },
+    {
+      "file": "apps/factory/scripts/build-eve.mjs",
+      "bytes": 182,
+      "sha256": "9578d081788dc80f3885edeee97b0afd0bfddb84207aaaa31ce0bf1b0f9ef973"
+    },
+    {
+      "file": "apps/factory/server/api/github.get.ts",
+      "bytes": 2152,
+      "sha256": "8cd7deb451376bfa8b1c4304162b64b120fc6cbdadf65e4f19331e30cda2577c"
+    },
+    {
+      "file": "apps/factory/tests/report.test.ts",
+      "bytes": 639,
+      "sha256": "6a391df4f9dd0aed6bfcb339e034257ac90c6e1524897d076ff1224b34b82426"
+    },
+    {
+      "file": "apps/factory/tsconfig.agent.json",
+      "bytes": 294,
+      "sha256": "c62042c1cad5ee092da6b05fbe40a84aa9e75a96c7088dce832576a9417e59cf"
+    },
+    {
+      "file": "apps/factory/tsconfig.json",
+      "bytes": 39,
+      "sha256": "a684b644d6d28a7636a0b6bdfb45b0264d8daeea226f8c01e953da02afc938a8"
+    },
+    {
+      "file": "apps/jira/.gitignore",
+      "bytes": 14,
+      "sha256": "6fe16e5e5dad9408c6a9082604c816d8067641ae1b5e59aceb90eb51c1088c63"
+    },
+    {
+      "file": "apps/jira/app/app.vue",
+      "bytes": 7129,
+      "sha256": "2cd746f66554e6465d48c3a4e7c9c30e8909d49ef34264d925ce3b9f117e13bf"
+    },
+    {
+      "file": "apps/jira/app/assets/css/main.css",
+      "bytes": 5068,
+      "sha256": "09429dbdaa499179b5b40f6e75e8aa41d601df9e8eb0ef439ac40b4bd476666b"
+    },
+    {
+      "file": "apps/jira/nuxt.config.ts",
+      "bytes": 510,
+      "sha256": "2d98528e9166f2dda92d5860adf15c6339dd912c4e3726e31e776ebc2e225723"
+    },
+    {
+      "file": "apps/jira/package.json",
+      "bytes": 541,
+      "sha256": "1fc19e7bcc2cacac548ce524f907fc8c26f2f149b892a855cd8eb83a2d183c8d"
+    },
+    {
+      "file": "apps/jira/tsconfig.json",
+      "bytes": 39,
+      "sha256": "a684b644d6d28a7636a0b6bdfb45b0264d8daeea226f8c01e953da02afc938a8"
+    },
+    {
+      "file": "docs/cockpit.md",
+      "bytes": 5465,
+      "sha256": "f0836daba76e386f51178afdcd113dd6953016d136fa648fe3f42288c0dcc7aa"
+    },
+    {
+      "file": "docs/factory-growth-experiment.md",
+      "bytes": 8329,
+      "sha256": "e9177743396a41b6c30bbd546c1d876c6ee14595d9decc29096950a95790f880"
+    },
+    {
+      "file": "docs/verification.md",
+      "bytes": 6130,
+      "sha256": "90f350b0f9ee673eb8b18389a9e66fed5ad2513d8e1bd1d327cf93030fabd7be"
+    },
+    {
+      "file": "factory/README.md",
+      "bytes": 1549,
+      "sha256": "70178b0ea11f2209a500a4d33c294b2050f8c56697c742ab18fd42388a29bd24"
+    },
+    {
+      "file": "factory/context/goal.md",
+      "bytes": 4296,
+      "sha256": "eb20cb5ddd06f0095dc8b2c5fff267f7ae063fb263017baed2f82b552c84ac43"
+    },
+    {
+      "file": "factory/context/project-map.md",
+      "bytes": 4239,
+      "sha256": "f7af030924d43f16a2cba0182612c7de35e63856ff5b8510b923750e99e22aa2"
+    },
+    {
+      "file": "factory/context/work-in-progress.md",
+      "bytes": 3341,
+      "sha256": "9ee213f1c54dac89a8a75b60c324652fa9734af6659623acc215066717d1997d"
+    },
+    {
+      "file": "factory/reflections/2026-09-12-context-review.md",
+      "bytes": 2865,
+      "sha256": "0f7db2df8dd030f35aa63f3a281fd0c7a96216d60fbfeaf58ea48e7751499057"
+    },
+    {
+      "file": "factory/reflections/2026-09-12-hosted-runtime-verification.md",
+      "bytes": 2098,
+      "sha256": "7ded3bac482931ab4c112ce168a2f9210b018d522d78a36e025945d4e4f5504f"
+    },
+    {
+      "file": "factory/reflections/2026-09-12-snapshot-boundaries.md",
+      "bytes": 2402,
+      "sha256": "3402a4a1ab0e11ae9c5014352216811675cebecc24f0ccc0b8dcbb5dfc50f83f"
+    },
+    {
+      "file": "factory/task-mining-station.md",
+      "bytes": 7046,
+      "sha256": "9234ffa0724624554417b994157af1130b9fa704a580333ae348cf26c9cbab92"
+    },
+    {
+      "file": "package.json",
+      "bytes": 476,
+      "sha256": "ee805367b2a11375ffa4a036a5251ea57775770fd4f689578ab83c1907b8468c"
+    },
+    {
+      "file": "packages/project-context/package.json",
+      "bytes": 183,
+      "sha256": "3e4f831c24e67297f1ad7030a7f548653dbb7a4f27d3bf410f7078fe546efc94"
+    },
+    {
+      "file": "packages/project-context/src/index.ts",
+      "bytes": 6194,
+      "sha256": "82289f04ce5ba500dc380817cad1fad1555bb1de75c3a9986ff52c7d11e2d1ab"
+    },
+    {
+      "file": "packages/project-context/src/jira-reference.json",
+      "bytes": 1175,
+      "sha256": "a3d038a403a375b0fde1f85567b82799f141dd5b27c88d724456333f840ac3b0"
+    },
+    {
+      "file": "packages/project-context/tests/drafts.test.ts",
+      "bytes": 544,
+      "sha256": "7de9cadf35ff9babc4679c877b70da995688fb5df14a2edd2f8b7350405bc110"
+    },
+    {
+      "file": "pnpm-lock.yaml",
+      "bytes": 381495,
+      "sha256": "42ecb9c38391b972ff6702972ec374193a08a48dcd690d6b007dd3bfa18522be"
+    },
+    {
+      "file": "pnpm-workspace.yaml",
+      "bytes": 116,
+      "sha256": "725f4f254706e83f63b79ac8d47ffb270a30bd4585e70c5be5184d26e7265b80"
+    },
+    {
+      "file": "turbo.json",
+      "bytes": 531,
+      "sha256": "ee4a5f84d73f2bd314947d679491a7fd15e7e02bbacf2776575d494dcf806bc8"
+    },
+    {
+      "file": "vendor/README.md",
+      "bytes": 547,
+      "sha256": "a1ea66d55173ad2333d2e70995aaf17010e1dca36665e068af0984ab97c03d86"
+    },
+    {
+      "file": "vendor/software-factory-workshop-nuxt-adeo-ds-0.1.1.tgz",
+      "bytes": 16204,
+      "sha256": "f0146d2666651c65e190f33781ee7f2020eb3318b9147d69766dba6ac7113ea7"
+    }
+  ],
+  "commands": [
+    {
+      "command": "set -eu; mkdir -p \"$HOME/.local/bin\"; npm install --prefix \"$HOME/.local\" --no-audit --no-fund node@24.21.0 pnpm@10.33.4; ln -sf \"$HOME/.local/node_modules/node/bin/node\" \"$HOME/.local/bin/node\"; ln -sf \"$HOME/.local/node_modules/pnpm/bin/pnpm.cjs\" \"$HOME/.local/bin/pnpm\"; export PATH=\"$HOME/.local/bin:$PATH\"; cd /workspace/repo; node --version; pnpm --version; pnpm install --frozen-lockfile",
+      "exitCode": 0,
+      "stdout": "                                         │\n   │   Update available! 10.33.4 → 12.4.1.   │\n   │   Changelog: https://pnpm.io/v/12.4.1   │\n   │    To update, run: pnpm add -g pnpm     │\n   │                                         │\n   ╰─────────────────────────────────────────╯\n\nProgress: resolved 832, reused 0, downloaded 121, added 40\nProgress: resolved 832, reused 0, downloaded 335, added 142\nProgress: resolved 832, reused 0, downloaded 554, added 242\nProgress: resolved 832, reused 0, downloaded 759, added 328\nProgress: resolved 832, reused 0, downloaded 819, added 440\nProgress: resolved 832, reused 0, downloaded 819, added 831\nProgress: resolved 832, reused 0, downloaded 819, added 832, done\n.../esbuild@0.28.2/node_modules/esbuild postinstall$ node install.js\n.../esbuild@0.27.7/node_modules/esbuild postinstall$ node install.js\n.../esbuild@0.28.2/node_modules/esbuild postinstall: Done\n.../esbuild@0.27.7/node_modules/esbuild postinstall: Done\n\ndevDependencies:\n+ turbo 2.10.12\n+ typescript 5.9.3\n\napps/jira prepare$ nuxt prepare\napps/factory prepare$ nuxt prepare\napps/jira prepare: ℹ Nuxt Icon server bundle mode is set to local\napps/jira prepare: [nuxt:icon] ✔ Nuxt Icon discovered local-installed 1 collections: lucide\napps/jira prepare: ℹ Nuxt Icon client bundle consist of 43 icons with 10.40KB(uncompressed) in size\napps/factory prepare: ℹ Nuxt Icon server bundle mode is set to local\napps/factory prepare: [nuxt:icon] ✔ Nuxt Icon discovered local-installed 1 collections: lucide\napps/jira prepare: │\napps/jira prepare: ◆  Types generated in .nuxt.\napps/jira prepare: Done\napps/factory prepare: ℹ Nuxt Icon client bundle consist of 43 icons with 10.40KB(uncompressed) in size\napps/factory prepare: │\napps/factory prepare: ◆  Types generated in .nuxt.\napps/factory prepare: Done\n╭ Warning ─────────────────────────────────────────────────────────────────────╮\n│                                                                              │\n│   Ignored build scripts: vue-demi@0.14.10.                                   │\n│   Run \"pnpm approve-builds\" to pick which dependencies should be allowed     │\n│   to run scripts.                                                            │\n│                                                                              │\n╰──────────────────────────────────────────────────────────────────────────────╯\nDone in 10.3s using pnpm v10.33.4\n",
+      "stderr": "npm notice\nnpm notice New minor version of npm available! 11.11.0 -> 11.19.1\nnpm notice Changelog: https://github.com/npm/cli/releases/tag/v11.19.1\nnpm notice To update run: npm install -g npm@11.19.1\nnpm notice\n",
+      "capturedAt": "2026-09-12T11:32:05.650Z",
+      "truncated": true
+    },
+    {
+      "command": "export PATH=\"$HOME/.local/bin:$PATH\"; cd /workspace/repo; pnpm typecheck",
+      "exitCode": 0,
+      "stdout": "\n> jira-clone@ typecheck /workspace/repo\n> turbo run typecheck\n\n\n   • Packages in scope: @jira-clone/context, @jira-clone/factory, @jira-clone/jira\n   • Running typecheck in 3 packages\n   • Remote caching disabled\n\n@jira-clone/jira:typecheck: cache miss, executing bd893ec3aa4bfb54\n@jira-clone/factory:typecheck: cache miss, executing 5fe72baefdb1e835\n@jira-clone/factory:typecheck: \n@jira-clone/factory:typecheck: > @jira-clone/factory@ typecheck /workspace/repo/apps/factory\n@jira-clone/factory:typecheck: > nuxt typecheck && tsc -p tsconfig.agent.json\n@jira-clone/factory:typecheck: \n@jira-clone/jira:typecheck: \n@jira-clone/jira:typecheck: > @jira-clone/jira@ typecheck /workspace/repo/apps/jira\n@jira-clone/jira:typecheck: > nuxt typecheck\n@jira-clone/jira:typecheck: \n@jira-clone/jira:typecheck: ℹ Nuxt Icon server bundle mode is set to local\n@jira-clone/jira:typecheck: [nuxt:icon] ✔ Nuxt Icon discovered local-installed 1 collections: lucide\n@jira-clone/factory:typecheck: ℹ Nuxt Icon server bundle mode is set to local\n@jira-clone/factory:typecheck: [nuxt:icon] ✔ Nuxt Icon discovered local-installed 1 collections: lucide\n@jira-clone/jira:typecheck: ℹ Nuxt Icon client bundle consist of 43 icons with 10.40KB(uncompressed) in size\n@jira-clone/factory:typecheck: ℹ Nuxt Icon client bundle consist of 43 icons with 10.40KB(uncompressed) in size\n\n Tasks:    2 successful, 2 total\nCached:    0 cached, 2 total\n  Time:    8.537s \n\n",
+      "stderr": "\nAttention:\nTurborepo now collects completely anonymous telemetry regarding usage.\nThis information is used to shape the Turborepo roadmap and prioritize features.\nYou can learn more, including how to opt-out if you'd not like to participate in this anonymous program, by visiting the following URL:\nhttps://turborepo.dev/docs/telemetry\n\n• turbo 2.10.12\n",
+      "capturedAt": "2026-09-12T11:32:14.775Z",
+      "truncated": false
+    },
+    {
+      "command": "export PATH=\"$HOME/.local/bin:$PATH\"; cd /workspace/repo; pnpm test",
+      "exitCode": 0,
+      "stdout": "lone/context:test: ℹ pass 1\n@jira-clone/context:test: ℹ fail 0\n@jira-clone/context:test: ℹ cancelled 0\n@jira-clone/context:test: ℹ skipped 0\n@jira-clone/context:test: ℹ todo 0\n@jira-clone/context:test: ℹ duration_ms 112.963343\n@jira-clone/factory:test: ✔ the manifest exposes every product capability behind the cockpit UI (10.930884ms)\n@jira-clone/factory:test: ✔ draft save validates, trims, timestamps and returns the next caller-owned collection (2.3182ms)\n@jira-clone/factory:test: ✔ draft normalization caps collections and never trusts malformed entries (0.741887ms)\n@jira-clone/factory:test: ✔ draft routes use JSON boundaries and return normalized state (18.774959ms)\n@jira-clone/factory:test: ✔ draft restore and delete routes preserve only valid caller state (4.214481ms)\n@jira-clone/factory:test: ✔ issue-link API always targets the fixed repository and encodes user content (7.487528ms)\n@jira-clone/factory:test: ✔ manifest helper keeps the fixed repository and current stage explicit (0.269696ms)\n@jira-clone/factory:test: ✔ replays historical fx reports and normalizes GitHub inventory counts (3.710106ms)\n@jira-clone/factory:test: ✔ retains native incomplete findings and actual reproduction failures (2.026063ms)\n@jira-clone/factory:test: ✔ shows incomplete findings when preparation did not obtain a revision (0.381707ms)\n@jira-clone/factory:test: ✔ rejects malformed evidence rather than manufacturing valid source links (0.442407ms)\n@jira-clone/factory:test: ✔ native tool progress reflects the latest tool without exposing command input (0.693401ms)\n@jira-clone/factory:test: ✔ runnable snapshot includes locked and vendored inputs but excludes calibration answers and secrets (0.827461ms)\n@jira-clone/factory:test: ✔ binary source provenance hashes exact bytes (0.85058ms)\n@jira-clone/factory:test: ✔ command evidence preserves failure exit code and flags bounded output (2.9271ms)\n@jira-clone/factory:test: ✔ model reports cannot inject HTML, script links or remote images (5.500246ms)\n@jira-clone/factory:test: ℹ tests 16\n@jira-clone/factory:test: ℹ suites 0\n@jira-clone/factory:test: ℹ pass 16\n@jira-clone/factory:test: ℹ fail 0\n@jira-clone/factory:test: ℹ cancelled 0\n@jira-clone/factory:test: ℹ skipped 0\n@jira-clone/factory:test: ℹ todo 0\n@jira-clone/factory:test: ℹ duration_ms 320.165223\n\n Tasks:    2 successful, 2 total\nCached:    0 cached, 2 total\n  Time:    677ms \n\n",
+      "stderr": "• turbo 2.10.12\n",
+      "capturedAt": "2026-09-12T11:32:16.163Z",
+      "truncated": true
+    },
+    {
+      "command": "export PATH=\"$HOME/.local/bin:$PATH\"; cd /workspace/repo; pnpm build",
+      "exitCode": 0,
+      "stdout": "a-clone/factory:build:   ├─ .output/server/chunks/routes/api/cockpit/drafts.put.mjs (1.05 kB) (506 B gzip)\n@jira-clone/factory:build:   ├─ .output/server/chunks/routes/api/cockpit/drafts.put.mjs.map (622 B) (315 B gzip)\n@jira-clone/factory:build:   ├─ .output/server/chunks/routes/api/cockpit/drafts/_id_.delete.mjs (1.2 kB) (553 B gzip)\n@jira-clone/factory:build:   ├─ .output/server/chunks/routes/api/cockpit/drafts/_id_.delete.mjs.map (739 B) (351 B gzip)\n@jira-clone/factory:build:   ├─ .output/server/chunks/routes/api/cockpit/issue-link.post.mjs (1 kB) (477 B gzip)\n@jira-clone/factory:build:   ├─ .output/server/chunks/routes/api/cockpit/issue-link.post.mjs.map (566 B) (296 B gzip)\n@jira-clone/factory:build:   ├─ .output/server/chunks/routes/api/github.get.mjs (2.15 kB) (986 B gzip)\n@jira-clone/factory:build:   ├─ .output/server/chunks/routes/api/github.get.mjs.map (1.54 kB) (589 B gzip)\n@jira-clone/factory:build:   ├─ .output/server/chunks/routes/renderer.mjs (16.5 kB) (5.75 kB gzip)\n@jira-clone/factory:build:   ├─ .output/server/chunks/routes/renderer.mjs.map (2.8 kB) (469 B gzip)\n@jira-clone/factory:build:   ├─ .output/server/chunks/virtual/_virtual_spa-template.mjs (94 B) (100 B gzip)\n@jira-clone/factory:build:   ├─ .output/server/chunks/virtual/_virtual_spa-template.mjs.map (88 B) (97 B gzip)\n@jira-clone/factory:build:   ├─ .output/server/chunks/virtual/entry.mjs (615 kB) (125 kB gzip)\n@jira-clone/factory:build:   ├─ .output/server/chunks/virtual/entry.mjs.map (25.1 kB) (3.02 kB gzip)\n@jira-clone/factory:build:   ├─ .output/server/chunks/virtual/precomputed.mjs (50.6 kB) (3.49 kB gzip)\n@jira-clone/factory:build:   ├─ .output/server/chunks/virtual/precomputed.mjs.map (181 B) (150 B gzip)\n@jira-clone/factory:build:   ├─ .output/server/chunks/virtual/styles.mjs (1.08 kB) (383 B gzip)\n@jira-clone/factory:build:   ├─ .output/server/chunks/virtual/styles.mjs.map (164 B) (142 B gzip)\n@jira-clone/factory:build:   ├─ .output/server/index.mjs (396 B) (225 B gzip)\n@jira-clone/factory:build:   └─ .output/server/package.json (1.41 kB) (560 B gzip)\n@jira-clone/factory:build: Σ Total size: 4.77 MB (1.14 MB gzip)\n@jira-clone/factory:build: [nitro] ✔ You can preview this build using node .output/server/index.mjs\n@jira-clone/factory:build: │\n@jira-clone/factory:build: └  ✨ Build complete!\n\n Tasks:    2 successful, 2 total\nCached:    0 cached, 2 total\n  Time:    13.174s \n\n",
+      "stderr": "• turbo 2.10.12\n",
+      "capturedAt": "2026-09-12T11:32:29.928Z",
+      "truncated": true
+    }
+  ],
+  "prepared": true,
+  "contextGaps": [],
+  "source": "working-tree",
+  "note": "Plain Vercel Sandbox SDK adapter exercised the shared preparation implementation with a trusted working-tree snapshot. Native Eve backend verified separately; this preflight did not validate user-scoped Vercel evidence."
+}

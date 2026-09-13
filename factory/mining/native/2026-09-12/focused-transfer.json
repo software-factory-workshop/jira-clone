@@ -1,0 +1,555 @@
+{
+  "sessionId": "wrun_01M2AQ5JE63FYDDPFVJA17AA7Q",
+  "evaluation": "focused-transfer",
+  "runtime": "native Eve 0.52.5",
+  "runtimeRevision": "b81899e5d9ecd49b04840c649af0d63e0bbc8188",
+  "runtimeInstructionsSha256": "5aa2e5cf5633ec7e12537f00be2799ef19ae1fa0f01a9e9e5135a2c03a0ccafc",
+  "sourceRevision": "b81899e5d9ecd49b04840c649af0d63e0bbc8188",
+  "model": "meta/muse-spark-1.3-contributor",
+  "team": "demo-software-factory",
+  "usage": {
+    "inputTokens": 203434,
+    "outputTokens": 7536,
+    "costUsd": 0.007364436
+  },
+  "terminalState": "Completed cleanly; all four operational eval gates passed",
+  "fileReadCalls": 13,
+  "review": {
+    "exclusionGapHypothesis": "Supported on the reworded probe too: blocking context gaps only name unavailable Vercel evidence. Intentional evaluation/history exclusions remain in reflection.",
+    "proposalQuality": "One bounded context-quality experiment instead of connector infrastructure. However, it substantially repeats the baseline/transfer exercise already underway, which had not yet been recorded in the inspected snapshot. Owner acceptance remains pending.",
+    "remainingErrors": [
+      "The proposed two differently worded prompts are called an A/B and transfer test, but that alone cannot isolate the effect of a context change.",
+      "It guessed a Vitest command even though this repository uses node:test. The shell pipeline returned zero after that command failed; stdout preserves Command vitest not found. It recovered using the actual package test script and observed 17 passing tests."
+    ],
+    "limitations": "This validates a narrow output-classification improvement and clean native execution, not complete proposal quality or Vercel user access."
+  },
+  "findings": {
+    "phase": "Incomplete",
+    "report": "## 1. Pilot a two-prompt transfer probe for mining usefulness (context-quality, not infra)\n\nOne repeatable 30-minute transfer probe that teaches context engineering: whether a one-paragraph operational-vs-context hint changes mining usefulness on the original prompt and transfers to a reworded prompt.\n\n**Why now:** Plumbing is proven (17 tests pass, gap handling typed) but quality is unmeasured in-app; goal's near-term question is whether a fresh agent suggests work Remi would consider without reconstructing conversation. Smallest leverage is a human-scored A/B + transfer sample, not more infrastructure.\n\n**Evidence**\n- Goal defines usefulness as proposal Remi would consider and completed-run != useful proposal: factory/context/goal.md L13,L17; missing-source rule L25.\n- WIP says baseline same-prompt + transfer complete, scores withheld, do not recreate runner/inventory/replay: factory/context/work-in-progress.md L7-L13; artifacts in factory/mining/ excluded.\n- Project map: no task-mining quality evaluation in deployed app: factory/context/project-map.md L17; GitHub+Vercel reads required, failed reads are gaps L21.\n- Operational plumbing already green locally: pnpm --filter @jira-clone/factory test exit 0, 17/17 pass (mining-output, vercel-context, report) — proves display/gap handling, not proposal quality.\n- Live GitHub complete-empty: issues [] + pulls [] captured 2026-09-12T11:49:23Z for software-factory-workshop/jira-clone; Vercel project+deployments reads for cockpit+jira all ConnectionAuthorizationFailedError — deployed revision unproven.\n\n**Existing work:** Builds on excluded fx calibration runner (factory/mining/) and deployed native-Eve station (apps/factory/agent/agent.ts, tools/record_findings.ts, app/components/MiningRun.vue, app/utils/mining-output.ts); respects WIP ban on rebuilding fx wrapper and does not duplicate same-prompt replay. Extends tested gap handling (apps/factory/agent/lib/vercel-context.ts L55-56, L18-28) from plumbing to quality.\n\n**Scope**\n- Add one experiment record file (e.g. docs/mining-usefulness-probe.md or factory/reflections/ candidate) with prompts, rubric, raw-output links, and score table\n- Run two bounded investigations on the pinned tree only; no product code, no issue publication, no rule activation, no Vercel/GitHub writes\n\n**Acceptance criteria**\n- Reuses pinned snapshot revision b81899e5d9ecd49b04840c649af0d63e0bbc8188 and records exact prompts, raw outputs, revision, timestamps, and human scorer.\n- Runs exactly two cheap Muse/native-Eve probes: (A) baseline mining prompt, (B) same goal with differently worded focus explicitly asking to separate operational infrastructure (builds, plumbing, auth wiring) from context quality (goal/map/reflection wording) — no new runner, inventory, or infra code.\n- Scores each run on 5 binary checks: cites observed file/line, checks empty GitHub inventories + work-in-progress.md, cites Vercel revision or names gap, distinguishes fixture/model assertion from verified run, names bounded outcome + how to tell it helped.\n- Publishes one experiment record with before/after + transfer table and conclusion (improved/regressed/inconclusive/environment-blocked) per docs/factory-growth-experiment.md L59-73; makes no factory-rule or instruction change.\n\n**Uncertainties**\n- Remi acceptance of any proposal still pending — human score is proxy, not owner approval.\n- Model variation vs context effect: single replay cannot prove significance; needs repeat only if signal appears.\n- Vercel gap persists in sandbox; transfer claim limited to repo+GitHub reasoning until hosted auth verified.\n\n## Reflection\n\n**helpfulContext**\n- factory/context/goal.md current experiment + usefulness definition + evidence taxonomy\n- factory/context/work-in-progress.md calibration-complete status and fx-wrapper ban\n- factory/context/project-map.md navigation + no-quality-eval note + gap semantics\n- factory/task-mining-station.md native-Eve contract + cost/limits + preflight idea\n- packages/project-context/src/index.ts stages/references/fixtures vs jira-reference.json observations\n- apps/factory/app/utils/mining-output.ts display-boundary + apps/factory/agent/lib/vercel-context.ts scoping/gap logic\n- Live empty issues/pulls receipts and Vercel auth-failure messages distinguishing missing access from empty backlog\n\n**missingContext**\n- Held-out review criteria and raw factory/mining/ runs intentionally excluded from snapshot — treated as unavailable for inspection per map, not as proof of no work.\n- Deployed cockpit/jira revisions and build/runtime logs unavailable due to Vercel user-auth gap — prevents snapshot-vs-deployed comparison.\n\n**contradictions**\n- No direct contradiction: empty GitHub inventories plus active WIP is expected per work-in-progress.md (work can be active without an issue).\n- Apparent staleness: 2026-09-12-context-review.md L9 says UI stage strings describe earlier request-to-work-order roadmap, but packages/project-context/src/index.ts L6-49 now lists Mine/Learn/Make/Check/Improve — suggests fix landed since reflection; needs dated recheck, not a new stage-string proposal.\n\n**suggestedImprovements**\n- Add one line to project-map.md evidence table: operational infrastructure (typecheck/test/build, sandbox, MCP plumbing) vs context quality (goal/map/reflection wording) with pointer to this probe.\n- Render the 5-point usefulness checklist alongside MiningRun evidence gaps so reviewers judge relevance, not just completeness.\n- Document Vercel user-auth preflight for mining so future runs distinguish auth-gap from empty deployments without retrying four failing reads.\n\n## Context gaps\n\n- Vercel project/deployment evidence for both cockpit (prj_ZXLHFUJhgo5EdvSf1IstOMn0ft0A) and jira (prj_C3sDKTOQIOqpIpNO9w7bqcWYkwp4) in team team_Ljrc7ENgQWsCySwCwijvA0zy unavailable in this sandbox: vercel_read for project and deployments on both projects returned ConnectionAuthorizationFailedError (user-scoped connection fell back to local-dev access, requires Vercel user auth / linked CLI OIDC). Deployed revision vs working snapshot b81899e5d9ecd49b04840c649af0d63e0bbc8188 therefore unresolved.\n- Missing Vercel project or deployment evidence for cockpit.\n- Missing Vercel project or deployment evidence for Jira.",
+    "revision": "b81899e5d9ecd49b04840c649af0d63e0bbc8188",
+    "repository": "software-factory-workshop/jira-clone",
+    "model": "meta/muse-spark-1.3-contributor",
+    "team": "demo-software-factory",
+    "capturedAt": "2026-09-12T11:50:32.139Z",
+    "elapsedMs": 107769,
+    "files": [
+      {
+        "file": ".agents/friction-log/20260912094635-adeo-private-package/friction.md",
+        "bytes": 810,
+        "sha256": "8546b934de4c5bf450398d5318ee5fbce6172729789fcf4ef3fa3ba91a2da9cf"
+      },
+      {
+        "file": ".agents/friction-log/20260912104654-task-mining-fx/friction.md",
+        "bytes": 2387,
+        "sha256": "e7b627959e2bcb4c554219ac3eaede835d31b0088a39c905ecff133e47db30f0"
+      },
+      {
+        "file": ".agents/friction-log/20260912114748-hosted-eve-bundle/friction.md",
+        "bytes": 1551,
+        "sha256": "b668cf0a50170ee695911ea1b61ef3de6e37559a5fea2730451769e23c9d27c3"
+      },
+      {
+        "file": ".agents/friction-log/20260912120345-cockpit-labels-a/friction.md",
+        "bytes": 752,
+        "sha256": "376a6b01593aba4a3490845784d79907ddfee224cd93551a1b5c0b93efcfdf68"
+      },
+      {
+        "file": ".agents/friction-log/20260912123711-native-eve-sandbox/friction.md",
+        "bytes": 972,
+        "sha256": "e3a3badeb16f89006f31eeaa035b9bd261482b56d07074e142929cea3c712424"
+      },
+      {
+        "file": ".agents/friction-log/README.md",
+        "bytes": 1388,
+        "sha256": "a851652cb3a26f0daba1dc07c990d46a4c98f79b4be3d14da96d2049b4793bad"
+      },
+      {
+        "file": ".agents/friction-log/config.json",
+        "bytes": 54,
+        "sha256": "622c722ddf6b328b38b9fc703327dac95ca490115068840dce74dfbcd2a59447"
+      },
+      {
+        "file": ".agents/skills/adeo-nuxt-ui/SKILL.md",
+        "bytes": 5070,
+        "sha256": "4dde7c54f022560405e6e1e0de3a0f4b49882b419aa2e723be5ee12ef0f7a428"
+      },
+      {
+        "file": ".agents/skills/adeo-nuxt-ui/agents/openai.yaml",
+        "bytes": 109,
+        "sha256": "6f8c4822add18fad340335f596702864b6c9b8f6f894456def50856ffca8bd47"
+      },
+      {
+        "file": ".agents/skills/adeo-nuxt-ui/references/components.md",
+        "bytes": 3444,
+        "sha256": "2f4974b83a7fe6d93afd38e94e3e087aa282e3f23c791fc88301ab3e1c720f03"
+      },
+      {
+        "file": ".agents/skills/adeo-nuxt-ui/references/private-package.md",
+        "bytes": 2963,
+        "sha256": "044ce2e09e9c92e67b6cdd26f26379ff12ccdb8e9e9e7de8f079a65a70515960"
+      },
+      {
+        "file": ".github/ISSUE_TEMPLATE/friction.yml",
+        "bytes": 1036,
+        "sha256": "6ca7ae13790f3b6d279bf812881ccb36934c5357bb76be22eb2d7c0b904fc55d"
+      },
+      {
+        "file": ".github/workflows/check.yml",
+        "bytes": 1176,
+        "sha256": "a33a31581d9c87099d89466da8fe3282233c9942db4a838a9b7d7c2a4873484c"
+      },
+      {
+        "file": ".gitignore",
+        "bytes": 91,
+        "sha256": "d72307891adc07e68ab82a2940ce6ba3099a238d7f5e915e337a1d3056b43bcc"
+      },
+      {
+        "file": ".npmrc",
+        "bytes": 63,
+        "sha256": "aa2af2b2b1b553ec10228b6cc1042d464e1874b16dadafbbd70b2beeef72f0fd"
+      },
+      {
+        "file": "AGENTS.md",
+        "bytes": 1531,
+        "sha256": "046c51781553f68c666cf9af454743fc263917c21fcbc08e27e559264bfd18e4"
+      },
+      {
+        "file": "README.md",
+        "bytes": 3802,
+        "sha256": "a3f5043acc735b4359dd82dd4b856a6e77b774dbaf9ca6b7132228ece9e45015"
+      },
+      {
+        "file": "apps/factory/.gitignore",
+        "bytes": 14,
+        "sha256": "6fe16e5e5dad9408c6a9082604c816d8067641ae1b5e59aceb90eb51c1088c63"
+      },
+      {
+        "file": "apps/factory/agent/agent.ts",
+        "bytes": 508,
+        "sha256": "7318d292c4ef8290770c367d0b3a24fc61d70273815bc409aec4ebae9ad3eebc"
+      },
+      {
+        "file": "apps/factory/agent/channels/eve.ts",
+        "bytes": 1350,
+        "sha256": "3436e010e1ccb23678bb01613cae7cd938ba78be88e346ef493abda6bc885c82"
+      },
+      {
+        "file": "apps/factory/agent/hooks/stop-after-turn.ts",
+        "bytes": 350,
+        "sha256": "f3e8681cc8c49943d043c23e0d9d09c503c615f5b43d3b68f236e80cd1085621"
+      },
+      {
+        "file": "apps/factory/agent/instructions.md",
+        "bytes": 3723,
+        "sha256": "5aa2e5cf5633ec7e12537f00be2799ef19ae1fa0f01a9e9e5135a2c03a0ccafc"
+      },
+      {
+        "file": "apps/factory/agent/lib/command-evidence.ts",
+        "bytes": 441,
+        "sha256": "e63a0fe512e08cf829fde8adb71215c5f426352869f6d37fa7454763afbe4a1e"
+      },
+      {
+        "file": "apps/factory/agent/lib/github-input.mjs",
+        "bytes": 609,
+        "sha256": "fda8d9a21e30b91f452168892cef5af5f30dbfd155d8bde0cedb129acabd006a"
+      },
+      {
+        "file": "apps/factory/agent/lib/github.d.mts",
+        "bytes": 777,
+        "sha256": "176cc1fd79bcaf417047edac61272f285d36fea722acba566e871a857349948b"
+      },
+      {
+        "file": "apps/factory/agent/lib/github.mjs",
+        "bytes": 4435,
+        "sha256": "8e426863a66bd925ce87ad5670d2797f3ce08f2a508025b43f1ecacf72bb3192"
+      },
+      {
+        "file": "apps/factory/agent/lib/mining-state.ts",
+        "bytes": 944,
+        "sha256": "6acfdb8bd00785c3fb6df3c0700cc5cee20e594a41af2a071b2a0864bfad043a"
+      },
+      {
+        "file": "apps/factory/agent/lib/prepare-context.ts",
+        "bytes": 1792,
+        "sha256": "e9679528623029b988b658138b55cc1022bababe5560640f01d7b2e67eb66188"
+      },
+      {
+        "file": "apps/factory/agent/lib/vercel-context.ts",
+        "bytes": 5867,
+        "sha256": "c464a52c83f6fc908c057bc8775b37826e8f2ba749f2fcd1480c43e5e98ddb0e"
+      },
+      {
+        "file": "apps/factory/agent/sandbox.ts",
+        "bytes": 419,
+        "sha256": "2b394b725ad8ef1bf2040a65728429717ea8c697b6a13dc2080cf4203d655015"
+      },
+      {
+        "file": "apps/factory/agent/tools/bash.ts",
+        "bytes": 1067,
+        "sha256": "828f34461434796a0788fac6e29f05ae315328c296f000290a9cd018586fd241"
+      },
+      {
+        "file": "apps/factory/agent/tools/github_read.ts",
+        "bytes": 792,
+        "sha256": "7da86802a714f5466098d7de22e3fba0158b1d8d1f82980634cb2f8a83be93b4"
+      },
+      {
+        "file": "apps/factory/agent/tools/glob.ts",
+        "bytes": 42,
+        "sha256": "b4e6b821a41515b50cdda45c6d5a05a18b93a628c5ecca96436fbd76a30353a6"
+      },
+      {
+        "file": "apps/factory/agent/tools/grep.ts",
+        "bytes": 42,
+        "sha256": "9f2bc9e240f68b3135d4a2dd34c17ace36f885058a8e6c10eb747b5c9eccdffb"
+      },
+      {
+        "file": "apps/factory/agent/tools/prepare_context.ts",
+        "bytes": 1577,
+        "sha256": "10a4e7969a0c6db4efddabf1b169d2a83959bfb6811e7a6476638ad396d2448d"
+      },
+      {
+        "file": "apps/factory/agent/tools/read_file.ts",
+        "bytes": 47,
+        "sha256": "c8873b55468593f4ca7fe679f61476165fcef9ad6ddf07e6019991c7791c2cec"
+      },
+      {
+        "file": "apps/factory/agent/tools/record_findings.ts",
+        "bytes": 4037,
+        "sha256": "49b370a5230011b4cd1d59ae885b75c7a25e44889cc12075fa11ea3fa9d53704"
+      },
+      {
+        "file": "apps/factory/agent/tools/vercel_read.ts",
+        "bytes": 1539,
+        "sha256": "84e1e9278632a8cadb9e7a21ad241c9ffd05e11a51bd901bc7e1e9edd82a75b2"
+      },
+      {
+        "file": "apps/factory/app/app.vue",
+        "bytes": 15768,
+        "sha256": "4f5129b48803e7d62af9342431470d1933cb585216c49a068c35bf1589bffa72"
+      },
+      {
+        "file": "apps/factory/app/assets/css/main.css",
+        "bytes": 8125,
+        "sha256": "668f029ece4d9b001171f567359c33513abaf3b6fb1f09f0bcbdb5798e041d63"
+      },
+      {
+        "file": "apps/factory/app/components/MiningRun.vue",
+        "bytes": 12941,
+        "sha256": "1763d775b7464da5d588c8c39e84429b594bab3d1c8008a05e32fe26cea7091a"
+      },
+      {
+        "file": "apps/factory/app/components/MiningStation.vue",
+        "bytes": 3812,
+        "sha256": "4798281ac75d589bc5f72f85e9f3398be81c9469f2966950bc36a06ea77e6035"
+      },
+      {
+        "file": "apps/factory/app/utils/mining-output.ts",
+        "bytes": 2507,
+        "sha256": "d4d50f4a205f34473ed0b46ea263791ae267f499b7626f0a646af3ff8ed72617"
+      },
+      {
+        "file": "apps/factory/app/utils/report.ts",
+        "bytes": 287,
+        "sha256": "7ec08798a7c2381f8fbeadeda5cbc369ace61dcda82e70ecc31361fc1fbc6818"
+      },
+      {
+        "file": "apps/factory/nuxt.config.ts",
+        "bytes": 627,
+        "sha256": "c7353b698afccf2426e0c675c77d53905d29b2e1fa6c1158e1095f75755cbf11"
+      },
+      {
+        "file": "apps/factory/package.json",
+        "bytes": 929,
+        "sha256": "1849388b681cfbee2c24f5528b60ba83581f5ea5a7edc8d3aaa4b9e583eb3331"
+      },
+      {
+        "file": "apps/factory/scripts/build-eve.mjs",
+        "bytes": 182,
+        "sha256": "9578d081788dc80f3885edeee97b0afd0bfddb84207aaaa31ce0bf1b0f9ef973"
+      },
+      {
+        "file": "apps/factory/server/api/github.get.ts",
+        "bytes": 2152,
+        "sha256": "8cd7deb451376bfa8b1c4304162b64b120fc6cbdadf65e4f19331e30cda2577c"
+      },
+      {
+        "file": "apps/factory/tests/mining-output.test.ts",
+        "bytes": 3028,
+        "sha256": "0e90cafd566c2ac57e08ca78088e476f452e77ff4a9f96164496b4ca70eeb629"
+      },
+      {
+        "file": "apps/factory/tests/native-context.test.ts",
+        "bytes": 1846,
+        "sha256": "053f3083af816ba2296c27eca7823779c85d5d53cdd222987e878b9597c644e1"
+      },
+      {
+        "file": "apps/factory/tests/report.test.ts",
+        "bytes": 639,
+        "sha256": "6a391df4f9dd0aed6bfcb339e034257ac90c6e1524897d076ff1224b34b82426"
+      },
+      {
+        "file": "apps/factory/tests/vercel-context.test.ts",
+        "bytes": 3035,
+        "sha256": "d08f4be45dab84e2308dcff5ca87527ac53c1a98b29fe7b99fda59487d714608"
+      },
+      {
+        "file": "apps/factory/tsconfig.agent.json",
+        "bytes": 294,
+        "sha256": "c62042c1cad5ee092da6b05fbe40a84aa9e75a96c7088dce832576a9417e59cf"
+      },
+      {
+        "file": "apps/factory/tsconfig.json",
+        "bytes": 39,
+        "sha256": "a684b644d6d28a7636a0b6bdfb45b0264d8daeea226f8c01e953da02afc938a8"
+      },
+      {
+        "file": "apps/jira/.gitignore",
+        "bytes": 14,
+        "sha256": "6fe16e5e5dad9408c6a9082604c816d8067641ae1b5e59aceb90eb51c1088c63"
+      },
+      {
+        "file": "apps/jira/app/app.vue",
+        "bytes": 7129,
+        "sha256": "2cd746f66554e6465d48c3a4e7c9c30e8909d49ef34264d925ce3b9f117e13bf"
+      },
+      {
+        "file": "apps/jira/app/assets/css/main.css",
+        "bytes": 5068,
+        "sha256": "09429dbdaa499179b5b40f6e75e8aa41d601df9e8eb0ef439ac40b4bd476666b"
+      },
+      {
+        "file": "apps/jira/nuxt.config.ts",
+        "bytes": 510,
+        "sha256": "2d98528e9166f2dda92d5860adf15c6339dd912c4e3726e31e776ebc2e225723"
+      },
+      {
+        "file": "apps/jira/package.json",
+        "bytes": 541,
+        "sha256": "1fc19e7bcc2cacac548ce524f907fc8c26f2f149b892a855cd8eb83a2d183c8d"
+      },
+      {
+        "file": "apps/jira/tsconfig.json",
+        "bytes": 39,
+        "sha256": "a684b644d6d28a7636a0b6bdfb45b0264d8daeea226f8c01e953da02afc938a8"
+      },
+      {
+        "file": "docs/cockpit.md",
+        "bytes": 5332,
+        "sha256": "66368aad74116bd8adffcc88d90b65ba0587dd567f7e361d70e6f13f370dbb33"
+      },
+      {
+        "file": "docs/factory-growth-experiment.md",
+        "bytes": 8469,
+        "sha256": "5e87184b93881e0a187e783becf7bc0f41e54e33e31cfdc97f4a9af06f3f478b"
+      },
+      {
+        "file": "docs/verification.md",
+        "bytes": 6130,
+        "sha256": "90f350b0f9ee673eb8b18389a9e66fed5ad2513d8e1bd1d327cf93030fabd7be"
+      },
+      {
+        "file": "factory/README.md",
+        "bytes": 1789,
+        "sha256": "afce606a1b15b98a16ecefb38dba1dcefdeb77315ffac5fa709f1527c0f20faa"
+      },
+      {
+        "file": "factory/context/goal.md",
+        "bytes": 5653,
+        "sha256": "d3db5346c8012def6a51c516debbdaeadff7bb926ac2432b4257a2c897bd1ff6"
+      },
+      {
+        "file": "factory/context/project-map.md",
+        "bytes": 4364,
+        "sha256": "acca3ee454b2fc7a759b79e4691d77e7826c0ff9f2c8b326ddb3d4f1ebe2aab7"
+      },
+      {
+        "file": "factory/context/work-in-progress.md",
+        "bytes": 3092,
+        "sha256": "12d363b73c1ba619f8d788ca070376307a030bce2f6286791dde7a7e1d7ebf86"
+      },
+      {
+        "file": "factory/reflections/2026-09-12-context-review.md",
+        "bytes": 2865,
+        "sha256": "0f7db2df8dd030f35aa63f3a281fd0c7a96216d60fbfeaf58ea48e7751499057"
+      },
+      {
+        "file": "factory/reflections/2026-09-12-hosted-runtime-verification.md",
+        "bytes": 2285,
+        "sha256": "bd20763324bbcca56d6b01dc9ecb05cb8a7172a00f0d579ced530a07a2805c9a"
+      },
+      {
+        "file": "factory/reflections/2026-09-12-snapshot-boundaries.md",
+        "bytes": 2402,
+        "sha256": "3402a4a1ab0e11ae9c5014352216811675cebecc24f0ccc0b8dcbb5dfc50f83f"
+      },
+      {
+        "file": "factory/task-mining-station.md",
+        "bytes": 7233,
+        "sha256": "126090a407c51a023845914b525ff5ba38c56ac0791e73680877ddac568ef7c7"
+      },
+      {
+        "file": "package.json",
+        "bytes": 476,
+        "sha256": "ee805367b2a11375ffa4a036a5251ea57775770fd4f689578ab83c1907b8468c"
+      },
+      {
+        "file": "packages/project-context/package.json",
+        "bytes": 183,
+        "sha256": "3e4f831c24e67297f1ad7030a7f548653dbb7a4f27d3bf410f7078fe546efc94"
+      },
+      {
+        "file": "packages/project-context/src/index.ts",
+        "bytes": 6194,
+        "sha256": "82289f04ce5ba500dc380817cad1fad1555bb1de75c3a9986ff52c7d11e2d1ab"
+      },
+      {
+        "file": "packages/project-context/src/jira-reference.json",
+        "bytes": 1175,
+        "sha256": "a3d038a403a375b0fde1f85567b82799f141dd5b27c88d724456333f840ac3b0"
+      },
+      {
+        "file": "packages/project-context/tests/drafts.test.ts",
+        "bytes": 544,
+        "sha256": "7de9cadf35ff9babc4679c877b70da995688fb5df14a2edd2f8b7350405bc110"
+      },
+      {
+        "file": "pnpm-lock.yaml",
+        "bytes": 381495,
+        "sha256": "42ecb9c38391b972ff6702972ec374193a08a48dcd690d6b007dd3bfa18522be"
+      },
+      {
+        "file": "pnpm-workspace.yaml",
+        "bytes": 116,
+        "sha256": "725f4f254706e83f63b79ac8d47ffb270a30bd4585e70c5be5184d26e7265b80"
+      },
+      {
+        "file": "turbo.json",
+        "bytes": 531,
+        "sha256": "ee4a5f84d73f2bd314947d679491a7fd15e7e02bbacf2776575d494dcf806bc8"
+      },
+      {
+        "file": "vendor/README.md",
+        "bytes": 547,
+        "sha256": "a1ea66d55173ad2333d2e70995aaf17010e1dca36665e068af0984ab97c03d86"
+      },
+      {
+        "file": "vendor/software-factory-workshop-nuxt-adeo-ds-0.1.1.tgz",
+        "bytes": 16204,
+        "sha256": "f0146d2666651c65e190f33781ee7f2020eb3318b9147d69766dba6ac7113ea7"
+      }
+    ],
+    "githubReads": [
+      {
+        "repository": "software-factory-workshop/jira-clone",
+        "resource": "pulls",
+        "capturedAt": "2026-09-12T11:49:23.169Z",
+        "complete": true,
+        "count": 0
+      },
+      {
+        "repository": "software-factory-workshop/jira-clone",
+        "resource": "issues",
+        "capturedAt": "2026-09-12T11:49:23.170Z",
+        "complete": true,
+        "count": 0
+      }
+    ],
+    "vercelReads": [],
+    "commands": [
+      {
+        "command": "set -eu; mkdir -p \"$HOME/.local/bin\"; npm install --prefix \"$HOME/.local\" --no-audit --no-fund node@24.21.0 pnpm@10.33.4; ln -sf \"$HOME/.local/node_modules/node/bin/node\" \"$HOME/.local/bin/node\"; ln -sf \"$HOME/.local/node_modules/pnpm/bin/pnpm.cjs\" \"$HOME/.local/bin/pnpm\"; export PATH=\"$HOME/.local/bin:$PATH\"; cd /workspace/repo; node --version; pnpm --version; pnpm install --frozen-lockfile",
+        "exitCode": 0,
+        "stdout": "\nadded 3 packages in 4s\nv24.21.0\n10.33.4\nScope: all 4 workspace projects\nLockfile is up to date, resolution step is skipped\nProgress: resolved 1, reused 0, downloaded 0, added 0\nPackages: +832\n++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++\n\n   ╭─────────────────────────────────────────╮\n   │                                         │\n   │   Update available! 10.33.4 → 12.4.1.   │\n   │   Changelog: https://pnpm.io/v/12.4.1   │\n   │    To update, run: pnpm self-update     │\n   │                                         │\n   ╰─────────────────────────────────────────╯\n\nProgress: resolved 832, reused 0, downloaded 165, added 65\nProgress: resolved 832, reused 0, downloaded 397, added 168\nProgress: resolved 832, reused 0, downloaded 750, added 330\nProgress: resolved 832, reused 0, downloaded 819, added 514\nProgress: resolved 832, reused 0, downloaded 819, added 832, done\n.../esbuild@0.28.2/node_modules/esbuild postinstall$ node install.js\n.../esbuild@0.27.7/node_modules/esbuild postinstall$ node install.js\n.../esbuild@0.28.2/node_modules/esbuild postinstall: Done\n.../esbuild@0.27.7/node_modules/esbuild postinstall: Done\n\ndevDependencies:\n+ turbo 2.10.12\n+ typescript 5.9.3\n\napps/jira prepare$ nuxt prepare\napps/factory prepare$ nuxt prepare\napps/jira prepare: ℹ Nuxt Icon server bundle mode is set to local\napps/jira prepare: [nuxt:icon] ✔ Nuxt Icon discovered local-installed 1 collections: lucide\napps/jira prepare: ℹ Nuxt Icon client bundle consist of 43 icons with 10.40KB(uncompressed) in size\napps/factory prepare: ℹ Nuxt Icon server bundle mode is set to local\napps/factory prepare: [nuxt:icon] ✔ Nuxt Icon discovered local-installed 1 collections: lucide\napps/jira prepare: │\napps/jira prepare: ◆  Types generated in .nuxt.\napps/jira prepare: Done\napps/factory prepare: ℹ Nuxt Icon client bundle consist of 43 icons with 10.40KB(uncompressed) in size\napps/factory prepare: │\napps/factory prepare: ◆  Types generated in .nuxt.\napps/factory prepare: Done\n╭ Warning ─────────────────────────────────────────────────────────────────────╮\n│                                                                              │\n│   Ignored build scripts: vue-demi@0.14.10.                                   │\n│   Run \"pnpm approve-builds\" to pick which dependencies should be allowed     │\n│   to run scripts.                                                            │\n│                                                                              │\n╰──────────────────────────────────────────────────────────────────────────────╯\nDone in 8.3s using pnpm v10.33.4\n",
+        "stderr": "npm warn install-scripts 1 package has install scripts not yet covered by allowScripts:\nnpm warn install-scripts   node@24.21.0 (preinstall: node installArchSpecificPackage)\nnpm warn install-scripts\nnpm warn install-scripts Run `npm install-scripts ls` to review, or `npm install-scripts approve <pkg>` to allow.\nnpm notice\nnpm notice New major version of npm available! 11.19.0 -> 12.0.2\nnpm notice Changelog: https://github.com/npm/cli/releases/tag/v12.0.2\nnpm notice To update run: npm install -g npm@12.0.2\nnpm notice\n",
+        "capturedAt": "2026-09-12T11:49:10.988Z",
+        "truncated": false
+      },
+      {
+        "command": "export PATH=\"$HOME/.local/bin:$PATH\"; cd /workspace/repo; cd /workspace/repo && node --version && pnpm --version",
+        "exitCode": 0,
+        "stdout": "v24.21.0\n10.33.4\n",
+        "stderr": "",
+        "capturedAt": "2026-09-12T11:49:23.737Z",
+        "truncated": false
+      },
+      {
+        "command": "export PATH=\"$HOME/.local/bin:$PATH\"; cd /workspace/repo; cd /workspace/repo && pnpm --filter @jira-clone/factory exec vitest run tests/mining-output.test.ts 2>&1 | tail -n 40",
+        "exitCode": 0,
+        "stdout": "undefined\n/workspace/repo/apps/factory:\n ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command \"vitest\" not found\n",
+        "stderr": "",
+        "capturedAt": "2026-09-12T11:49:39.370Z",
+        "truncated": false
+      },
+      {
+        "command": "export PATH=\"$HOME/.local/bin:$PATH\"; cd /workspace/repo; cd /workspace/repo && pnpm --filter @jira-clone/factory test 2>&1 | tail -n 60",
+        "exitCode": 0,
+        "stdout": "\n> @jira-clone/factory@ test /workspace/repo/apps/factory\n> node --test tests/*.test.ts\n\n✔ replays historical fx reports and normalizes GitHub inventory counts (3.893602ms)\n✔ retains native incomplete findings and actual reproduction failures (2.069487ms)\n✔ shows incomplete findings when preparation did not obtain a revision (0.442091ms)\n✔ rejects malformed evidence rather than manufacturing valid source links (0.431107ms)\n✔ native tool progress reflects the latest tool without exposing command input (0.69603ms)\n✔ authorization links permit secure provider redirects but reject script URLs (0.172684ms)\n✔ runnable snapshot includes locked and vendored inputs but excludes calibration answers and secrets (1.078295ms)\n✔ binary source provenance hashes exact bytes (0.756248ms)\n✔ command evidence preserves failure exit code and flags bounded output (0.47642ms)\n✔ Gateway refuses ambient API keys even with a correctly scoped OIDC token (0.621182ms)\n✔ model reports cannot inject HTML, script links or remote images (5.959362ms)\n✔ Vercel inputs cannot supply another team, project ID or URL (2.494323ms)\n✔ Vercel queries inject fixed scope and retain incomplete pagination (2.277904ms)\n✔ build logs require deployment ownership before calling log tool (0.758821ms)\n✔ unsupported runtime logs stay a context gap without a remote call (0.231647ms)\n✔ MCP failures are not successful empty inventories (0.25688ms)\n✔ successful retry clears only that resource gap and preserves all evidence (0.272235ms)\nℹ tests 17\nℹ suites 0\nℹ pass 17\nℹ fail 0\nℹ cancelled 0\nℹ skipped 0\nℹ todo 0\nℹ duration_ms 312.318882\n",
+        "stderr": "",
+        "capturedAt": "2026-09-12T11:49:54.223Z",
+        "truncated": false
+      }
+    ],
+    "contextGaps": [
+      "Vercel project/deployment evidence for both cockpit (prj_ZXLHFUJhgo5EdvSf1IstOMn0ft0A) and jira (prj_C3sDKTOQIOqpIpNO9w7bqcWYkwp4) in team team_Ljrc7ENgQWsCySwCwijvA0zy unavailable in this sandbox: vercel_read for project and deployments on both projects returned ConnectionAuthorizationFailedError (user-scoped connection fell back to local-dev access, requires Vercel user auth / linked CLI OIDC). Deployed revision vs working snapshot b81899e5d9ecd49b04840c649af0d63e0bbc8188 therefore unresolved.",
+      "Missing Vercel project or deployment evidence for cockpit.",
+      "Missing Vercel project or deployment evidence for Jira."
+    ],
+    "proposals": [
+      {
+        "title": "Pilot a two-prompt transfer probe for mining usefulness (context-quality, not infra)",
+        "outcome": "One repeatable 30-minute transfer probe that teaches context engineering: whether a one-paragraph operational-vs-context hint changes mining usefulness on the original prompt and transfers to a reworded prompt.",
+        "whyNow": "Plumbing is proven (17 tests pass, gap handling typed) but quality is unmeasured in-app; goal's near-term question is whether a fresh agent suggests work Remi would consider without reconstructing conversation. Smallest leverage is a human-scored A/B + transfer sample, not more infrastructure.",
+        "evidence": [
+          "Goal defines usefulness as proposal Remi would consider and completed-run != useful proposal: factory/context/goal.md L13,L17; missing-source rule L25.",
+          "WIP says baseline same-prompt + transfer complete, scores withheld, do not recreate runner/inventory/replay: factory/context/work-in-progress.md L7-L13; artifacts in factory/mining/ excluded.",
+          "Project map: no task-mining quality evaluation in deployed app: factory/context/project-map.md L17; GitHub+Vercel reads required, failed reads are gaps L21.",
+          "Operational plumbing already green locally: pnpm --filter @jira-clone/factory test exit 0, 17/17 pass (mining-output, vercel-context, report) — proves display/gap handling, not proposal quality.",
+          "Live GitHub complete-empty: issues [] + pulls [] captured 2026-09-12T11:49:23Z for software-factory-workshop/jira-clone; Vercel project+deployments reads for cockpit+jira all ConnectionAuthorizationFailedError — deployed revision unproven."
+        ],
+        "existingWork": "Builds on excluded fx calibration runner (factory/mining/) and deployed native-Eve station (apps/factory/agent/agent.ts, tools/record_findings.ts, app/components/MiningRun.vue, app/utils/mining-output.ts); respects WIP ban on rebuilding fx wrapper and does not duplicate same-prompt replay. Extends tested gap handling (apps/factory/agent/lib/vercel-context.ts L55-56, L18-28) from plumbing to quality.",
+        "scope": [
+          "Add one experiment record file (e.g. docs/mining-usefulness-probe.md or factory/reflections/ candidate) with prompts, rubric, raw-output links, and score table",
+          "Run two bounded investigations on the pinned tree only; no product code, no issue publication, no rule activation, no Vercel/GitHub writes"
+        ],
+        "acceptanceCriteria": [
+          "Reuses pinned snapshot revision b81899e5d9ecd49b04840c649af0d63e0bbc8188 and records exact prompts, raw outputs, revision, timestamps, and human scorer.",
+          "Runs exactly two cheap Muse/native-Eve probes: (A) baseline mining prompt, (B) same goal with differently worded focus explicitly asking to separate operational infrastructure (builds, plumbing, auth wiring) from context quality (goal/map/reflection wording) — no new runner, inventory, or infra code.",
+          "Scores each run on 5 binary checks: cites observed file/line, checks empty GitHub inventories + work-in-progress.md, cites Vercel revision or names gap, distinguishes fixture/model assertion from verified run, names bounded outcome + how to tell it helped.",
+          "Publishes one experiment record with before/after + transfer table and conclusion (improved/regressed/inconclusive/environment-blocked) per docs/factory-growth-experiment.md L59-73; makes no factory-rule or instruction change."
+        ],
+        "uncertainties": [
+          "Remi acceptance of any proposal still pending — human score is proxy, not owner approval.",
+          "Model variation vs context effect: single replay cannot prove significance; needs repeat only if signal appears.",
+          "Vercel gap persists in sandbox; transfer claim limited to repo+GitHub reasoning until hosted auth verified."
+        ]
+      }
+    ],
+    "reflection": {
+      "helpfulContext": [
+        "factory/context/goal.md current experiment + usefulness definition + evidence taxonomy",
+        "factory/context/work-in-progress.md calibration-complete status and fx-wrapper ban",
+        "factory/context/project-map.md navigation + no-quality-eval note + gap semantics",
+        "factory/task-mining-station.md native-Eve contract + cost/limits + preflight idea",
+        "packages/project-context/src/index.ts stages/references/fixtures vs jira-reference.json observations",
+        "apps/factory/app/utils/mining-output.ts display-boundary + apps/factory/agent/lib/vercel-context.ts scoping/gap logic",
+        "Live empty issues/pulls receipts and Vercel auth-failure messages distinguishing missing access from empty backlog"
+      ],
+      "missingContext": [
+        "Held-out review criteria and raw factory/mining/ runs intentionally excluded from snapshot — treated as unavailable for inspection per map, not as proof of no work.",
+        "Deployed cockpit/jira revisions and build/runtime logs unavailable due to Vercel user-auth gap — prevents snapshot-vs-deployed comparison."
+      ],
+      "contradictions": [
+        "No direct contradiction: empty GitHub inventories plus active WIP is expected per work-in-progress.md (work can be active without an issue).",
+        "Apparent staleness: 2026-09-12-context-review.md L9 says UI stage strings describe earlier request-to-work-order roadmap, but packages/project-context/src/index.ts L6-49 now lists Mine/Learn/Make/Check/Improve — suggests fix landed since reflection; needs dated recheck, not a new stage-string proposal."
+      ],
+      "suggestedImprovements": [
+        "Add one line to project-map.md evidence table: operational infrastructure (typecheck/test/build, sandbox, MCP plumbing) vs context quality (goal/map/reflection wording) with pointer to this probe.",
+        "Render the 5-point usefulness checklist alongside MiningRun evidence gaps so reviewers judge relevance, not just completeness.",
+        "Document Vercel user-auth preflight for mining so future runs distinguish auth-gap from empty deployments without retrying four failing reads."
+      ]
+    },
+    "executionSurface": "native-eve",
+    "source": "git-revision"
+  }
+}

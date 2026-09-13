@@ -1,0 +1,3622 @@
+{
+  "sessionId": "wrun_41M2ASGX7J0GQQ5XJY7ETJ54F7",
+  "deploymentId": "dpl_2PuzWWXcCHrePBy9R3ovrdXFgoWB",
+  "retrieval": "Supported Eve session stream through scoped Vercel CLI; read only",
+  "terminalState": "turn.completed then session.waiting; no step/turn/session failures",
+  "review": {
+    "limitation": "Agent called build_logs without deploymentId and did not recover after receiving guidance. It also overstated the need for hosted/runtime evidence to size browser-local feedback. Incomplete is report evidence status, not a failed turn."
+  },
+  "findings": {
+    "phase": "Incomplete",
+    "report": "## 1. Capture browser-local usefulness feedback on mining proposals (pending Remi review)\n\nBrowser-local useful / not-useful capture on mining proposals to give Remi a lightweight usefulness signal without implementation or publication.\n\n**Why now:** Goal defines a useful proposal but usefulness judgment is still pending owner review; operational gates passed do not establish proposal quality (work-in-progress.md:7, goal.md:15).\n\n**Evidence**\n- factory/context/work-in-progress.md:19-22 lists 'Capture browser-local usefulness feedback' as existing candidate awaiting Remi review, not accepted work\n- docs/verification.md:19,27 focused baseline wrun_01M2AQ0E5CN1HVCD71RC6TPGD5 proposed usefulness-feedback capture; owner usefulness judgment remains pending\n- apps/factory/app/components/MiningRun.vue:88-101 proposal cards render outcome/whyNow/evidence with 'Use this proposal' but no usefulness judgment control\n- apps/factory/app/app.vue:24-30,56-73 drafts remain browser-local via adeo-factory-drafts-v1; API does not claim shared persistence\n- GitHub issues complete 2026-09-12T12:30:29Z: 1 open item PR #1 cockpit APIs; no issue tracks feedback capture\n- Vercel cockpit production dpl_2PuzWWXcCHrePBy9R3ovrdXFgoWB READY at 3b6b8fad matches snapshot revision\n\n**Existing work:** Pending candidate from native baseline and hosted review (docs/verification.md:10,58); not implemented. PR #1 covers cockpit APIs/drafts but adds no feedback control. Do not reintroduce as newly discovered.\n\n**Scope**\n- Add per-proposal judgment control in MiningRun proposal card only\n- Store locally alongside drafts; no backend, no auto-publish, no factory-rule change\n- Document in verification.md as proposal, not owner acceptance\n\n**Acceptance criteria**\n- Remi can mark a proposal useful / not-useful with optional reason without publishing anything\n- Signal stays browser-local by design like drafts; no shared persistence claimed\n- Reviewed reflection notes whether the signal would transfer to a shared eval\n\n**Uncertainties**\n- Remi taste: whether binary signal plus reason is enough to judge usefulness\n- Whether browser-local signal transfers to shared eval or stays personal\n- Hosted handoff still unverified, so placement may need adjustment after live observation\n\n## Reflection\n\n**helpfulContext**\n- goal.md factory-first test: Jira work justified only when it tests/teaches factory now\n- work-in-progress.md pending-status correction prevents treating empty GitHub list as greenfield\n- verification.md dated native/hosted history distinguishes operational gates from owner acceptance\n- MiningRun.vue + app.vue show proposal-to-draft is browser-local by design\n\n**missingContext**\n- No GitHub issue/PR or comment thread tracks either candidate; PR #1 is unrelated cockpit APIs \u2014 absence is informational, not evidence of no work per work-in-progress.md\n- Per-deployment build logs not sampled (build_logs requires deploymentId); deployments list confirms READY revisions\n- Held-out evals and Git history excluded from snapshot by design; not inspected\n\n**contradictions**\nNone recorded.\n\n**suggestedImprovements**\n- Ask Remi whether binary useful/not-useful plus optional reason suffices, or a different question would test transfer\n- Ask Remi which workshop demo slice would settle scope: issue/board read-only vs accounts/permissions vs API parity subset\n\n## Context gaps\n\n- Choose a deployment ID from this project's deployment evidence before reading logs.\n- Hosted native report-to-draft handoff and Vercel runtime-log sample for production deployments dpl_2PuzWWXcCHrePBy9R3ovrdXFgoWB (cockpit) / dpl_A5oFTnQ7QVrEanjQYKraG7Fs9H17 (jira) not inspected in this run; needed to confirm where usefulness feedback would be seen and that deployed behavior matches snapshot before sizing implementation.",
+    "revision": "3b6b8fad73f30200548cc9c641cb4e4723db4682",
+    "repository": "software-factory-workshop/jira-clone",
+    "model": "meta/muse-spark-1.3-contributor",
+    "team": "demo-software-factory",
+    "capturedAt": "2026-09-12T12:31:11.477Z",
+    "elapsedMs": 75976,
+    "files": [
+      {
+        "file": ".agents/friction-log/20260912094635-adeo-private-package/friction.md",
+        "bytes": 810,
+        "sha256": "8546b934de4c5bf450398d5318ee5fbce6172729789fcf4ef3fa3ba91a2da9cf"
+      },
+      {
+        "file": ".agents/friction-log/20260912104654-task-mining-fx/friction.md",
+        "bytes": 2387,
+        "sha256": "e7b627959e2bcb4c554219ac3eaede835d31b0088a39c905ecff133e47db30f0"
+      },
+      {
+        "file": ".agents/friction-log/20260912114748-hosted-eve-bundle/friction.md",
+        "bytes": 1551,
+        "sha256": "b668cf0a50170ee695911ea1b61ef3de6e37559a5fea2730451769e23c9d27c3"
+      },
+      {
+        "file": ".agents/friction-log/20260912120345-cockpit-labels-a/friction.md",
+        "bytes": 752,
+        "sha256": "376a6b01593aba4a3490845784d79907ddfee224cd93551a1b5c0b93efcfdf68"
+      },
+      {
+        "file": ".agents/friction-log/README.md",
+        "bytes": 1388,
+        "sha256": "a851652cb3a26f0daba1dc07c990d46a4c98f79b4be3d14da96d2049b4793bad"
+      },
+      {
+        "file": ".agents/friction-log/config.json",
+        "bytes": 54,
+        "sha256": "622c722ddf6b328b38b9fc703327dac95ca490115068840dce74dfbcd2a59447"
+      },
+      {
+        "file": ".agents/skills/adeo-nuxt-ui/SKILL.md",
+        "bytes": 5070,
+        "sha256": "4dde7c54f022560405e6e1e0de3a0f4b49882b419aa2e723be5ee12ef0f7a428"
+      },
+      {
+        "file": ".agents/skills/adeo-nuxt-ui/agents/openai.yaml",
+        "bytes": 109,
+        "sha256": "6f8c4822add18fad340335f596702864b6c9b8f6f894456def50856ffca8bd47"
+      },
+      {
+        "file": ".agents/skills/adeo-nuxt-ui/references/components.md",
+        "bytes": 3444,
+        "sha256": "2f4974b83a7fe6d93afd38e94e3e087aa282e3f23c791fc88301ab3e1c720f03"
+      },
+      {
+        "file": ".agents/skills/adeo-nuxt-ui/references/private-package.md",
+        "bytes": 2963,
+        "sha256": "044ce2e09e9c92e67b6cdd26f26379ff12ccdb8e9e9e7de8f079a65a70515960"
+      },
+      {
+        "file": ".github/ISSUE_TEMPLATE/friction.yml",
+        "bytes": 1036,
+        "sha256": "6ca7ae13790f3b6d279bf812881ccb36934c5357bb76be22eb2d7c0b904fc55d"
+      },
+      {
+        "file": ".github/workflows/check.yml",
+        "bytes": 1176,
+        "sha256": "a33a31581d9c87099d89466da8fe3282233c9942db4a838a9b7d7c2a4873484c"
+      },
+      {
+        "file": ".gitignore",
+        "bytes": 91,
+        "sha256": "d72307891adc07e68ab82a2940ce6ba3099a238d7f5e915e337a1d3056b43bcc"
+      },
+      {
+        "file": ".npmrc",
+        "bytes": 63,
+        "sha256": "aa2af2b2b1b553ec10228b6cc1042d464e1874b16dadafbbd70b2beeef72f0fd"
+      },
+      {
+        "file": "AGENTS.md",
+        "bytes": 1531,
+        "sha256": "046c51781553f68c666cf9af454743fc263917c21fcbc08e27e559264bfd18e4"
+      },
+      {
+        "file": "README.md",
+        "bytes": 3802,
+        "sha256": "a3f5043acc735b4359dd82dd4b856a6e77b774dbaf9ca6b7132228ece9e45015"
+      },
+      {
+        "file": "apps/factory/.gitignore",
+        "bytes": 14,
+        "sha256": "6fe16e5e5dad9408c6a9082604c816d8067641ae1b5e59aceb90eb51c1088c63"
+      },
+      {
+        "file": "apps/factory/agent/agent.ts",
+        "bytes": 508,
+        "sha256": "7318d292c4ef8290770c367d0b3a24fc61d70273815bc409aec4ebae9ad3eebc"
+      },
+      {
+        "file": "apps/factory/agent/channels/eve.ts",
+        "bytes": 1350,
+        "sha256": "3436e010e1ccb23678bb01613cae7cd938ba78be88e346ef493abda6bc885c82"
+      },
+      {
+        "file": "apps/factory/agent/hooks/stop-after-turn.ts",
+        "bytes": 350,
+        "sha256": "f3e8681cc8c49943d043c23e0d9d09c503c615f5b43d3b68f236e80cd1085621"
+      },
+      {
+        "file": "apps/factory/agent/instructions.md",
+        "bytes": 3723,
+        "sha256": "5aa2e5cf5633ec7e12537f00be2799ef19ae1fa0f01a9e9e5135a2c03a0ccafc"
+      },
+      {
+        "file": "apps/factory/agent/lib/command-evidence.ts",
+        "bytes": 441,
+        "sha256": "e63a0fe512e08cf829fde8adb71215c5f426352869f6d37fa7454763afbe4a1e"
+      },
+      {
+        "file": "apps/factory/agent/lib/github-input.mjs",
+        "bytes": 609,
+        "sha256": "fda8d9a21e30b91f452168892cef5af5f30dbfd155d8bde0cedb129acabd006a"
+      },
+      {
+        "file": "apps/factory/agent/lib/github.d.mts",
+        "bytes": 777,
+        "sha256": "176cc1fd79bcaf417047edac61272f285d36fea722acba566e871a857349948b"
+      },
+      {
+        "file": "apps/factory/agent/lib/github.mjs",
+        "bytes": 4435,
+        "sha256": "8e426863a66bd925ce87ad5670d2797f3ce08f2a508025b43f1ecacf72bb3192"
+      },
+      {
+        "file": "apps/factory/agent/lib/mining-state.ts",
+        "bytes": 944,
+        "sha256": "6acfdb8bd00785c3fb6df3c0700cc5cee20e594a41af2a071b2a0864bfad043a"
+      },
+      {
+        "file": "apps/factory/agent/lib/prepare-context.ts",
+        "bytes": 1792,
+        "sha256": "e9679528623029b988b658138b55cc1022bababe5560640f01d7b2e67eb66188"
+      },
+      {
+        "file": "apps/factory/agent/lib/proposals.ts",
+        "bytes": 1994,
+        "sha256": "422f15f54187703fdd540a3c59c33e22baf223be505397c3a6431cb6048fa251"
+      },
+      {
+        "file": "apps/factory/agent/lib/vercel-context.ts",
+        "bytes": 6650,
+        "sha256": "c0b9ca929f3905b8d16e5cc44540bf3402f35090ffb27e66c5cbecd1c3193b2a"
+      },
+      {
+        "file": "apps/factory/agent/sandbox.ts",
+        "bytes": 419,
+        "sha256": "2b394b725ad8ef1bf2040a65728429717ea8c697b6a13dc2080cf4203d655015"
+      },
+      {
+        "file": "apps/factory/agent/tools/bash.ts",
+        "bytes": 1067,
+        "sha256": "828f34461434796a0788fac6e29f05ae315328c296f000290a9cd018586fd241"
+      },
+      {
+        "file": "apps/factory/agent/tools/github_read.ts",
+        "bytes": 792,
+        "sha256": "7da86802a714f5466098d7de22e3fba0158b1d8d1f82980634cb2f8a83be93b4"
+      },
+      {
+        "file": "apps/factory/agent/tools/glob.ts",
+        "bytes": 42,
+        "sha256": "b4e6b821a41515b50cdda45c6d5a05a18b93a628c5ecca96436fbd76a30353a6"
+      },
+      {
+        "file": "apps/factory/agent/tools/grep.ts",
+        "bytes": 42,
+        "sha256": "9f2bc9e240f68b3135d4a2dd34c17ace36f885058a8e6c10eb747b5c9eccdffb"
+      },
+      {
+        "file": "apps/factory/agent/tools/prepare_context.ts",
+        "bytes": 1577,
+        "sha256": "10a4e7969a0c6db4efddabf1b169d2a83959bfb6811e7a6476638ad396d2448d"
+      },
+      {
+        "file": "apps/factory/agent/tools/read_file.ts",
+        "bytes": 47,
+        "sha256": "c8873b55468593f4ca7fe679f61476165fcef9ad6ddf07e6019991c7791c2cec"
+      },
+      {
+        "file": "apps/factory/agent/tools/record_findings.ts",
+        "bytes": 3677,
+        "sha256": "817af16a727b71359f55ab9a921d70f5ac886107075a5e62e5ae873fba5bb466"
+      },
+      {
+        "file": "apps/factory/agent/tools/vercel_read.ts",
+        "bytes": 1588,
+        "sha256": "14ab92786b75152bf294a678afa6e04b59f460a72f37e79b8a878feb84b149ca"
+      },
+      {
+        "file": "apps/factory/app/app.vue",
+        "bytes": 15768,
+        "sha256": "4f5129b48803e7d62af9342431470d1933cb585216c49a068c35bf1589bffa72"
+      },
+      {
+        "file": "apps/factory/app/assets/css/main.css",
+        "bytes": 8125,
+        "sha256": "668f029ece4d9b001171f567359c33513abaf3b6fb1f09f0bcbdb5798e041d63"
+      },
+      {
+        "file": "apps/factory/app/components/MiningRun.vue",
+        "bytes": 16842,
+        "sha256": "861e0f33bc8e896e14b34cccbe7b4dbfdcb58565a716808df7c2156e69032808"
+      },
+      {
+        "file": "apps/factory/app/components/MiningStation.vue",
+        "bytes": 3812,
+        "sha256": "4798281ac75d589bc5f72f85e9f3398be81c9469f2966950bc36a06ea77e6035"
+      },
+      {
+        "file": "apps/factory/app/utils/mining-output.ts",
+        "bytes": 5109,
+        "sha256": "f6aa976234f88866308786fe425023e2de5bac373457c9c154d50a74c74dbeff"
+      },
+      {
+        "file": "apps/factory/app/utils/report.ts",
+        "bytes": 287,
+        "sha256": "7ec08798a7c2381f8fbeadeda5cbc369ace61dcda82e70ecc31361fc1fbc6818"
+      },
+      {
+        "file": "apps/factory/nuxt.config.ts",
+        "bytes": 627,
+        "sha256": "c7353b698afccf2426e0c675c77d53905d29b2e1fa6c1158e1095f75755cbf11"
+      },
+      {
+        "file": "apps/factory/package.json",
+        "bytes": 886,
+        "sha256": "6b830ce4406c7b4d24111bea69d6c9104a75685ec28247533950103d422d9937"
+      },
+      {
+        "file": "apps/factory/scripts/build-eve.mjs",
+        "bytes": 182,
+        "sha256": "9578d081788dc80f3885edeee97b0afd0bfddb84207aaaa31ce0bf1b0f9ef973"
+      },
+      {
+        "file": "apps/factory/server/api/github.get.ts",
+        "bytes": 2152,
+        "sha256": "8cd7deb451376bfa8b1c4304162b64b120fc6cbdadf65e4f19331e30cda2577c"
+      },
+      {
+        "file": "apps/factory/tests/mining-output.test.ts",
+        "bytes": 5688,
+        "sha256": "79bdff6a22c9e221bda8ca67afb7b82f86d4c7596d02e405e8ad65ec56e4afb7"
+      },
+      {
+        "file": "apps/factory/tests/native-context.test.ts",
+        "bytes": 1846,
+        "sha256": "053f3083af816ba2296c27eca7823779c85d5d53cdd222987e878b9597c644e1"
+      },
+      {
+        "file": "apps/factory/tests/proposals.test.ts",
+        "bytes": 2364,
+        "sha256": "08bcbe3002339e36fc1725ddd95829228dea3816b2f6993361bb654d355c9de2"
+      },
+      {
+        "file": "apps/factory/tests/report.test.ts",
+        "bytes": 639,
+        "sha256": "6a391df4f9dd0aed6bfcb339e034257ac90c6e1524897d076ff1224b34b82426"
+      },
+      {
+        "file": "apps/factory/tests/vercel-context.test.ts",
+        "bytes": 4462,
+        "sha256": "8b7544b601af1bc1bb2c4c9316aa8d06a81dd25d964c3099bbca7a92fea1a01c"
+      },
+      {
+        "file": "apps/factory/tsconfig.agent.json",
+        "bytes": 294,
+        "sha256": "c62042c1cad5ee092da6b05fbe40a84aa9e75a96c7088dce832576a9417e59cf"
+      },
+      {
+        "file": "apps/factory/tsconfig.json",
+        "bytes": 39,
+        "sha256": "a684b644d6d28a7636a0b6bdfb45b0264d8daeea226f8c01e953da02afc938a8"
+      },
+      {
+        "file": "apps/jira/.gitignore",
+        "bytes": 14,
+        "sha256": "6fe16e5e5dad9408c6a9082604c816d8067641ae1b5e59aceb90eb51c1088c63"
+      },
+      {
+        "file": "apps/jira/app/app.vue",
+        "bytes": 7129,
+        "sha256": "2cd746f66554e6465d48c3a4e7c9c30e8909d49ef34264d925ce3b9f117e13bf"
+      },
+      {
+        "file": "apps/jira/app/assets/css/main.css",
+        "bytes": 5068,
+        "sha256": "09429dbdaa499179b5b40f6e75e8aa41d601df9e8eb0ef439ac40b4bd476666b"
+      },
+      {
+        "file": "apps/jira/nuxt.config.ts",
+        "bytes": 510,
+        "sha256": "2d98528e9166f2dda92d5860adf15c6339dd912c4e3726e31e776ebc2e225723"
+      },
+      {
+        "file": "apps/jira/package.json",
+        "bytes": 541,
+        "sha256": "1fc19e7bcc2cacac548ce524f907fc8c26f2f149b892a855cd8eb83a2d183c8d"
+      },
+      {
+        "file": "apps/jira/tsconfig.json",
+        "bytes": 39,
+        "sha256": "a684b644d6d28a7636a0b6bdfb45b0264d8daeea226f8c01e953da02afc938a8"
+      },
+      {
+        "file": "docs/cockpit.md",
+        "bytes": 5332,
+        "sha256": "66368aad74116bd8adffcc88d90b65ba0587dd567f7e361d70e6f13f370dbb33"
+      },
+      {
+        "file": "docs/factory-growth-experiment.md",
+        "bytes": 8469,
+        "sha256": "5e87184b93881e0a187e783becf7bc0f41e54e33e31cfdc97f4a9af06f3f478b"
+      },
+      {
+        "file": "docs/vercel-machine-access.md",
+        "bytes": 2672,
+        "sha256": "860e4898c75b02b457e75440915c2677716012c6dc0d659570f5630d8adb1798"
+      },
+      {
+        "file": "docs/verification.md",
+        "bytes": 14274,
+        "sha256": "739f6a429932be6d14455d3e396e71ec382f2d3787dbf3edcbacd2017ae788b8"
+      },
+      {
+        "file": "factory/README.md",
+        "bytes": 1789,
+        "sha256": "afce606a1b15b98a16ecefb38dba1dcefdeb77315ffac5fa709f1527c0f20faa"
+      },
+      {
+        "file": "factory/context/goal.md",
+        "bytes": 5653,
+        "sha256": "d3db5346c8012def6a51c516debbdaeadff7bb926ac2432b4257a2c897bd1ff6"
+      },
+      {
+        "file": "factory/context/project-map.md",
+        "bytes": 4684,
+        "sha256": "b03b93337786357fbf5e0bc0df15312aae32b86d67860182b286411915c2f3cd"
+      },
+      {
+        "file": "factory/context/work-in-progress.md",
+        "bytes": 4839,
+        "sha256": "bf4b06fa46ffda761d6394211e2b505421a88309a2dc284b7de37e98a5a6a11c"
+      },
+      {
+        "file": "factory/reflections/2026-09-12-context-review.md",
+        "bytes": 2865,
+        "sha256": "0f7db2df8dd030f35aa63f3a281fd0c7a96216d60fbfeaf58ea48e7751499057"
+      },
+      {
+        "file": "factory/reflections/2026-09-12-focused-native-context.md",
+        "bytes": 2823,
+        "sha256": "b0fe44ce4cadc1716ac6ac2593be218c39184c76ba6cfd0ebffb6d7dbc237e87"
+      },
+      {
+        "file": "factory/reflections/2026-09-12-hosted-runtime-verification.md",
+        "bytes": 2285,
+        "sha256": "bd20763324bbcca56d6b01dc9ecb05cb8a7172a00f0d579ced530a07a2805c9a"
+      },
+      {
+        "file": "factory/reflections/2026-09-12-snapshot-boundaries.md",
+        "bytes": 2402,
+        "sha256": "3402a4a1ab0e11ae9c5014352216811675cebecc24f0ccc0b8dcbb5dfc50f83f"
+      },
+      {
+        "file": "factory/task-mining-station.md",
+        "bytes": 9492,
+        "sha256": "f38f3be3af28f852a56176745a57c33df81db878ec79f2e906fb570988228bd7"
+      },
+      {
+        "file": "package.json",
+        "bytes": 476,
+        "sha256": "ee805367b2a11375ffa4a036a5251ea57775770fd4f689578ab83c1907b8468c"
+      },
+      {
+        "file": "packages/project-context/package.json",
+        "bytes": 183,
+        "sha256": "3e4f831c24e67297f1ad7030a7f548653dbb7a4f27d3bf410f7078fe546efc94"
+      },
+      {
+        "file": "packages/project-context/src/index.ts",
+        "bytes": 6194,
+        "sha256": "82289f04ce5ba500dc380817cad1fad1555bb1de75c3a9986ff52c7d11e2d1ab"
+      },
+      {
+        "file": "packages/project-context/src/jira-reference.json",
+        "bytes": 1175,
+        "sha256": "a3d038a403a375b0fde1f85567b82799f141dd5b27c88d724456333f840ac3b0"
+      },
+      {
+        "file": "packages/project-context/tests/drafts.test.ts",
+        "bytes": 544,
+        "sha256": "7de9cadf35ff9babc4679c877b70da995688fb5df14a2edd2f8b7350405bc110"
+      },
+      {
+        "file": "pnpm-lock.yaml",
+        "bytes": 365065,
+        "sha256": "f353a53faab2b9b48531b4bedfe38282095429f2e50ea0582c9d9b249f485bb7"
+      },
+      {
+        "file": "pnpm-workspace.yaml",
+        "bytes": 116,
+        "sha256": "725f4f254706e83f63b79ac8d47ffb270a30bd4585e70c5be5184d26e7265b80"
+      },
+      {
+        "file": "turbo.json",
+        "bytes": 531,
+        "sha256": "ee4a5f84d73f2bd314947d679491a7fd15e7e02bbacf2776575d494dcf806bc8"
+      },
+      {
+        "file": "vendor/README.md",
+        "bytes": 547,
+        "sha256": "a1ea66d55173ad2333d2e70995aaf17010e1dca36665e068af0984ab97c03d86"
+      },
+      {
+        "file": "vendor/software-factory-workshop-nuxt-adeo-ds-0.1.1.tgz",
+        "bytes": 16204,
+        "sha256": "f0146d2666651c65e190f33781ee7f2020eb3318b9147d69766dba6ac7113ea7"
+      }
+    ],
+    "githubReads": [
+      {
+        "repository": "software-factory-workshop/jira-clone",
+        "resource": "issues",
+        "capturedAt": "2026-09-12T12:30:29.132Z",
+        "complete": true,
+        "count": 1
+      },
+      {
+        "repository": "software-factory-workshop/jira-clone",
+        "resource": "pulls",
+        "capturedAt": "2026-09-12T12:30:29.136Z",
+        "complete": true,
+        "count": 1
+      }
+    ],
+    "vercelReads": [
+      {
+        "resource": "project",
+        "projectId": "prj_ZXLHFUJhgo5EdvSf1IstOMn0ft0A",
+        "capturedAt": "2026-09-12T12:30:28.958Z",
+        "complete": true,
+        "items": [
+          {
+            "id": "prj_ZXLHFUJhgo5EdvSf1IstOMn0ft0A",
+            "name": "adeo-factory-cockpit",
+            "framework": "nuxtjs",
+            "link": {
+              "type": "github",
+              "repo": "jira-clone",
+              "repoId": 1367117048,
+              "org": "software-factory-workshop",
+              "repoOwnerId": 328069519,
+              "gitCredentialId": "cred_a32c829d0c1653c338e3414805a9166de446f28d",
+              "productionBranch": "main",
+              "createdAt": 1789203418675,
+              "updatedAt": 1789203418675,
+              "deployHooks": []
+            },
+            "updatedAt": 1789216076268
+          }
+        ]
+      },
+      {
+        "resource": "project",
+        "projectId": "prj_C3sDKTOQIOqpIpNO9w7bqcWYkwp4",
+        "capturedAt": "2026-09-12T12:30:29.060Z",
+        "complete": true,
+        "items": [
+          {
+            "id": "prj_C3sDKTOQIOqpIpNO9w7bqcWYkwp4",
+            "name": "adeo-jira-clone",
+            "framework": "nuxtjs",
+            "link": {
+              "type": "github",
+              "repo": "jira-clone",
+              "repoId": 1367117048,
+              "org": "software-factory-workshop",
+              "repoOwnerId": 328069519,
+              "gitCredentialId": "cred_a32c829d0c1653c338e3414805a9166de446f28d",
+              "productionBranch": "main",
+              "createdAt": 1789203435863,
+              "updatedAt": 1789203435863,
+              "deployHooks": []
+            },
+            "updatedAt": 1789216066058
+          }
+        ]
+      },
+      {
+        "resource": "deployments",
+        "projectId": "prj_ZXLHFUJhgo5EdvSf1IstOMn0ft0A",
+        "capturedAt": "2026-09-12T12:30:35.885Z",
+        "complete": true,
+        "items": [
+          {
+            "uid": "dpl_2PuzWWXcCHrePBy9R3ovrdXFgoWB",
+            "url": "adeo-factory-cockpit-gnpoxr11r-demo-software-factory.vercel.app",
+            "state": "READY",
+            "readyState": "READY",
+            "created": 1789216044479,
+            "createdAt": 1789216044479,
+            "meta": {
+              "githubCommitAuthorName": "R\u00e9mi Connesson",
+              "githubCommitAuthorEmail": "remiconnesson2@gmail.com",
+              "githubCommitMessage": "Record verified machine access and token rotation boundary",
+              "githubCommitOrg": "software-factory-workshop",
+              "githubCommitRef": "main",
+              "githubCommitRepo": "jira-clone",
+              "githubCommitSha": "3b6b8fad73f30200548cc9c641cb4e4723db4682",
+              "githubDeployment": "1",
+              "githubOrg": "software-factory-workshop",
+              "githubRepo": "jira-clone",
+              "githubRepoOwnerType": "Organization",
+              "githubCommitRepoId": "1367117048",
+              "githubRepoId": "1367117048",
+              "githubRepoVisibility": "private",
+              "githubHost": "github.com",
+              "githubCommitAuthorLogin": "remiconnesson",
+              "githubCommitVerification": "verified",
+              "repoPushedAt": "1789216042000",
+              "branchAlias": "adeo-factory-cockpit-git-main-demo-software-factory.vercel.app",
+              "lambdaRuntimeStats": "{\"nodejs\":3}"
+            },
+            "target": "production",
+            "projectId": "prj_ZXLHFUJhgo5EdvSf1IstOMn0ft0A"
+          },
+          {
+            "uid": "dpl_7DMQ9yRGYvWXFjsGCn6ScjunmKW5",
+            "url": "adeo-factory-cockpit-6tv88n91u-demo-software-factory.vercel.app",
+            "state": "READY",
+            "readyState": "READY",
+            "created": 1789215650161,
+            "createdAt": 1789215650161,
+            "meta": {
+              "githubCommitAuthorName": "R\u00e9mi Connesson",
+              "githubCommitAuthorEmail": "remiconnesson2@gmail.com",
+              "githubCommitMessage": "Expose cockpit UI capabilities through tested APIs",
+              "githubCommitOrg": "software-factory-workshop",
+              "githubCommitRef": "feat/cockpit-api",
+              "githubCommitRepo": "jira-clone",
+              "githubCommitSha": "71ed287d9f2612d17289ffeaa3544e2fb7be5058",
+              "githubDeployment": "1",
+              "githubOrg": "software-factory-workshop",
+              "githubRepo": "jira-clone",
+              "githubRepoOwnerType": "Organization",
+              "githubCommitRepoId": "1367117048",
+              "githubRepoId": "1367117048",
+              "githubRepoVisibility": "private",
+              "githubHost": "github.com",
+              "githubCommitAuthorLogin": "remiconnesson",
+              "githubCommitVerification": "verified",
+              "repoPushedAt": "1789215647000",
+              "branchAlias": "adeo-factory-cockpit-git-feat-cockpit-api-demo-software-factory.vercel.app",
+              "githubPrId": "1",
+              "lambdaRuntimeStats": "{\"nodejs\":3}"
+            },
+            "target": null,
+            "projectId": "prj_ZXLHFUJhgo5EdvSf1IstOMn0ft0A"
+          },
+          {
+            "uid": "dpl_DcEVGkTeiAn7rCUa5XHjD1tqHAk9",
+            "url": "adeo-factory-cockpit-cew9szrr8-demo-software-factory.vercel.app",
+            "state": "READY",
+            "readyState": "READY",
+            "created": 1789214046761,
+            "createdAt": 1789214046761,
+            "meta": {
+              "githubCommitAuthorName": "R\u00e9mi Connesson",
+              "githubCommitAuthorEmail": "remiconnesson2@gmail.com",
+              "githubCommitMessage": "Capture context lessons and remaining native verification gaps",
+              "githubCommitOrg": "software-factory-workshop",
+              "githubCommitRef": "main",
+              "githubCommitRepo": "jira-clone",
+              "githubCommitSha": "aae9e140f3bbcaaa9cdfc97497ff0c1a31fc13f6",
+              "githubDeployment": "1",
+              "githubOrg": "software-factory-workshop",
+              "githubRepo": "jira-clone",
+              "githubRepoOwnerType": "Organization",
+              "githubCommitRepoId": "1367117048",
+              "githubRepoId": "1367117048",
+              "githubRepoVisibility": "private",
+              "githubHost": "github.com",
+              "githubCommitAuthorLogin": "remiconnesson",
+              "githubCommitVerification": "verified",
+              "repoPushedAt": "1789214044000",
+              "branchAlias": "adeo-factory-cockpit-git-main-demo-software-factory.vercel.app",
+              "lambdaRuntimeStats": "{\"nodejs\":3}"
+            },
+            "target": "production",
+            "projectId": "prj_ZXLHFUJhgo5EdvSf1IstOMn0ft0A"
+          },
+          {
+            "uid": "dpl_GZmFobFugQ6CXpmGNiY4X57KDpz1",
+            "url": "adeo-factory-cockpit-104od2klb-demo-software-factory.vercel.app",
+            "state": "READY",
+            "readyState": "READY",
+            "created": 1789213799196,
+            "createdAt": 1789213799196,
+            "meta": {
+              "githubCommitAuthorName": "R\u00e9mi Connesson",
+              "githubCommitAuthorEmail": "remiconnesson2@gmail.com",
+              "githubCommitMessage": "Record native mining experiments and separate fx evidence",
+              "githubCommitOrg": "software-factory-workshop",
+              "githubCommitRef": "main",
+              "githubCommitRepo": "jira-clone",
+              "githubCommitSha": "c1d7974cf7c16f7c993af1b4938b3493b8bbf3eb",
+              "githubDeployment": "1",
+              "githubOrg": "software-factory-workshop",
+              "githubRepo": "jira-clone",
+              "githubRepoOwnerType": "Organization",
+              "githubCommitRepoId": "1367117048",
+              "githubRepoId": "1367117048",
+              "githubRepoVisibility": "private",
+              "githubHost": "github.com",
+              "githubCommitAuthorLogin": "remiconnesson",
+              "githubCommitVerification": "verified",
+              "repoPushedAt": "1789213796000",
+              "branchAlias": "adeo-factory-cockpit-git-main-demo-software-factory.vercel.app",
+              "lambdaRuntimeStats": "{\"nodejs\":3}"
+            },
+            "target": "production",
+            "projectId": "prj_ZXLHFUJhgo5EdvSf1IstOMn0ft0A"
+          },
+          {
+            "uid": "dpl_A3iiXVyKQRh9Td8CcYynvbrGNcVj",
+            "url": "adeo-factory-cockpit-def9d2wfi-demo-software-factory.vercel.app",
+            "state": "READY",
+            "readyState": "READY",
+            "created": 1789213596094,
+            "createdAt": 1789213596094,
+            "meta": {
+              "githubCommitAuthorName": "R\u00e9mi Connesson",
+              "githubCommitAuthorEmail": "remiconnesson2@gmail.com",
+              "githubCommitMessage": "Focus investigations and distinguish required context gaps",
+              "githubCommitOrg": "software-factory-workshop",
+              "githubCommitRef": "main",
+              "githubCommitRepo": "jira-clone",
+              "githubCommitSha": "b81899e5d9ecd49b04840c649af0d63e0bbc8188",
+              "githubDeployment": "1",
+              "githubOrg": "software-factory-workshop",
+              "githubRepo": "jira-clone",
+              "githubRepoOwnerType": "Organization",
+              "githubCommitRepoId": "1367117048",
+              "githubRepoId": "1367117048",
+              "githubRepoVisibility": "private",
+              "githubHost": "github.com",
+              "githubCommitAuthorLogin": "remiconnesson",
+              "githubCommitVerification": "verified",
+              "repoPushedAt": "1789213593000",
+              "branchAlias": "adeo-factory-cockpit-git-main-demo-software-factory.vercel.app",
+              "lambdaRuntimeStats": "{\"nodejs\":3}"
+            },
+            "target": "production",
+            "projectId": "prj_ZXLHFUJhgo5EdvSf1IstOMn0ft0A"
+          },
+          {
+            "uid": "dpl_CsY2o6tfUWR8qG6zn1R6qTFXmtNq",
+            "url": "adeo-factory-cockpit-fo8owxwg9-demo-software-factory.vercel.app",
+            "state": "READY",
+            "readyState": "READY",
+            "created": 1789213460116,
+            "createdAt": 1789213460116,
+            "meta": {
+              "githubCommitAuthorName": "R\u00e9mi Connesson",
+              "githubCommitAuthorEmail": "remiconnesson2@gmail.com",
+              "githubCommitMessage": "Give native mining reports room to finish and clarify context",
+              "githubCommitOrg": "software-factory-workshop",
+              "githubCommitRef": "main",
+              "githubCommitRepo": "jira-clone",
+              "githubCommitSha": "42d335cbb0827b1d17d6be3d84c946b105533161",
+              "githubDeployment": "1",
+              "githubOrg": "software-factory-workshop",
+              "githubRepo": "jira-clone",
+              "githubRepoOwnerType": "Organization",
+              "githubCommitRepoId": "1367117048",
+              "githubRepoId": "1367117048",
+              "githubRepoVisibility": "private",
+              "githubHost": "github.com",
+              "githubCommitAuthorLogin": "remiconnesson",
+              "githubCommitVerification": "verified",
+              "repoPushedAt": "1789213457000",
+              "branchAlias": "adeo-factory-cockpit-git-main-demo-software-factory.vercel.app",
+              "lambdaRuntimeStats": "{\"nodejs\":3}"
+            },
+            "target": "production",
+            "projectId": "prj_ZXLHFUJhgo5EdvSf1IstOMn0ft0A"
+          },
+          {
+            "uid": "dpl_Dgny13cgdu8vSH4ZjTRKxWoJss2T",
+            "url": "adeo-factory-cockpit-pi2khe5a1-demo-software-factory.vercel.app",
+            "state": "READY",
+            "readyState": "READY",
+            "created": 1789213234448,
+            "createdAt": 1789213234448,
+            "meta": {
+              "githubCommitAuthorName": "R\u00e9mi Connesson",
+              "githubCommitAuthorEmail": "remiconnesson2@gmail.com",
+              "githubCommitMessage": "Focus mining context on user outcomes and evidence",
+              "githubCommitOrg": "software-factory-workshop",
+              "githubCommitRef": "main",
+              "githubCommitRepo": "jira-clone",
+              "githubCommitSha": "1bbd2ae4721592ed98fac5dedcb62e89a040d4ec",
+              "githubDeployment": "1",
+              "githubOrg": "software-factory-workshop",
+              "githubRepo": "jira-clone",
+              "githubRepoOwnerType": "Organization",
+              "githubCommitRepoId": "1367117048",
+              "githubRepoId": "1367117048",
+              "githubRepoVisibility": "private",
+              "githubHost": "github.com",
+              "githubCommitAuthorLogin": "remiconnesson",
+              "githubCommitVerification": "verified",
+              "repoPushedAt": "1789213232000",
+              "branchAlias": "adeo-factory-cockpit-git-main-demo-software-factory.vercel.app",
+              "lambdaRuntimeStats": "{\"nodejs\":3}"
+            },
+            "target": "production",
+            "projectId": "prj_ZXLHFUJhgo5EdvSf1IstOMn0ft0A"
+          },
+          {
+            "uid": "dpl_5ECabGgL2MKREt73TXEnRBFkfxvJ",
+            "url": "adeo-factory-cockpit-at2s00kbz-demo-software-factory.vercel.app",
+            "state": "READY",
+            "readyState": "READY",
+            "created": 1789213203491,
+            "createdAt": 1789213203491,
+            "meta": {
+              "githubCommitAuthorName": "R\u00e9mi Connesson",
+              "githubCommitAuthorEmail": "remiconnesson2@gmail.com",
+              "githubCommitMessage": "Fix native Eve sandbox authentication and context budget",
+              "githubCommitOrg": "software-factory-workshop",
+              "githubCommitRef": "main",
+              "githubCommitRepo": "jira-clone",
+              "githubCommitSha": "4baa031db5dfb61863a7b5b6e2484d1c58bc8de5",
+              "githubDeployment": "1",
+              "githubOrg": "software-factory-workshop",
+              "githubRepo": "jira-clone",
+              "githubRepoOwnerType": "Organization",
+              "githubCommitRepoId": "1367117048",
+              "githubRepoId": "1367117048",
+              "githubRepoVisibility": "private",
+              "githubHost": "github.com",
+              "githubCommitAuthorLogin": "remiconnesson",
+              "githubCommitVerification": "verified",
+              "repoPushedAt": "1789213201000",
+              "branchAlias": "adeo-factory-cockpit-git-main-demo-software-factory.vercel.app",
+              "lambdaRuntimeStats": "{\"nodejs\":3}"
+            },
+            "target": "production",
+            "projectId": "prj_ZXLHFUJhgo5EdvSf1IstOMn0ft0A"
+          },
+          {
+            "uid": "dpl_J5t3ys2pxm7f1FDJTGh145MgvE3K",
+            "url": "adeo-factory-cockpit-jed7btr8e-demo-software-factory.vercel.app",
+            "state": "READY",
+            "readyState": "READY",
+            "created": 1789212922185,
+            "createdAt": 1789212922185,
+            "meta": {
+              "githubCommitAuthorName": "R\u00e9mi Connesson",
+              "githubCommitAuthorEmail": "remiconnesson2@gmail.com",
+              "githubCommitMessage": "Replace fx-backed station with native Eve context investigation",
+              "githubCommitOrg": "software-factory-workshop",
+              "githubCommitRef": "main",
+              "githubCommitRepo": "jira-clone",
+              "githubCommitSha": "a7f5e271321a5f2e6a60495ecbc6ab78b64c923c",
+              "githubDeployment": "1",
+              "githubOrg": "software-factory-workshop",
+              "githubRepo": "jira-clone",
+              "githubRepoOwnerType": "Organization",
+              "githubCommitRepoId": "1367117048",
+              "githubRepoId": "1367117048",
+              "githubRepoVisibility": "private",
+              "githubHost": "github.com",
+              "githubCommitAuthorLogin": "remiconnesson",
+              "githubCommitVerification": "verified",
+              "repoPushedAt": "1789212919000",
+              "branchAlias": "adeo-factory-cockpit-git-main-demo-software-factory.vercel.app",
+              "lambdaRuntimeStats": "{\"nodejs\":3}"
+            },
+            "target": "production",
+            "projectId": "prj_ZXLHFUJhgo5EdvSf1IstOMn0ft0A"
+          },
+          {
+            "uid": "dpl_4Paza7iD6W83B5zmLA6BC2FpAaJU",
+            "url": "adeo-factory-cockpit-diq7xpzwv-demo-software-factory.vercel.app",
+            "state": "READY",
+            "readyState": "READY",
+            "created": 1789211127491,
+            "createdAt": 1789211127491,
+            "meta": {
+              "githubCommitAuthorName": "R\u00e9mi Connesson",
+              "githubCommitAuthorEmail": "remiconnesson2@gmail.com",
+              "githubCommitMessage": "Record hosted mining proof and distinguish stream disconnection",
+              "githubCommitOrg": "software-factory-workshop",
+              "githubCommitRef": "main",
+              "githubCommitRepo": "jira-clone",
+              "githubCommitSha": "315ea2e497ce2a5756caec83157e816af325e71e",
+              "githubDeployment": "1",
+              "githubOrg": "software-factory-workshop",
+              "githubRepo": "jira-clone",
+              "githubRepoOwnerType": "Organization",
+              "githubCommitRepoId": "1367117048",
+              "githubRepoId": "1367117048",
+              "githubRepoVisibility": "private",
+              "githubHost": "github.com",
+              "githubCommitAuthorLogin": "remiconnesson",
+              "githubCommitVerification": "verified",
+              "repoPushedAt": "1789211125000",
+              "branchAlias": "adeo-factory-cockpit-git-main-demo-software-factory.vercel.app",
+              "lambdaRuntimeStats": "{\"nodejs\":3}"
+            },
+            "target": "production",
+            "projectId": "prj_ZXLHFUJhgo5EdvSf1IstOMn0ft0A"
+          },
+          {
+            "uid": "dpl_94BpV2bsagEWfBFM3MF8Uey6Qonb",
+            "url": "adeo-factory-cockpit-cfh2r8umj-demo-software-factory.vercel.app",
+            "state": "READY",
+            "readyState": "READY",
+            "created": 1789210704835,
+            "createdAt": 1789210704835,
+            "meta": {
+              "githubCommitAuthorName": "R\u00e9mi Connesson",
+              "githubCommitAuthorEmail": "remiconnesson2@gmail.com",
+              "githubCommitMessage": "Package hidden Workflow assets within the Eve service output",
+              "githubCommitOrg": "software-factory-workshop",
+              "githubCommitRef": "main",
+              "githubCommitRepo": "jira-clone",
+              "githubCommitSha": "e33c7299096312cf8322be00ed0cfe7be8ec11bf",
+              "githubDeployment": "1",
+              "githubOrg": "software-factory-workshop",
+              "githubRepo": "jira-clone",
+              "githubRepoOwnerType": "Organization",
+              "githubCommitRepoId": "1367117048",
+              "githubRepoId": "1367117048",
+              "githubRepoVisibility": "private",
+              "githubHost": "github.com",
+              "githubCommitAuthorLogin": "remiconnesson",
+              "githubCommitVerification": "verified",
+              "repoPushedAt": "1789210702000",
+              "branchAlias": "adeo-factory-cockpit-git-main-demo-software-factory.vercel.app",
+              "lambdaRuntimeStats": "{\"nodejs\":3}"
+            },
+            "target": "production",
+            "projectId": "prj_ZXLHFUJhgo5EdvSf1IstOMn0ft0A"
+          },
+          {
+            "uid": "dpl_ByaPsEL5XuotB7LTtVJ5PKcp3kqt",
+            "url": "adeo-factory-cockpit-e5odwv4f7-demo-software-factory.vercel.app",
+            "state": "ERROR",
+            "readyState": "ERROR",
+            "created": 1789210483840,
+            "createdAt": 1789210483840,
+            "meta": {
+              "githubCommitAuthorName": "R\u00e9mi Connesson",
+              "githubCommitAuthorEmail": "remiconnesson2@gmail.com",
+              "githubCommitMessage": "Verify bridge assets in both Eve and Workflow function bundles",
+              "githubCommitOrg": "software-factory-workshop",
+              "githubCommitRef": "main",
+              "githubCommitRepo": "jira-clone",
+              "githubCommitSha": "1f5b6af6c2f691827c40aa221042afc3d1947918",
+              "githubDeployment": "1",
+              "githubOrg": "software-factory-workshop",
+              "githubRepo": "jira-clone",
+              "githubRepoOwnerType": "Organization",
+              "githubCommitRepoId": "1367117048",
+              "githubRepoId": "1367117048",
+              "githubRepoVisibility": "private",
+              "githubHost": "github.com",
+              "githubCommitAuthorLogin": "remiconnesson",
+              "githubCommitVerification": "verified",
+              "repoPushedAt": "1789210481000",
+              "branchAlias": "adeo-factory-cockpit-git-main-demo-software-factory.vercel.app"
+            },
+            "target": "production",
+            "projectId": "prj_ZXLHFUJhgo5EdvSf1IstOMn0ft0A"
+          },
+          {
+            "uid": "dpl_9JfxuxnkWNNoWu3BRoYiTEsFf3Dc",
+            "url": "adeo-factory-cockpit-2hb6lt352-demo-software-factory.vercel.app",
+            "state": "READY",
+            "readyState": "READY",
+            "created": 1789210111162,
+            "createdAt": 1789210111162,
+            "meta": {
+              "githubCommitAuthorName": "R\u00e9mi Connesson",
+              "githubCommitAuthorEmail": "remiconnesson2@gmail.com",
+              "githubCommitMessage": "Preserve fx bridge assets in the hosted Eve build",
+              "githubCommitOrg": "software-factory-workshop",
+              "githubCommitRef": "main",
+              "githubCommitRepo": "jira-clone",
+              "githubCommitSha": "c0bd993ffc45deb8249557d44c195b3a3b390a10",
+              "githubDeployment": "1",
+              "githubOrg": "software-factory-workshop",
+              "githubRepo": "jira-clone",
+              "githubRepoOwnerType": "Organization",
+              "githubCommitRepoId": "1367117048",
+              "githubRepoId": "1367117048",
+              "githubRepoVisibility": "private",
+              "githubHost": "github.com",
+              "githubCommitAuthorLogin": "remiconnesson",
+              "githubCommitVerification": "verified",
+              "repoPushedAt": "1789210108000",
+              "branchAlias": "adeo-factory-cockpit-git-main-demo-software-factory.vercel.app",
+              "lambdaRuntimeStats": "{\"nodejs\":3}"
+            },
+            "target": "production",
+            "projectId": "prj_ZXLHFUJhgo5EdvSf1IstOMn0ft0A"
+          },
+          {
+            "uid": "dpl_BT7mSzZ9mrNETgv4oj312CridvDT",
+            "url": "adeo-factory-cockpit-linfmm05g-demo-software-factory.vercel.app",
+            "state": "READY",
+            "readyState": "READY",
+            "created": 1789209805322,
+            "createdAt": 1789209805322,
+            "meta": {
+              "githubCommitAuthorName": "R\u00e9mi Connesson",
+              "githubCommitAuthorEmail": "remiconnesson2@gmail.com",
+              "githubCommitMessage": "Ship the Eve task-mining station in the ADEO cockpit",
+              "githubCommitOrg": "software-factory-workshop",
+              "githubCommitRef": "main",
+              "githubCommitRepo": "jira-clone",
+              "githubCommitSha": "14dae90f2b96df13c20428b4b57f22558be5823d",
+              "githubDeployment": "1",
+              "githubOrg": "software-factory-workshop",
+              "githubRepo": "jira-clone",
+              "githubRepoOwnerType": "Organization",
+              "githubCommitRepoId": "1367117048",
+              "githubRepoId": "1367117048",
+              "githubRepoVisibility": "private",
+              "githubHost": "github.com",
+              "githubCommitAuthorLogin": "remiconnesson",
+              "githubCommitVerification": "verified",
+              "repoPushedAt": "1789209802000",
+              "branchAlias": "adeo-factory-cockpit-git-main-demo-software-factory.vercel.app",
+              "lambdaRuntimeStats": "{\"nodejs\":3}"
+            },
+            "target": "production",
+            "projectId": "prj_ZXLHFUJhgo5EdvSf1IstOMn0ft0A"
+          },
+          {
+            "uid": "dpl_31dUWkstFeHdBm9JA14uehd97CCX",
+            "url": "adeo-factory-cockpit-63k732zlm-demo-software-factory.vercel.app",
+            "state": "READY",
+            "readyState": "READY",
+            "created": 1789207309543,
+            "createdAt": 1789207309543,
+            "meta": {
+              "githubCommitAuthorName": "R\u00e9mi Connesson",
+              "githubCommitAuthorEmail": "remiconnesson2@gmail.com",
+              "githubCommitMessage": "Grow task mining through repository context and recorded experiments",
+              "githubCommitOrg": "software-factory-workshop",
+              "githubCommitRef": "main",
+              "githubCommitRepo": "jira-clone",
+              "githubCommitSha": "b555eb05312e577e289c7046eb28f69bb91317a1",
+              "githubDeployment": "1",
+              "githubOrg": "software-factory-workshop",
+              "githubRepo": "jira-clone",
+              "githubRepoOwnerType": "Organization",
+              "githubCommitRepoId": "1367117048",
+              "githubRepoId": "1367117048",
+              "githubRepoVisibility": "private",
+              "githubHost": "github.com",
+              "githubCommitAuthorLogin": "remiconnesson",
+              "githubCommitVerification": "verified",
+              "repoPushedAt": "1789207306000",
+              "branchAlias": "adeo-factory-cockpit-git-main-demo-software-factory.vercel.app",
+              "lambdaRuntimeStats": "{\"nodejs\":1}"
+            },
+            "target": "production",
+            "projectId": "prj_ZXLHFUJhgo5EdvSf1IstOMn0ft0A"
+          },
+          {
+            "uid": "dpl_D1ThVChuvZwGsXekDcP93AVGXmhW",
+            "url": "adeo-factory-cockpit-im4qi1yia-demo-software-factory.vercel.app",
+            "state": "READY",
+            "readyState": "READY",
+            "created": 1789204210799,
+            "createdAt": 1789204210799,
+            "meta": {
+              "githubCommitAuthorName": "R\u00e9mi Connesson",
+              "githubCommitAuthorEmail": "remiconnesson2@gmail.com",
+              "githubCommitMessage": "Note asynchronous task mining direction for cockpit starters",
+              "githubCommitOrg": "software-factory-workshop",
+              "githubCommitRef": "main",
+              "githubCommitRepo": "jira-clone",
+              "githubCommitSha": "9f22e3085969531b8198f831e0c460309ed15e81",
+              "githubDeployment": "1",
+              "githubOrg": "software-factory-workshop",
+              "githubRepo": "jira-clone",
+              "githubRepoOwnerType": "Organization",
+              "githubCommitRepoId": "1367117048",
+              "githubRepoId": "1367117048",
+              "githubRepoVisibility": "private",
+              "githubHost": "github.com",
+              "githubCommitAuthorLogin": "remiconnesson",
+              "githubCommitVerification": "verified",
+              "repoPushedAt": "1789204208000",
+              "branchAlias": "adeo-factory-cockpit-git-main-demo-software-factory.vercel.app",
+              "lambdaRuntimeStats": "{\"nodejs\":1}"
+            },
+            "target": "production",
+            "projectId": "prj_ZXLHFUJhgo5EdvSf1IstOMn0ft0A"
+          },
+          {
+            "uid": "dpl_EXVbut2DxwDgC8534CUN8T5aDo8o",
+            "url": "adeo-factory-cockpit-fbbz8v3nk-demo-software-factory.vercel.app",
+            "state": "READY",
+            "readyState": "READY",
+            "created": 1789204026630,
+            "createdAt": 1789204026630,
+            "meta": {
+              "githubCommitAuthorName": "R\u00e9mi Connesson",
+              "githubCommitAuthorEmail": "remiconnesson2@gmail.com",
+              "githubCommitMessage": "Reveal and focus the request editor when selecting a starter",
+              "githubCommitOrg": "software-factory-workshop",
+              "githubCommitRef": "main",
+              "githubCommitRepo": "jira-clone",
+              "githubCommitSha": "c5d3d1137ef58485972aff2c0a21c7f5e7313615",
+              "githubDeployment": "1",
+              "githubOrg": "software-factory-workshop",
+              "githubRepo": "jira-clone",
+              "githubRepoOwnerType": "Organization",
+              "githubCommitRepoId": "1367117048",
+              "githubRepoId": "1367117048",
+              "githubRepoVisibility": "private",
+              "githubHost": "github.com",
+              "githubCommitAuthorLogin": "remiconnesson",
+              "githubCommitVerification": "verified",
+              "repoPushedAt": "1789204024000",
+              "branchAlias": "adeo-factory-cockpit-git-main-demo-software-factory.vercel.app",
+              "lambdaRuntimeStats": "{\"nodejs\":1}"
+            },
+            "target": "production",
+            "projectId": "prj_ZXLHFUJhgo5EdvSf1IstOMn0ft0A"
+          },
+          {
+            "uid": "dpl_9QswzyiHQGaHxLdUQpejWE7jXStx",
+            "url": "adeo-factory-cockpit-k7285yls9-demo-software-factory.vercel.app",
+            "state": "READY",
+            "readyState": "READY",
+            "created": 1789203700799,
+            "createdAt": 1789203700799,
+            "meta": {
+              "githubCommitAuthorName": "R\u00e9mi Connesson",
+              "githubCommitAuthorEmail": "remiconnesson2@gmail.com",
+              "githubCommitMessage": "Record successful Git deployments and live Connect verification",
+              "githubCommitOrg": "software-factory-workshop",
+              "githubCommitRef": "main",
+              "githubCommitRepo": "jira-clone",
+              "githubCommitSha": "f3d1e6a5e56fda62149d98de6c3deee6ebd7f111",
+              "githubDeployment": "1",
+              "githubOrg": "software-factory-workshop",
+              "githubRepo": "jira-clone",
+              "githubRepoOwnerType": "Organization",
+              "githubCommitRepoId": "1367117048",
+              "githubRepoId": "1367117048",
+              "githubRepoVisibility": "private",
+              "githubHost": "github.com",
+              "githubCommitAuthorLogin": "remiconnesson",
+              "githubCommitVerification": "verified",
+              "repoPushedAt": "1789203698000",
+              "branchAlias": "adeo-factory-cockpit-git-main-demo-software-factory.vercel.app",
+              "lambdaRuntimeStats": "{\"nodejs\":1}"
+            },
+            "target": "production",
+            "projectId": "prj_ZXLHFUJhgo5EdvSf1IstOMn0ft0A"
+          },
+          {
+            "uid": "dpl_9ANqnkGdJ4Qfb27rA9gA8o8xtTS4",
+            "url": "adeo-factory-cockpit-etzdatnya-demo-software-factory.vercel.app",
+            "state": "READY",
+            "readyState": "READY",
+            "created": 1789203586462,
+            "createdAt": 1789203586462,
+            "meta": {
+              "githubCommitAuthorName": "R\u00e9mi Connesson",
+              "githubCommitAuthorEmail": "remiconnesson2@gmail.com",
+              "githubCommitMessage": "Fix connection hydration and record stage-zero verification",
+              "githubCommitOrg": "software-factory-workshop",
+              "githubCommitRef": "main",
+              "githubCommitRepo": "jira-clone",
+              "githubCommitSha": "8308ea9665455e03fa6a994b5b65cf8704975722",
+              "githubDeployment": "1",
+              "githubOrg": "software-factory-workshop",
+              "githubRepo": "jira-clone",
+              "githubRepoOwnerType": "Organization",
+              "githubCommitRepoId": "1367117048",
+              "githubRepoId": "1367117048",
+              "githubRepoVisibility": "private",
+              "githubHost": "github.com",
+              "githubCommitAuthorLogin": "remiconnesson",
+              "githubCommitVerification": "verified",
+              "repoPushedAt": "1789203584000",
+              "branchAlias": "adeo-factory-cockpit-git-main-demo-software-factory.vercel.app",
+              "lambdaRuntimeStats": "{\"nodejs\":1}"
+            },
+            "target": "production",
+            "projectId": "prj_ZXLHFUJhgo5EdvSf1IstOMn0ft0A"
+          },
+          {
+            "uid": "dpl_GpU4rVREEmzjUh5p2ND9mFMcLctR",
+            "url": "adeo-factory-cockpit-bvcusuobt-demo-software-factory.vercel.app",
+            "state": "BLOCKED",
+            "readyState": "BLOCKED",
+            "created": 1789203446190,
+            "createdAt": 1789203446190,
+            "meta": {
+              "githubCommitAuthorName": "R\u00e9mi Connesson",
+              "githubCommitAuthorEmail": "remiconnesson2@gmail.com",
+              "githubCommitMessage": "Bootstrap stage-zero ADEO Jira factory workspace",
+              "githubCommitOrg": "software-factory-workshop",
+              "githubCommitRef": "main",
+              "githubCommitRepo": "jira-clone",
+              "githubCommitSha": "31c17ccf13cd8edc8c4d9e1e23103d469b86350c",
+              "githubDeployment": "1",
+              "githubOrg": "software-factory-workshop",
+              "githubRepo": "jira-clone",
+              "gitRootDirectory": "apps/factory",
+              "actor": "codex"
+            },
+            "target": "production",
+            "projectId": "prj_ZXLHFUJhgo5EdvSf1IstOMn0ft0A"
+          }
+        ],
+        "coverage": "Most recent 20 deployments; older deployment history exists and was not requested."
+      },
+      {
+        "resource": "build_logs",
+        "projectId": "prj_ZXLHFUJhgo5EdvSf1IstOMn0ft0A",
+        "capturedAt": "2026-09-12T12:30:40.694Z",
+        "complete": false,
+        "items": [],
+        "gap": "Choose a deployment ID from this project's deployment evidence before reading logs."
+      },
+      {
+        "resource": "deployments",
+        "projectId": "prj_C3sDKTOQIOqpIpNO9w7bqcWYkwp4",
+        "capturedAt": "2026-09-12T12:30:40.692Z",
+        "complete": true,
+        "items": [
+          {
+            "uid": "dpl_A5oFTnQ7QVrEanjQYKraG7Fs9H17",
+            "url": "adeo-jira-clone-dtmoauzxp-demo-software-factory.vercel.app",
+            "state": "READY",
+            "readyState": "READY",
+            "created": 1789216044286,
+            "createdAt": 1789216044286,
+            "meta": {
+              "githubCommitAuthorName": "R\u00e9mi Connesson",
+              "githubCommitAuthorEmail": "remiconnesson2@gmail.com",
+              "githubCommitMessage": "Record verified machine access and token rotation boundary",
+              "githubCommitOrg": "software-factory-workshop",
+              "githubCommitRef": "main",
+              "githubCommitRepo": "jira-clone",
+              "githubCommitSha": "3b6b8fad73f30200548cc9c641cb4e4723db4682",
+              "githubDeployment": "1",
+              "githubOrg": "software-factory-workshop",
+              "githubRepo": "jira-clone",
+              "githubRepoOwnerType": "Organization",
+              "githubCommitRepoId": "1367117048",
+              "githubRepoId": "1367117048",
+              "githubRepoVisibility": "private",
+              "githubHost": "github.com",
+              "githubCommitAuthorLogin": "remiconnesson",
+              "githubCommitVerification": "verified",
+              "repoPushedAt": "1789216042000",
+              "branchAlias": "adeo-jira-clone-git-main-demo-software-factory.vercel.app",
+              "lambdaRuntimeStats": "{\"nodejs\":1}"
+            },
+            "target": "production",
+            "projectId": "prj_C3sDKTOQIOqpIpNO9w7bqcWYkwp4"
+          },
+          {
+            "uid": "dpl_5qzvnwSPVuvLe9vCCSJEyBRyhsY4",
+            "url": "adeo-jira-clone-ec83hi9pm-demo-software-factory.vercel.app",
+            "state": "READY",
+            "readyState": "READY",
+            "created": 1789215650159,
+            "createdAt": 1789215650159,
+            "meta": {
+              "githubCommitAuthorName": "R\u00e9mi Connesson",
+              "githubCommitAuthorEmail": "remiconnesson2@gmail.com",
+              "githubCommitMessage": "Expose cockpit UI capabilities through tested APIs",
+              "githubCommitOrg": "software-factory-workshop",
+              "githubCommitRef": "feat/cockpit-api",
+              "githubCommitRepo": "jira-clone",
+              "githubCommitSha": "71ed287d9f2612d17289ffeaa3544e2fb7be5058",
+              "githubDeployment": "1",
+              "githubOrg": "software-factory-workshop",
+              "githubRepo": "jira-clone",
+              "githubRepoOwnerType": "Organization",
+              "githubCommitRepoId": "1367117048",
+              "githubRepoId": "1367117048",
+              "githubRepoVisibility": "private",
+              "githubHost": "github.com",
+              "githubCommitAuthorLogin": "remiconnesson",
+              "githubCommitVerification": "verified",
+              "repoPushedAt": "1789215647000",
+              "branchAlias": "adeo-jira-clone-git-feat-cockpit-api-demo-software-factory.vercel.app",
+              "githubPrId": "1",
+              "lambdaRuntimeStats": "{\"nodejs\":1}"
+            },
+            "target": null,
+            "projectId": "prj_C3sDKTOQIOqpIpNO9w7bqcWYkwp4"
+          },
+          {
+            "uid": "dpl_Fsjmk6BF3oH33nTmwKMfZozKFcr2",
+            "url": "adeo-jira-clone-pd8o1uq9l-demo-software-factory.vercel.app",
+            "state": "READY",
+            "readyState": "READY",
+            "created": 1789214046716,
+            "createdAt": 1789214046716,
+            "meta": {
+              "githubCommitAuthorName": "R\u00e9mi Connesson",
+              "githubCommitAuthorEmail": "remiconnesson2@gmail.com",
+              "githubCommitMessage": "Capture context lessons and remaining native verification gaps",
+              "githubCommitOrg": "software-factory-workshop",
+              "githubCommitRef": "main",
+              "githubCommitRepo": "jira-clone",
+              "githubCommitSha": "aae9e140f3bbcaaa9cdfc97497ff0c1a31fc13f6",
+              "githubDeployment": "1",
+              "githubOrg": "software-factory-workshop",
+              "githubRepo": "jira-clone",
+              "githubRepoOwnerType": "Organization",
+              "githubCommitRepoId": "1367117048",
+              "githubRepoId": "1367117048",
+              "githubRepoVisibility": "private",
+              "githubHost": "github.com",
+              "githubCommitAuthorLogin": "remiconnesson",
+              "githubCommitVerification": "verified",
+              "repoPushedAt": "1789214044000",
+              "branchAlias": "adeo-jira-clone-git-main-demo-software-factory.vercel.app",
+              "lambdaRuntimeStats": "{\"nodejs\":1}"
+            },
+            "target": "production",
+            "projectId": "prj_C3sDKTOQIOqpIpNO9w7bqcWYkwp4"
+          },
+          {
+            "uid": "dpl_BybD7ZeGN7FPfmw5yxcyhGbCqZHf",
+            "url": "adeo-jira-clone-e1lrjgc92-demo-software-factory.vercel.app",
+            "state": "READY",
+            "readyState": "READY",
+            "created": 1789213799182,
+            "createdAt": 1789213799182,
+            "meta": {
+              "githubCommitAuthorName": "R\u00e9mi Connesson",
+              "githubCommitAuthorEmail": "remiconnesson2@gmail.com",
+              "githubCommitMessage": "Record native mining experiments and separate fx evidence",
+              "githubCommitOrg": "software-factory-workshop",
+              "githubCommitRef": "main",
+              "githubCommitRepo": "jira-clone",
+              "githubCommitSha": "c1d7974cf7c16f7c993af1b4938b3493b8bbf3eb",
+              "githubDeployment": "1",
+              "githubOrg": "software-factory-workshop",
+              "githubRepo": "jira-clone",
+              "githubRepoOwnerType": "Organization",
+              "githubCommitRepoId": "1367117048",
+              "githubRepoId": "1367117048",
+              "githubRepoVisibility": "private",
+              "githubHost": "github.com",
+              "githubCommitAuthorLogin": "remiconnesson",
+              "githubCommitVerification": "verified",
+              "repoPushedAt": "1789213796000",
+              "branchAlias": "adeo-jira-clone-git-main-demo-software-factory.vercel.app",
+              "lambdaRuntimeStats": "{\"nodejs\":1}"
+            },
+            "target": "production",
+            "projectId": "prj_C3sDKTOQIOqpIpNO9w7bqcWYkwp4"
+          },
+          {
+            "uid": "dpl_CU5LJQzbRuke9hGZicmiRByqbPXm",
+            "url": "adeo-jira-clone-ptds31vog-demo-software-factory.vercel.app",
+            "state": "READY",
+            "readyState": "READY",
+            "created": 1789213596090,
+            "createdAt": 1789213596090,
+            "meta": {
+              "githubCommitAuthorName": "R\u00e9mi Connesson",
+              "githubCommitAuthorEmail": "remiconnesson2@gmail.com",
+              "githubCommitMessage": "Focus investigations and distinguish required context gaps",
+              "githubCommitOrg": "software-factory-workshop",
+              "githubCommitRef": "main",
+              "githubCommitRepo": "jira-clone",
+              "githubCommitSha": "b81899e5d9ecd49b04840c649af0d63e0bbc8188",
+              "githubDeployment": "1",
+              "githubOrg": "software-factory-workshop",
+              "githubRepo": "jira-clone",
+              "githubRepoOwnerType": "Organization",
+              "githubCommitRepoId": "1367117048",
+              "githubRepoId": "1367117048",
+              "githubRepoVisibility": "private",
+              "githubHost": "github.com",
+              "githubCommitAuthorLogin": "remiconnesson",
+              "githubCommitVerification": "verified",
+              "repoPushedAt": "1789213593000",
+              "branchAlias": "adeo-jira-clone-git-main-demo-software-factory.vercel.app",
+              "lambdaRuntimeStats": "{\"nodejs\":1}"
+            },
+            "target": "production",
+            "projectId": "prj_C3sDKTOQIOqpIpNO9w7bqcWYkwp4"
+          },
+          {
+            "uid": "dpl_HXfQKeu4hUo4DqG7KRguC9xV5weg",
+            "url": "adeo-jira-clone-awda9b12a-demo-software-factory.vercel.app",
+            "state": "READY",
+            "readyState": "READY",
+            "created": 1789213462018,
+            "createdAt": 1789213462018,
+            "meta": {
+              "githubCommitAuthorName": "R\u00e9mi Connesson",
+              "githubCommitAuthorEmail": "remiconnesson2@gmail.com",
+              "githubCommitMessage": "Give native mining reports room to finish and clarify context",
+              "githubCommitOrg": "software-factory-workshop",
+              "githubCommitRef": "main",
+              "githubCommitRepo": "jira-clone",
+              "githubCommitSha": "42d335cbb0827b1d17d6be3d84c946b105533161",
+              "githubDeployment": "1",
+              "githubOrg": "software-factory-workshop",
+              "githubRepo": "jira-clone",
+              "githubRepoOwnerType": "Organization",
+              "githubCommitRepoId": "1367117048",
+              "githubRepoId": "1367117048",
+              "githubRepoVisibility": "private",
+              "githubHost": "github.com",
+              "githubCommitAuthorLogin": "remiconnesson",
+              "githubCommitVerification": "verified",
+              "repoPushedAt": "1789213457000",
+              "branchAlias": "adeo-jira-clone-git-main-demo-software-factory.vercel.app",
+              "lambdaRuntimeStats": "{\"nodejs\":1}"
+            },
+            "target": "production",
+            "projectId": "prj_C3sDKTOQIOqpIpNO9w7bqcWYkwp4"
+          },
+          {
+            "uid": "dpl_4WZ5YZXfvi8B3rdeDSeZhyxkLGNQ",
+            "url": "adeo-jira-clone-pqsgig0xs-demo-software-factory.vercel.app",
+            "state": "READY",
+            "readyState": "READY",
+            "created": 1789213234417,
+            "createdAt": 1789213234417,
+            "meta": {
+              "githubCommitAuthorName": "R\u00e9mi Connesson",
+              "githubCommitAuthorEmail": "remiconnesson2@gmail.com",
+              "githubCommitMessage": "Focus mining context on user outcomes and evidence",
+              "githubCommitOrg": "software-factory-workshop",
+              "githubCommitRef": "main",
+              "githubCommitRepo": "jira-clone",
+              "githubCommitSha": "1bbd2ae4721592ed98fac5dedcb62e89a040d4ec",
+              "githubDeployment": "1",
+              "githubOrg": "software-factory-workshop",
+              "githubRepo": "jira-clone",
+              "githubRepoOwnerType": "Organization",
+              "githubCommitRepoId": "1367117048",
+              "githubRepoId": "1367117048",
+              "githubRepoVisibility": "private",
+              "githubHost": "github.com",
+              "githubCommitAuthorLogin": "remiconnesson",
+              "githubCommitVerification": "verified",
+              "repoPushedAt": "1789213232000",
+              "branchAlias": "adeo-jira-clone-git-main-demo-software-factory.vercel.app",
+              "lambdaRuntimeStats": "{\"nodejs\":1}"
+            },
+            "target": "production",
+            "projectId": "prj_C3sDKTOQIOqpIpNO9w7bqcWYkwp4"
+          },
+          {
+            "uid": "dpl_CiT4N2qDJP6MkpEXqKSmZviQx3VS",
+            "url": "adeo-jira-clone-bvee31w2g-demo-software-factory.vercel.app",
+            "state": "READY",
+            "readyState": "READY",
+            "created": 1789213203498,
+            "createdAt": 1789213203498,
+            "meta": {
+              "githubCommitAuthorName": "R\u00e9mi Connesson",
+              "githubCommitAuthorEmail": "remiconnesson2@gmail.com",
+              "githubCommitMessage": "Fix native Eve sandbox authentication and context budget",
+              "githubCommitOrg": "software-factory-workshop",
+              "githubCommitRef": "main",
+              "githubCommitRepo": "jira-clone",
+              "githubCommitSha": "4baa031db5dfb61863a7b5b6e2484d1c58bc8de5",
+              "githubDeployment": "1",
+              "githubOrg": "software-factory-workshop",
+              "githubRepo": "jira-clone",
+              "githubRepoOwnerType": "Organization",
+              "githubCommitRepoId": "1367117048",
+              "githubRepoId": "1367117048",
+              "githubRepoVisibility": "private",
+              "githubHost": "github.com",
+              "githubCommitAuthorLogin": "remiconnesson",
+              "githubCommitVerification": "verified",
+              "repoPushedAt": "1789213201000",
+              "branchAlias": "adeo-jira-clone-git-main-demo-software-factory.vercel.app",
+              "lambdaRuntimeStats": "{\"nodejs\":1}"
+            },
+            "target": "production",
+            "projectId": "prj_C3sDKTOQIOqpIpNO9w7bqcWYkwp4"
+          },
+          {
+            "uid": "dpl_8gLjqrg7mna1W1YhJUjkeaSJgcTN",
+            "url": "adeo-jira-clone-lql3tz2qe-demo-software-factory.vercel.app",
+            "state": "READY",
+            "readyState": "READY",
+            "created": 1789212922159,
+            "createdAt": 1789212922159,
+            "meta": {
+              "githubCommitAuthorName": "R\u00e9mi Connesson",
+              "githubCommitAuthorEmail": "remiconnesson2@gmail.com",
+              "githubCommitMessage": "Replace fx-backed station with native Eve context investigation",
+              "githubCommitOrg": "software-factory-workshop",
+              "githubCommitRef": "main",
+              "githubCommitRepo": "jira-clone",
+              "githubCommitSha": "a7f5e271321a5f2e6a60495ecbc6ab78b64c923c",
+              "githubDeployment": "1",
+              "githubOrg": "software-factory-workshop",
+              "githubRepo": "jira-clone",
+              "githubRepoOwnerType": "Organization",
+              "githubCommitRepoId": "1367117048",
+              "githubRepoId": "1367117048",
+              "githubRepoVisibility": "private",
+              "githubHost": "github.com",
+              "githubCommitAuthorLogin": "remiconnesson",
+              "githubCommitVerification": "verified",
+              "repoPushedAt": "1789212919000",
+              "branchAlias": "adeo-jira-clone-git-main-demo-software-factory.vercel.app",
+              "lambdaRuntimeStats": "{\"nodejs\":1}"
+            },
+            "target": "production",
+            "projectId": "prj_C3sDKTOQIOqpIpNO9w7bqcWYkwp4"
+          },
+          {
+            "uid": "dpl_5iA4toGf4183UGhUibkrSZyL6oDZ",
+            "url": "adeo-jira-clone-cdq85mccf-demo-software-factory.vercel.app",
+            "state": "READY",
+            "readyState": "READY",
+            "created": 1789211127458,
+            "createdAt": 1789211127458,
+            "meta": {
+              "githubCommitAuthorName": "R\u00e9mi Connesson",
+              "githubCommitAuthorEmail": "remiconnesson2@gmail.com",
+              "githubCommitMessage": "Record hosted mining proof and distinguish stream disconnection",
+              "githubCommitOrg": "software-factory-workshop",
+              "githubCommitRef": "main",
+              "githubCommitRepo": "jira-clone",
+              "githubCommitSha": "315ea2e497ce2a5756caec83157e816af325e71e",
+              "githubDeployment": "1",
+              "githubOrg": "software-factory-workshop",
+              "githubRepo": "jira-clone",
+              "githubRepoOwnerType": "Organization",
+              "githubCommitRepoId": "1367117048",
+              "githubRepoId": "1367117048",
+              "githubRepoVisibility": "private",
+              "githubHost": "github.com",
+              "githubCommitAuthorLogin": "remiconnesson",
+              "githubCommitVerification": "verified",
+              "repoPushedAt": "1789211125000",
+              "branchAlias": "adeo-jira-clone-git-main-demo-software-factory.vercel.app",
+              "lambdaRuntimeStats": "{\"nodejs\":1}"
+            },
+            "target": "production",
+            "projectId": "prj_C3sDKTOQIOqpIpNO9w7bqcWYkwp4"
+          },
+          {
+            "uid": "dpl_5i45YYWd8vRWJ6BqgrczgfWTZTXM",
+            "url": "adeo-jira-clone-k9anquswk-demo-software-factory.vercel.app",
+            "state": "READY",
+            "readyState": "READY",
+            "created": 1789210704916,
+            "createdAt": 1789210704916,
+            "meta": {
+              "githubCommitAuthorName": "R\u00e9mi Connesson",
+              "githubCommitAuthorEmail": "remiconnesson2@gmail.com",
+              "githubCommitMessage": "Package hidden Workflow assets within the Eve service output",
+              "githubCommitOrg": "software-factory-workshop",
+              "githubCommitRef": "main",
+              "githubCommitRepo": "jira-clone",
+              "githubCommitSha": "e33c7299096312cf8322be00ed0cfe7be8ec11bf",
+              "githubDeployment": "1",
+              "githubOrg": "software-factory-workshop",
+              "githubRepo": "jira-clone",
+              "githubRepoOwnerType": "Organization",
+              "githubCommitRepoId": "1367117048",
+              "githubRepoId": "1367117048",
+              "githubRepoVisibility": "private",
+              "githubHost": "github.com",
+              "githubCommitAuthorLogin": "remiconnesson",
+              "githubCommitVerification": "verified",
+              "repoPushedAt": "1789210702000",
+              "branchAlias": "adeo-jira-clone-git-main-demo-software-factory.vercel.app",
+              "lambdaRuntimeStats": "{\"nodejs\":1}"
+            },
+            "target": "production",
+            "projectId": "prj_C3sDKTOQIOqpIpNO9w7bqcWYkwp4"
+          },
+          {
+            "uid": "dpl_C8h2JS5nGEqXCQ22mAFYVn4m8k3h",
+            "url": "adeo-jira-clone-anvecch37-demo-software-factory.vercel.app",
+            "state": "READY",
+            "readyState": "READY",
+            "created": 1789210483821,
+            "createdAt": 1789210483821,
+            "meta": {
+              "githubCommitAuthorName": "R\u00e9mi Connesson",
+              "githubCommitAuthorEmail": "remiconnesson2@gmail.com",
+              "githubCommitMessage": "Verify bridge assets in both Eve and Workflow function bundles",
+              "githubCommitOrg": "software-factory-workshop",
+              "githubCommitRef": "main",
+              "githubCommitRepo": "jira-clone",
+              "githubCommitSha": "1f5b6af6c2f691827c40aa221042afc3d1947918",
+              "githubDeployment": "1",
+              "githubOrg": "software-factory-workshop",
+              "githubRepo": "jira-clone",
+              "githubRepoOwnerType": "Organization",
+              "githubCommitRepoId": "1367117048",
+              "githubRepoId": "1367117048",
+              "githubRepoVisibility": "private",
+              "githubHost": "github.com",
+              "githubCommitAuthorLogin": "remiconnesson",
+              "githubCommitVerification": "verified",
+              "repoPushedAt": "1789210481000",
+              "branchAlias": "adeo-jira-clone-git-main-demo-software-factory.vercel.app",
+              "lambdaRuntimeStats": "{\"nodejs\":1}"
+            },
+            "target": "production",
+            "projectId": "prj_C3sDKTOQIOqpIpNO9w7bqcWYkwp4"
+          },
+          {
+            "uid": "dpl_3VTDZpKVh8jX8C3SfuyuP9wgQYqn",
+            "url": "adeo-jira-clone-hd5owttex-demo-software-factory.vercel.app",
+            "state": "READY",
+            "readyState": "READY",
+            "created": 1789210111209,
+            "createdAt": 1789210111209,
+            "meta": {
+              "githubCommitAuthorName": "R\u00e9mi Connesson",
+              "githubCommitAuthorEmail": "remiconnesson2@gmail.com",
+              "githubCommitMessage": "Preserve fx bridge assets in the hosted Eve build",
+              "githubCommitOrg": "software-factory-workshop",
+              "githubCommitRef": "main",
+              "githubCommitRepo": "jira-clone",
+              "githubCommitSha": "c0bd993ffc45deb8249557d44c195b3a3b390a10",
+              "githubDeployment": "1",
+              "githubOrg": "software-factory-workshop",
+              "githubRepo": "jira-clone",
+              "githubRepoOwnerType": "Organization",
+              "githubCommitRepoId": "1367117048",
+              "githubRepoId": "1367117048",
+              "githubRepoVisibility": "private",
+              "githubHost": "github.com",
+              "githubCommitAuthorLogin": "remiconnesson",
+              "githubCommitVerification": "verified",
+              "repoPushedAt": "1789210108000",
+              "branchAlias": "adeo-jira-clone-git-main-demo-software-factory.vercel.app",
+              "lambdaRuntimeStats": "{\"nodejs\":1}"
+            },
+            "target": "production",
+            "projectId": "prj_C3sDKTOQIOqpIpNO9w7bqcWYkwp4"
+          },
+          {
+            "uid": "dpl_4pnC8FBNs4ntu4hTM8SJAHUsVPTM",
+            "url": "adeo-jira-clone-7unw2ptzf-demo-software-factory.vercel.app",
+            "state": "READY",
+            "readyState": "READY",
+            "created": 1789209807569,
+            "createdAt": 1789209807569,
+            "meta": {
+              "githubCommitAuthorName": "R\u00e9mi Connesson",
+              "githubCommitAuthorEmail": "remiconnesson2@gmail.com",
+              "githubCommitMessage": "Ship the Eve task-mining station in the ADEO cockpit",
+              "githubCommitOrg": "software-factory-workshop",
+              "githubCommitRef": "main",
+              "githubCommitRepo": "jira-clone",
+              "githubCommitSha": "14dae90f2b96df13c20428b4b57f22558be5823d",
+              "githubDeployment": "1",
+              "githubOrg": "software-factory-workshop",
+              "githubRepo": "jira-clone",
+              "githubRepoOwnerType": "Organization",
+              "githubCommitRepoId": "1367117048",
+              "githubRepoId": "1367117048",
+              "githubRepoVisibility": "private",
+              "githubHost": "github.com",
+              "githubCommitAuthorLogin": "remiconnesson",
+              "githubCommitVerification": "verified",
+              "repoPushedAt": "1789209802000",
+              "branchAlias": "adeo-jira-clone-git-main-demo-software-factory.vercel.app",
+              "lambdaRuntimeStats": "{\"nodejs\":1}"
+            },
+            "target": "production",
+            "projectId": "prj_C3sDKTOQIOqpIpNO9w7bqcWYkwp4"
+          },
+          {
+            "uid": "dpl_FfN5iHiykTRQK15VTRHJwX3wecNy",
+            "url": "adeo-jira-clone-rkrsqnwa7-demo-software-factory.vercel.app",
+            "state": "READY",
+            "readyState": "READY",
+            "created": 1789207309545,
+            "createdAt": 1789207309545,
+            "meta": {
+              "githubCommitAuthorName": "R\u00e9mi Connesson",
+              "githubCommitAuthorEmail": "remiconnesson2@gmail.com",
+              "githubCommitMessage": "Grow task mining through repository context and recorded experiments",
+              "githubCommitOrg": "software-factory-workshop",
+              "githubCommitRef": "main",
+              "githubCommitRepo": "jira-clone",
+              "githubCommitSha": "b555eb05312e577e289c7046eb28f69bb91317a1",
+              "githubDeployment": "1",
+              "githubOrg": "software-factory-workshop",
+              "githubRepo": "jira-clone",
+              "githubRepoOwnerType": "Organization",
+              "githubCommitRepoId": "1367117048",
+              "githubRepoId": "1367117048",
+              "githubRepoVisibility": "private",
+              "githubHost": "github.com",
+              "githubCommitAuthorLogin": "remiconnesson",
+              "githubCommitVerification": "verified",
+              "repoPushedAt": "1789207306000",
+              "branchAlias": "adeo-jira-clone-git-main-demo-software-factory.vercel.app",
+              "lambdaRuntimeStats": "{\"nodejs\":1}"
+            },
+            "target": "production",
+            "projectId": "prj_C3sDKTOQIOqpIpNO9w7bqcWYkwp4"
+          },
+          {
+            "uid": "dpl_5R1rkhfEJ4E5ob1XbeE1x4dJJrDs",
+            "url": "adeo-jira-clone-23gmmy4mv-demo-software-factory.vercel.app",
+            "state": "READY",
+            "readyState": "READY",
+            "created": 1789204210804,
+            "createdAt": 1789204210804,
+            "meta": {
+              "githubCommitAuthorName": "R\u00e9mi Connesson",
+              "githubCommitAuthorEmail": "remiconnesson2@gmail.com",
+              "githubCommitMessage": "Note asynchronous task mining direction for cockpit starters",
+              "githubCommitOrg": "software-factory-workshop",
+              "githubCommitRef": "main",
+              "githubCommitRepo": "jira-clone",
+              "githubCommitSha": "9f22e3085969531b8198f831e0c460309ed15e81",
+              "githubDeployment": "1",
+              "githubOrg": "software-factory-workshop",
+              "githubRepo": "jira-clone",
+              "githubRepoOwnerType": "Organization",
+              "githubCommitRepoId": "1367117048",
+              "githubRepoId": "1367117048",
+              "githubRepoVisibility": "private",
+              "githubHost": "github.com",
+              "githubCommitAuthorLogin": "remiconnesson",
+              "githubCommitVerification": "verified",
+              "repoPushedAt": "1789204208000",
+              "branchAlias": "adeo-jira-clone-git-main-demo-software-factory.vercel.app",
+              "lambdaRuntimeStats": "{\"nodejs\":1}"
+            },
+            "target": "production",
+            "projectId": "prj_C3sDKTOQIOqpIpNO9w7bqcWYkwp4"
+          },
+          {
+            "uid": "dpl_BxyGuZts35Ddx6XwDPg5rFcUEghj",
+            "url": "adeo-jira-clone-ojsdc38ox-demo-software-factory.vercel.app",
+            "state": "READY",
+            "readyState": "READY",
+            "created": 1789204026677,
+            "createdAt": 1789204026677,
+            "meta": {
+              "githubCommitAuthorName": "R\u00e9mi Connesson",
+              "githubCommitAuthorEmail": "remiconnesson2@gmail.com",
+              "githubCommitMessage": "Reveal and focus the request editor when selecting a starter",
+              "githubCommitOrg": "software-factory-workshop",
+              "githubCommitRef": "main",
+              "githubCommitRepo": "jira-clone",
+              "githubCommitSha": "c5d3d1137ef58485972aff2c0a21c7f5e7313615",
+              "githubDeployment": "1",
+              "githubOrg": "software-factory-workshop",
+              "githubRepo": "jira-clone",
+              "githubRepoOwnerType": "Organization",
+              "githubCommitRepoId": "1367117048",
+              "githubRepoId": "1367117048",
+              "githubRepoVisibility": "private",
+              "githubHost": "github.com",
+              "githubCommitAuthorLogin": "remiconnesson",
+              "githubCommitVerification": "verified",
+              "repoPushedAt": "1789204024000",
+              "branchAlias": "adeo-jira-clone-git-main-demo-software-factory.vercel.app",
+              "lambdaRuntimeStats": "{\"nodejs\":1}"
+            },
+            "target": "production",
+            "projectId": "prj_C3sDKTOQIOqpIpNO9w7bqcWYkwp4"
+          },
+          {
+            "uid": "dpl_7P8pK6voewLrGSY69A9LGtA2DNcA",
+            "url": "adeo-jira-clone-2quosm8fm-demo-software-factory.vercel.app",
+            "state": "READY",
+            "readyState": "READY",
+            "created": 1789203700772,
+            "createdAt": 1789203700772,
+            "meta": {
+              "githubCommitAuthorName": "R\u00e9mi Connesson",
+              "githubCommitAuthorEmail": "remiconnesson2@gmail.com",
+              "githubCommitMessage": "Record successful Git deployments and live Connect verification",
+              "githubCommitOrg": "software-factory-workshop",
+              "githubCommitRef": "main",
+              "githubCommitRepo": "jira-clone",
+              "githubCommitSha": "f3d1e6a5e56fda62149d98de6c3deee6ebd7f111",
+              "githubDeployment": "1",
+              "githubOrg": "software-factory-workshop",
+              "githubRepo": "jira-clone",
+              "githubRepoOwnerType": "Organization",
+              "githubCommitRepoId": "1367117048",
+              "githubRepoId": "1367117048",
+              "githubRepoVisibility": "private",
+              "githubHost": "github.com",
+              "githubCommitAuthorLogin": "remiconnesson",
+              "githubCommitVerification": "verified",
+              "repoPushedAt": "1789203698000",
+              "branchAlias": "adeo-jira-clone-git-main-demo-software-factory.vercel.app",
+              "lambdaRuntimeStats": "{\"nodejs\":1}"
+            },
+            "target": "production",
+            "projectId": "prj_C3sDKTOQIOqpIpNO9w7bqcWYkwp4"
+          },
+          {
+            "uid": "dpl_53APhsfDUcHB9t9Ea9whe7chzUsU",
+            "url": "adeo-jira-clone-62g1gtkco-demo-software-factory.vercel.app",
+            "state": "READY",
+            "readyState": "READY",
+            "created": 1789203586524,
+            "createdAt": 1789203586524,
+            "meta": {
+              "githubCommitAuthorName": "R\u00e9mi Connesson",
+              "githubCommitAuthorEmail": "remiconnesson2@gmail.com",
+              "githubCommitMessage": "Fix connection hydration and record stage-zero verification",
+              "githubCommitOrg": "software-factory-workshop",
+              "githubCommitRef": "main",
+              "githubCommitRepo": "jira-clone",
+              "githubCommitSha": "8308ea9665455e03fa6a994b5b65cf8704975722",
+              "githubDeployment": "1",
+              "githubOrg": "software-factory-workshop",
+              "githubRepo": "jira-clone",
+              "githubRepoOwnerType": "Organization",
+              "githubCommitRepoId": "1367117048",
+              "githubRepoId": "1367117048",
+              "githubRepoVisibility": "private",
+              "githubHost": "github.com",
+              "githubCommitAuthorLogin": "remiconnesson",
+              "githubCommitVerification": "verified",
+              "repoPushedAt": "1789203584000",
+              "branchAlias": "adeo-jira-clone-git-main-demo-software-factory.vercel.app",
+              "lambdaRuntimeStats": "{\"nodejs\":1}"
+            },
+            "target": "production",
+            "projectId": "prj_C3sDKTOQIOqpIpNO9w7bqcWYkwp4"
+          },
+          {
+            "uid": "dpl_A2LuThe57C5pAALVeCccCBmCdfjR",
+            "url": "adeo-jira-clone-crc7ivajk-demo-software-factory.vercel.app",
+            "state": "BLOCKED",
+            "readyState": "BLOCKED",
+            "created": 1789203520587,
+            "createdAt": 1789203520587,
+            "meta": {
+              "githubCommitAuthorName": "R\u00e9mi Connesson",
+              "githubCommitAuthorEmail": "remiconnesson2@gmail.com",
+              "githubCommitMessage": "Bootstrap stage-zero ADEO Jira factory workspace",
+              "githubCommitOrg": "software-factory-workshop",
+              "githubCommitRef": "main",
+              "githubCommitRepo": "jira-clone",
+              "githubCommitSha": "31c17ccf13cd8edc8c4d9e1e23103d469b86350c",
+              "githubDeployment": "1",
+              "githubOrg": "software-factory-workshop",
+              "githubRepo": "jira-clone",
+              "gitDirty": "1",
+              "gitRootDirectory": "apps/jira",
+              "actor": "codex"
+            },
+            "target": "production",
+            "projectId": "prj_C3sDKTOQIOqpIpNO9w7bqcWYkwp4"
+          }
+        ],
+        "coverage": "Most recent 20 deployments; older deployment history exists and was not requested."
+      }
+    ],
+    "commands": [
+      {
+        "command": "set -eu; mkdir -p \"$HOME/.local/bin\"; npm install --prefix \"$HOME/.local\" --no-audit --no-fund node@24.21.0 pnpm@10.33.4; ln -sf \"$HOME/.local/node_modules/node/bin/node\" \"$HOME/.local/bin/node\"; ln -sf \"$HOME/.local/node_modules/pnpm/bin/pnpm.cjs\" \"$HOME/.local/bin/pnpm\"; export PATH=\"$HOME/.local/bin:$PATH\"; cd /workspace/repo; node --version; pnpm --version; pnpm install --frozen-lockfile",
+        "exitCode": 0,
+        "stdout": "\nadded 3 packages in 4s\nv24.21.0\n10.33.4\nScope: all 4 workspace projects\nLockfile is up to date, resolution step is skipped\nProgress: resolved 1, reused 0, downloaded 0, added 0\nPackages: +771\n++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++\n\n   \u256d\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u256e\n   \u2502                                         \u2502\n   \u2502   Update available! 10.33.4 \u2192 12.4.1.   \u2502\n   \u2502   Changelog: https://pnpm.io/v/12.4.1   \u2502\n   \u2502    To update, run: pnpm self-update     \u2502\n   \u2502                                         \u2502\n   \u2570\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u256f\n\nProgress: resolved 771, reused 0, downloaded 119, added 41\nProgress: resolved 771, reused 0, downloaded 404, added 210\nProgress: resolved 771, reused 0, downloaded 671, added 312\nProgress: resolved 771, reused 0, downloaded 758, added 570\nProgress: resolved 771, reused 0, downloaded 758, added 771, done\n.../esbuild@0.27.7/node_modules/esbuild postinstall$ node install.js\n.../esbuild@0.28.2/node_modules/esbuild postinstall$ node install.js\n.../esbuild@0.27.7/node_modules/esbuild postinstall: Done\n.../esbuild@0.28.2/node_modules/esbuild postinstall: Done\n\ndevDependencies:\n+ turbo 2.10.12\n+ typescript 5.9.3\n\napps/factory prepare$ nuxt prepare\napps/jira prepare$ nuxt prepare\napps/jira prepare: \u2139 Nuxt Icon server bundle mode is set to local\napps/jira prepare: [nuxt:icon] \u2714 Nuxt Icon discovered local-installed 1 collections: lucide\napps/jira prepare: \u2139 Nuxt Icon client bundle consist of 43 icons with 10.40KB(uncompressed) in size\napps/factory prepare: \u2139 Nuxt Icon server bundle mode is set to local\napps/factory prepare: [nuxt:icon] \u2714 Nuxt Icon discovered local-installed 1 collections: lucide\napps/jira prepare: \u2502\napps/jira prepare: \u25c6  Types generated in .nuxt.\napps/jira prepare: Done\napps/factory prepare: \u2139 Nuxt Icon client bundle consist of 43 icons with 10.40KB(uncompressed) in size\napps/factory prepare: \u2502\napps/factory prepare: \u25c6  Types generated in .nuxt.\napps/factory prepare: Done\n\u256d Warning \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u256e\n\u2502                                                                              \u2502\n\u2502   Ignored build scripts: vue-demi@0.14.10.                                   \u2502\n\u2502   Run \"pnpm approve-builds\" to pick which dependencies should be allowed     \u2502\n\u2502   to run scripts.                                                            \u2502\n\u2502                                                                              \u2502\n\u2570\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u256f\nDone in 8.1s using pnpm v10.33.4\n",
+        "stderr": "npm warn install-scripts 1 package has install scripts not yet covered by allowScripts:\nnpm warn install-scripts   node@24.21.0 (preinstall: node installArchSpecificPackage)\nnpm warn install-scripts\nnpm warn install-scripts Run `npm install-scripts ls` to review, or `npm install-scripts approve <pkg>` to allow.\nnpm notice\nnpm notice New major version of npm available! 11.19.0 -> 12.0.2\nnpm notice Changelog: https://github.com/npm/cli/releases/tag/v12.0.2\nnpm notice To update run: npm install -g npm@12.0.2\nnpm notice\n",
+        "capturedAt": "2026-09-12T12:30:17.480Z",
+        "truncated": false
+      },
+      {
+        "command": "export PATH=\"$HOME/.local/bin:$PATH\"; cd /workspace/repo; cd /workspace/repo && node --version && pnpm --version",
+        "exitCode": 0,
+        "stdout": "v24.21.0\n10.33.4\n",
+        "stderr": "",
+        "capturedAt": "2026-09-12T12:30:45.386Z",
+        "truncated": false
+      }
+    ],
+    "contextGaps": [
+      "Choose a deployment ID from this project's deployment evidence before reading logs.",
+      "Hosted native report-to-draft handoff and Vercel runtime-log sample for production deployments dpl_2PuzWWXcCHrePBy9R3ovrdXFgoWB (cockpit) / dpl_A5oFTnQ7QVrEanjQYKraG7Fs9H17 (jira) not inspected in this run; needed to confirm where usefulness feedback would be seen and that deployed behavior matches snapshot before sizing implementation."
+    ],
+    "proposals": [
+      {
+        "title": "Capture browser-local usefulness feedback on mining proposals (pending Remi review)",
+        "outcome": "Browser-local useful / not-useful capture on mining proposals to give Remi a lightweight usefulness signal without implementation or publication.",
+        "whyNow": "Goal defines a useful proposal but usefulness judgment is still pending owner review; operational gates passed do not establish proposal quality (work-in-progress.md:7, goal.md:15).",
+        "evidence": [
+          "factory/context/work-in-progress.md:19-22 lists 'Capture browser-local usefulness feedback' as existing candidate awaiting Remi review, not accepted work",
+          "docs/verification.md:19,27 focused baseline wrun_01M2AQ0E5CN1HVCD71RC6TPGD5 proposed usefulness-feedback capture; owner usefulness judgment remains pending",
+          "apps/factory/app/components/MiningRun.vue:88-101 proposal cards render outcome/whyNow/evidence with 'Use this proposal' but no usefulness judgment control",
+          "apps/factory/app/app.vue:24-30,56-73 drafts remain browser-local via adeo-factory-drafts-v1; API does not claim shared persistence",
+          "GitHub issues complete 2026-09-12T12:30:29Z: 1 open item PR #1 cockpit APIs; no issue tracks feedback capture",
+          "Vercel cockpit production dpl_2PuzWWXcCHrePBy9R3ovrdXFgoWB READY at 3b6b8fad matches snapshot revision"
+        ],
+        "existingWork": "Pending candidate from native baseline and hosted review (docs/verification.md:10,58); not implemented. PR #1 covers cockpit APIs/drafts but adds no feedback control. Do not reintroduce as newly discovered.",
+        "scope": [
+          "Add per-proposal judgment control in MiningRun proposal card only",
+          "Store locally alongside drafts; no backend, no auto-publish, no factory-rule change",
+          "Document in verification.md as proposal, not owner acceptance"
+        ],
+        "acceptanceCriteria": [
+          "Remi can mark a proposal useful / not-useful with optional reason without publishing anything",
+          "Signal stays browser-local by design like drafts; no shared persistence claimed",
+          "Reviewed reflection notes whether the signal would transfer to a shared eval"
+        ],
+        "uncertainties": [
+          "Remi taste: whether binary signal plus reason is enough to judge usefulness",
+          "Whether browser-local signal transfers to shared eval or stays personal",
+          "Hosted handoff still unverified, so placement may need adjustment after live observation"
+        ],
+        "id": "wrun_41M2ASGX7J0GQQ5XJY7ETJ54F7:proposal:1",
+        "rank": 1,
+        "provenance": {
+          "sessionId": "wrun_41M2ASGX7J0GQQ5XJY7ETJ54F7",
+          "revision": "3b6b8fad73f30200548cc9c641cb4e4723db4682",
+          "capturedAt": "2026-09-12T12:31:11.477Z",
+          "repository": "software-factory-workshop/jira-clone",
+          "executionSurface": "native-eve",
+          "source": "git-revision"
+        }
+      }
+    ],
+    "reflection": {
+      "helpfulContext": [
+        "goal.md factory-first test: Jira work justified only when it tests/teaches factory now",
+        "work-in-progress.md pending-status correction prevents treating empty GitHub list as greenfield",
+        "verification.md dated native/hosted history distinguishes operational gates from owner acceptance",
+        "MiningRun.vue + app.vue show proposal-to-draft is browser-local by design"
+      ],
+      "missingContext": [
+        "No GitHub issue/PR or comment thread tracks either candidate; PR #1 is unrelated cockpit APIs \u2014 absence is informational, not evidence of no work per work-in-progress.md",
+        "Per-deployment build logs not sampled (build_logs requires deploymentId); deployments list confirms READY revisions",
+        "Held-out evals and Git history excluded from snapshot by design; not inspected"
+      ],
+      "contradictions": [],
+      "suggestedImprovements": [
+        "Ask Remi whether binary useful/not-useful plus optional reason suffices, or a different question would test transfer",
+        "Ask Remi which workshop demo slice would settle scope: issue/board read-only vs accounts/permissions vs API parity subset"
+      ]
+    },
+    "executionSurface": "native-eve",
+    "source": "git-revision"
+  },
+  "events": [
+    {
+      "data": {
+        "runtime": {
+          "agentId": "factory",
+          "agentName": "factory",
+          "eveVersion": "0.52.5",
+          "build": {
+            "gitBranch": "main",
+            "gitSha": "3b6b8fad73f30200548cc9c641cb4e4723db4682"
+          }
+        }
+      },
+      "type": "session.started",
+      "meta": {
+        "at": "2026-09-12T12:29:53.902Z",
+        "id": "evt_01M2ASGZBEFVXD9ZJCJQ1R4QCD",
+        "deliveryIds": [
+          "b7fe3599-dc9e-43dc-bcd6-7681b26183c9"
+        ]
+      }
+    },
+    {
+      "data": {
+        "sequence": 0,
+        "turnId": "turn_0"
+      },
+      "type": "turn.started",
+      "meta": {
+        "at": "2026-09-12T12:29:54.004Z",
+        "id": "evt_01M2ASGZEMJ9QWKYVMRN92TXZN",
+        "deliveryIds": [
+          "b7fe3599-dc9e-43dc-bcd6-7681b26183c9"
+        ]
+      }
+    },
+    {
+      "data": {
+        "finishReason": "tool-calls",
+        "sequence": 0,
+        "stepIndex": 0,
+        "turnId": "turn_0",
+        "usage": {
+          "costUsd": 0.0003585,
+          "inputTokens": 3369,
+          "outputTokens": 108,
+          "cacheReadTokens": 0
+        },
+        "providerMetadata": {
+          "gateway": {
+            "generationId": "gen_01M2ASGZGPE6R58TJTFZG8NKRQ"
+          }
+        }
+      },
+      "type": "step.completed",
+      "meta": {
+        "at": "2026-09-12T12:30:17.507Z",
+        "id": "evt_01M2ASHPD3J0Y0KHGHE08TFVMT",
+        "deliveryIds": [
+          "b7fe3599-dc9e-43dc-bcd6-7681b26183c9"
+        ]
+      }
+    },
+    {
+      "data": {
+        "finishReason": "tool-calls",
+        "sequence": 0,
+        "stepIndex": 1,
+        "turnId": "turn_0",
+        "usage": {
+          "costUsd": 0.000158126,
+          "inputTokens": 4128,
+          "outputTokens": 350,
+          "cacheReadTokens": 3313
+        },
+        "providerMetadata": {
+          "gateway": {
+            "generationId": "gen_01M2ASHPSAEVMDFECKC67J71SP"
+          }
+        }
+      },
+      "type": "step.completed",
+      "meta": {
+        "at": "2026-09-12T12:30:20.414Z",
+        "id": "evt_01M2ASHS7YDRW6SV5EJ9DEGG5X",
+        "deliveryIds": [
+          "b7fe3599-dc9e-43dc-bcd6-7681b26183c9"
+        ]
+      }
+    },
+    {
+      "data": {
+        "result": {
+          "callId": "call_01a0959903537431b8ed3d99ecd769d2",
+          "kind": "tool-result",
+          "output": {
+            "resource": "project",
+            "projectId": "prj_ZXLHFUJhgo5EdvSf1IstOMn0ft0A",
+            "capturedAt": "2026-09-12T12:30:28.958Z",
+            "complete": true,
+            "items": [
+              {
+                "id": "prj_ZXLHFUJhgo5EdvSf1IstOMn0ft0A",
+                "name": "adeo-factory-cockpit",
+                "framework": "nuxtjs",
+                "link": {
+                  "type": "github",
+                  "repo": "jira-clone",
+                  "repoId": 1367117048,
+                  "org": "software-factory-workshop",
+                  "repoOwnerId": 328069519,
+                  "gitCredentialId": "cred_a32c829d0c1653c338e3414805a9166de446f28d",
+                  "productionBranch": "main",
+                  "createdAt": 1789203418675,
+                  "updatedAt": 1789203418675,
+                  "deployHooks": []
+                },
+                "updatedAt": 1789216076268
+              }
+            ]
+          },
+          "toolName": "vercel_read"
+        },
+        "sequence": 0,
+        "status": "completed",
+        "stepIndex": 2,
+        "turnId": "turn_0"
+      },
+      "type": "action.result",
+      "meta": {
+        "at": "2026-09-12T12:30:29.216Z",
+        "id": "evt_01M2ASJ1V0WCQXH3JBPTRBMYZN",
+        "deliveryIds": [
+          "b7fe3599-dc9e-43dc-bcd6-7681b26183c9"
+        ]
+      }
+    },
+    {
+      "data": {
+        "result": {
+          "callId": "call_01a0959903ec70608ce8979c8725bff7",
+          "kind": "tool-result",
+          "output": {
+            "resource": "project",
+            "projectId": "prj_C3sDKTOQIOqpIpNO9w7bqcWYkwp4",
+            "capturedAt": "2026-09-12T12:30:29.060Z",
+            "complete": true,
+            "items": [
+              {
+                "id": "prj_C3sDKTOQIOqpIpNO9w7bqcWYkwp4",
+                "name": "adeo-jira-clone",
+                "framework": "nuxtjs",
+                "link": {
+                  "type": "github",
+                  "repo": "jira-clone",
+                  "repoId": 1367117048,
+                  "org": "software-factory-workshop",
+                  "repoOwnerId": 328069519,
+                  "gitCredentialId": "cred_a32c829d0c1653c338e3414805a9166de446f28d",
+                  "productionBranch": "main",
+                  "createdAt": 1789203435863,
+                  "updatedAt": 1789203435863,
+                  "deployHooks": []
+                },
+                "updatedAt": 1789216066058
+              }
+            ]
+          },
+          "toolName": "vercel_read"
+        },
+        "sequence": 0,
+        "status": "completed",
+        "stepIndex": 2,
+        "turnId": "turn_0"
+      },
+      "type": "action.result",
+      "meta": {
+        "at": "2026-09-12T12:30:29.434Z",
+        "id": "evt_01M2ASJ21TJWNMFY0D9J89ZZHP",
+        "deliveryIds": [
+          "b7fe3599-dc9e-43dc-bcd6-7681b26183c9"
+        ]
+      }
+    },
+    {
+      "data": {
+        "finishReason": "tool-calls",
+        "sequence": 0,
+        "stepIndex": 2,
+        "turnId": "turn_0",
+        "usage": {
+          "costUsd": 0.001357362,
+          "inputTokens": 15493,
+          "outputTokens": 1040,
+          "cacheReadTokens": 4081
+        },
+        "providerMetadata": {
+          "gateway": {
+            "generationId": "gen_01M2ASHSKRQRQG7YMYYVJZ6K0V"
+          }
+        }
+      },
+      "type": "step.completed",
+      "meta": {
+        "at": "2026-09-12T12:30:30.116Z",
+        "id": "evt_01M2ASJ2Q4EJNHP71BPKBYJYA3",
+        "deliveryIds": [
+          "b7fe3599-dc9e-43dc-bcd6-7681b26183c9"
+        ]
+      }
+    },
+    {
+      "data": {
+        "result": {
+          "callId": "call_01a095991ff97421801afff680593aeb",
+          "kind": "tool-result",
+          "output": {
+            "resource": "deployments",
+            "projectId": "prj_ZXLHFUJhgo5EdvSf1IstOMn0ft0A",
+            "capturedAt": "2026-09-12T12:30:35.885Z",
+            "complete": true,
+            "items": [
+              {
+                "uid": "dpl_2PuzWWXcCHrePBy9R3ovrdXFgoWB",
+                "url": "adeo-factory-cockpit-gnpoxr11r-demo-software-factory.vercel.app",
+                "state": "READY",
+                "readyState": "READY",
+                "created": 1789216044479,
+                "createdAt": 1789216044479,
+                "meta": {
+                  "githubCommitAuthorName": "R\u00e9mi Connesson",
+                  "githubCommitAuthorEmail": "remiconnesson2@gmail.com",
+                  "githubCommitMessage": "Record verified machine access and token rotation boundary",
+                  "githubCommitOrg": "software-factory-workshop",
+                  "githubCommitRef": "main",
+                  "githubCommitRepo": "jira-clone",
+                  "githubCommitSha": "3b6b8fad73f30200548cc9c641cb4e4723db4682",
+                  "githubDeployment": "1",
+                  "githubOrg": "software-factory-workshop",
+                  "githubRepo": "jira-clone",
+                  "githubRepoOwnerType": "Organization",
+                  "githubCommitRepoId": "1367117048",
+                  "githubRepoId": "1367117048",
+                  "githubRepoVisibility": "private",
+                  "githubHost": "github.com",
+                  "githubCommitAuthorLogin": "remiconnesson",
+                  "githubCommitVerification": "verified",
+                  "repoPushedAt": "1789216042000",
+                  "branchAlias": "adeo-factory-cockpit-git-main-demo-software-factory.vercel.app",
+                  "lambdaRuntimeStats": "{\"nodejs\":3}"
+                },
+                "target": "production",
+                "projectId": "prj_ZXLHFUJhgo5EdvSf1IstOMn0ft0A"
+              },
+              {
+                "uid": "dpl_7DMQ9yRGYvWXFjsGCn6ScjunmKW5",
+                "url": "adeo-factory-cockpit-6tv88n91u-demo-software-factory.vercel.app",
+                "state": "READY",
+                "readyState": "READY",
+                "created": 1789215650161,
+                "createdAt": 1789215650161,
+                "meta": {
+                  "githubCommitAuthorName": "R\u00e9mi Connesson",
+                  "githubCommitAuthorEmail": "remiconnesson2@gmail.com",
+                  "githubCommitMessage": "Expose cockpit UI capabilities through tested APIs",
+                  "githubCommitOrg": "software-factory-workshop",
+                  "githubCommitRef": "feat/cockpit-api",
+                  "githubCommitRepo": "jira-clone",
+                  "githubCommitSha": "71ed287d9f2612d17289ffeaa3544e2fb7be5058",
+                  "githubDeployment": "1",
+                  "githubOrg": "software-factory-workshop",
+                  "githubRepo": "jira-clone",
+                  "githubRepoOwnerType": "Organization",
+                  "githubCommitRepoId": "1367117048",
+                  "githubRepoId": "1367117048",
+                  "githubRepoVisibility": "private",
+                  "githubHost": "github.com",
+                  "githubCommitAuthorLogin": "remiconnesson",
+                  "githubCommitVerification": "verified",
+                  "repoPushedAt": "1789215647000",
+                  "branchAlias": "adeo-factory-cockpit-git-feat-cockpit-api-demo-software-factory.vercel.app",
+                  "githubPrId": "1",
+                  "lambdaRuntimeStats": "{\"nodejs\":3}"
+                },
+                "target": null,
+                "projectId": "prj_ZXLHFUJhgo5EdvSf1IstOMn0ft0A"
+              },
+              {
+                "uid": "dpl_DcEVGkTeiAn7rCUa5XHjD1tqHAk9",
+                "url": "adeo-factory-cockpit-cew9szrr8-demo-software-factory.vercel.app",
+                "state": "READY",
+                "readyState": "READY",
+                "created": 1789214046761,
+                "createdAt": 1789214046761,
+                "meta": {
+                  "githubCommitAuthorName": "R\u00e9mi Connesson",
+                  "githubCommitAuthorEmail": "remiconnesson2@gmail.com",
+                  "githubCommitMessage": "Capture context lessons and remaining native verification gaps",
+                  "githubCommitOrg": "software-factory-workshop",
+                  "githubCommitRef": "main",
+                  "githubCommitRepo": "jira-clone",
+                  "githubCommitSha": "aae9e140f3bbcaaa9cdfc97497ff0c1a31fc13f6",
+                  "githubDeployment": "1",
+                  "githubOrg": "software-factory-workshop",
+                  "githubRepo": "jira-clone",
+                  "githubRepoOwnerType": "Organization",
+                  "githubCommitRepoId": "1367117048",
+                  "githubRepoId": "1367117048",
+                  "githubRepoVisibility": "private",
+                  "githubHost": "github.com",
+                  "githubCommitAuthorLogin": "remiconnesson",
+                  "githubCommitVerification": "verified",
+                  "repoPushedAt": "1789214044000",
+                  "branchAlias": "adeo-factory-cockpit-git-main-demo-software-factory.vercel.app",
+                  "lambdaRuntimeStats": "{\"nodejs\":3}"
+                },
+                "target": "production",
+                "projectId": "prj_ZXLHFUJhgo5EdvSf1IstOMn0ft0A"
+              },
+              {
+                "uid": "dpl_GZmFobFugQ6CXpmGNiY4X57KDpz1",
+                "url": "adeo-factory-cockpit-104od2klb-demo-software-factory.vercel.app",
+                "state": "READY",
+                "readyState": "READY",
+                "created": 1789213799196,
+                "createdAt": 1789213799196,
+                "meta": {
+                  "githubCommitAuthorName": "R\u00e9mi Connesson",
+                  "githubCommitAuthorEmail": "remiconnesson2@gmail.com",
+                  "githubCommitMessage": "Record native mining experiments and separate fx evidence",
+                  "githubCommitOrg": "software-factory-workshop",
+                  "githubCommitRef": "main",
+                  "githubCommitRepo": "jira-clone",
+                  "githubCommitSha": "c1d7974cf7c16f7c993af1b4938b3493b8bbf3eb",
+                  "githubDeployment": "1",
+                  "githubOrg": "software-factory-workshop",
+                  "githubRepo": "jira-clone",
+                  "githubRepoOwnerType": "Organization",
+                  "githubCommitRepoId": "1367117048",
+                  "githubRepoId": "1367117048",
+                  "githubRepoVisibility": "private",
+                  "githubHost": "github.com",
+                  "githubCommitAuthorLogin": "remiconnesson",
+                  "githubCommitVerification": "verified",
+                  "repoPushedAt": "1789213796000",
+                  "branchAlias": "adeo-factory-cockpit-git-main-demo-software-factory.vercel.app",
+                  "lambdaRuntimeStats": "{\"nodejs\":3}"
+                },
+                "target": "production",
+                "projectId": "prj_ZXLHFUJhgo5EdvSf1IstOMn0ft0A"
+              },
+              {
+                "uid": "dpl_A3iiXVyKQRh9Td8CcYynvbrGNcVj",
+                "url": "adeo-factory-cockpit-def9d2wfi-demo-software-factory.vercel.app",
+                "state": "READY",
+                "readyState": "READY",
+                "created": 1789213596094,
+                "createdAt": 1789213596094,
+                "meta": {
+                  "githubCommitAuthorName": "R\u00e9mi Connesson",
+                  "githubCommitAuthorEmail": "remiconnesson2@gmail.com",
+                  "githubCommitMessage": "Focus investigations and distinguish required context gaps",
+                  "githubCommitOrg": "software-factory-workshop",
+                  "githubCommitRef": "main",
+                  "githubCommitRepo": "jira-clone",
+                  "githubCommitSha": "b81899e5d9ecd49b04840c649af0d63e0bbc8188",
+                  "githubDeployment": "1",
+                  "githubOrg": "software-factory-workshop",
+                  "githubRepo": "jira-clone",
+                  "githubRepoOwnerType": "Organization",
+                  "githubCommitRepoId": "1367117048",
+                  "githubRepoId": "1367117048",
+                  "githubRepoVisibility": "private",
+                  "githubHost": "github.com",
+                  "githubCommitAuthorLogin": "remiconnesson",
+                  "githubCommitVerification": "verified",
+                  "repoPushedAt": "1789213593000",
+                  "branchAlias": "adeo-factory-cockpit-git-main-demo-software-factory.vercel.app",
+                  "lambdaRuntimeStats": "{\"nodejs\":3}"
+                },
+                "target": "production",
+                "projectId": "prj_ZXLHFUJhgo5EdvSf1IstOMn0ft0A"
+              },
+              {
+                "uid": "dpl_CsY2o6tfUWR8qG6zn1R6qTFXmtNq",
+                "url": "adeo-factory-cockpit-fo8owxwg9-demo-software-factory.vercel.app",
+                "state": "READY",
+                "readyState": "READY",
+                "created": 1789213460116,
+                "createdAt": 1789213460116,
+                "meta": {
+                  "githubCommitAuthorName": "R\u00e9mi Connesson",
+                  "githubCommitAuthorEmail": "remiconnesson2@gmail.com",
+                  "githubCommitMessage": "Give native mining reports room to finish and clarify context",
+                  "githubCommitOrg": "software-factory-workshop",
+                  "githubCommitRef": "main",
+                  "githubCommitRepo": "jira-clone",
+                  "githubCommitSha": "42d335cbb0827b1d17d6be3d84c946b105533161",
+                  "githubDeployment": "1",
+                  "githubOrg": "software-factory-workshop",
+                  "githubRepo": "jira-clone",
+                  "githubRepoOwnerType": "Organization",
+                  "githubCommitRepoId": "1367117048",
+                  "githubRepoId": "1367117048",
+                  "githubRepoVisibility": "private",
+                  "githubHost": "github.com",
+                  "githubCommitAuthorLogin": "remiconnesson",
+                  "githubCommitVerification": "verified",
+                  "repoPushedAt": "1789213457000",
+                  "branchAlias": "adeo-factory-cockpit-git-main-demo-software-factory.vercel.app",
+                  "lambdaRuntimeStats": "{\"nodejs\":3}"
+                },
+                "target": "production",
+                "projectId": "prj_ZXLHFUJhgo5EdvSf1IstOMn0ft0A"
+              },
+              {
+                "uid": "dpl_Dgny13cgdu8vSH4ZjTRKxWoJss2T",
+                "url": "adeo-factory-cockpit-pi2khe5a1-demo-software-factory.vercel.app",
+                "state": "READY",
+                "readyState": "READY",
+                "created": 1789213234448,
+                "createdAt": 1789213234448,
+                "meta": {
+                  "githubCommitAuthorName": "R\u00e9mi Connesson",
+                  "githubCommitAuthorEmail": "remiconnesson2@gmail.com",
+                  "githubCommitMessage": "Focus mining context on user outcomes and evidence",
+                  "githubCommitOrg": "software-factory-workshop",
+                  "githubCommitRef": "main",
+                  "githubCommitRepo": "jira-clone",
+                  "githubCommitSha": "1bbd2ae4721592ed98fac5dedcb62e89a040d4ec",
+                  "githubDeployment": "1",
+                  "githubOrg": "software-factory-workshop",
+                  "githubRepo": "jira-clone",
+                  "githubRepoOwnerType": "Organization",
+                  "githubCommitRepoId": "1367117048",
+                  "githubRepoId": "1367117048",
+                  "githubRepoVisibility": "private",
+                  "githubHost": "github.com",
+                  "githubCommitAuthorLogin": "remiconnesson",
+                  "githubCommitVerification": "verified",
+                  "repoPushedAt": "1789213232000",
+                  "branchAlias": "adeo-factory-cockpit-git-main-demo-software-factory.vercel.app",
+                  "lambdaRuntimeStats": "{\"nodejs\":3}"
+                },
+                "target": "production",
+                "projectId": "prj_ZXLHFUJhgo5EdvSf1IstOMn0ft0A"
+              },
+              {
+                "uid": "dpl_5ECabGgL2MKREt73TXEnRBFkfxvJ",
+                "url": "adeo-factory-cockpit-at2s00kbz-demo-software-factory.vercel.app",
+                "state": "READY",
+                "readyState": "READY",
+                "created": 1789213203491,
+                "createdAt": 1789213203491,
+                "meta": {
+                  "githubCommitAuthorName": "R\u00e9mi Connesson",
+                  "githubCommitAuthorEmail": "remiconnesson2@gmail.com",
+                  "githubCommitMessage": "Fix native Eve sandbox authentication and context budget",
+                  "githubCommitOrg": "software-factory-workshop",
+                  "githubCommitRef": "main",
+                  "githubCommitRepo": "jira-clone",
+                  "githubCommitSha": "4baa031db5dfb61863a7b5b6e2484d1c58bc8de5",
+                  "githubDeployment": "1",
+                  "githubOrg": "software-factory-workshop",
+                  "githubRepo": "jira-clone",
+                  "githubRepoOwnerType": "Organization",
+                  "githubCommitRepoId": "1367117048",
+                  "githubRepoId": "1367117048",
+                  "githubRepoVisibility": "private",
+                  "githubHost": "github.com",
+                  "githubCommitAuthorLogin": "remiconnesson",
+                  "githubCommitVerification": "verified",
+                  "repoPushedAt": "1789213201000",
+                  "branchAlias": "adeo-factory-cockpit-git-main-demo-software-factory.vercel.app",
+                  "lambdaRuntimeStats": "{\"nodejs\":3}"
+                },
+                "target": "production",
+                "projectId": "prj_ZXLHFUJhgo5EdvSf1IstOMn0ft0A"
+              },
+              {
+                "uid": "dpl_J5t3ys2pxm7f1FDJTGh145MgvE3K",
+                "url": "adeo-factory-cockpit-jed7btr8e-demo-software-factory.vercel.app",
+                "state": "READY",
+                "readyState": "READY",
+                "created": 1789212922185,
+                "createdAt": 1789212922185,
+                "meta": {
+                  "githubCommitAuthorName": "R\u00e9mi Connesson",
+                  "githubCommitAuthorEmail": "remiconnesson2@gmail.com",
+                  "githubCommitMessage": "Replace fx-backed station with native Eve context investigation",
+                  "githubCommitOrg": "software-factory-workshop",
+                  "githubCommitRef": "main",
+                  "githubCommitRepo": "jira-clone",
+                  "githubCommitSha": "a7f5e271321a5f2e6a60495ecbc6ab78b64c923c",
+                  "githubDeployment": "1",
+                  "githubOrg": "software-factory-workshop",
+                  "githubRepo": "jira-clone",
+                  "githubRepoOwnerType": "Organization",
+                  "githubCommitRepoId": "1367117048",
+                  "githubRepoId": "1367117048",
+                  "githubRepoVisibility": "private",
+                  "githubHost": "github.com",
+                  "githubCommitAuthorLogin": "remiconnesson",
+                  "githubCommitVerification": "verified",
+                  "repoPushedAt": "1789212919000",
+                  "branchAlias": "adeo-factory-cockpit-git-main-demo-software-factory.vercel.app",
+                  "lambdaRuntimeStats": "{\"nodejs\":3}"
+                },
+                "target": "production",
+                "projectId": "prj_ZXLHFUJhgo5EdvSf1IstOMn0ft0A"
+              },
+              {
+                "uid": "dpl_4Paza7iD6W83B5zmLA6BC2FpAaJU",
+                "url": "adeo-factory-cockpit-diq7xpzwv-demo-software-factory.vercel.app",
+                "state": "READY",
+                "readyState": "READY",
+                "created": 1789211127491,
+                "createdAt": 1789211127491,
+                "meta": {
+                  "githubCommitAuthorName": "R\u00e9mi Connesson",
+                  "githubCommitAuthorEmail": "remiconnesson2@gmail.com",
+                  "githubCommitMessage": "Record hosted mining proof and distinguish stream disconnection",
+                  "githubCommitOrg": "software-factory-workshop",
+                  "githubCommitRef": "main",
+                  "githubCommitRepo": "jira-clone",
+                  "githubCommitSha": "315ea2e497ce2a5756caec83157e816af325e71e",
+                  "githubDeployment": "1",
+                  "githubOrg": "software-factory-workshop",
+                  "githubRepo": "jira-clone",
+                  "githubRepoOwnerType": "Organization",
+                  "githubCommitRepoId": "1367117048",
+                  "githubRepoId": "1367117048",
+                  "githubRepoVisibility": "private",
+                  "githubHost": "github.com",
+                  "githubCommitAuthorLogin": "remiconnesson",
+                  "githubCommitVerification": "verified",
+                  "repoPushedAt": "1789211125000",
+                  "branchAlias": "adeo-factory-cockpit-git-main-demo-software-factory.vercel.app",
+                  "lambdaRuntimeStats": "{\"nodejs\":3}"
+                },
+                "target": "production",
+                "projectId": "prj_ZXLHFUJhgo5EdvSf1IstOMn0ft0A"
+              },
+              {
+                "uid": "dpl_94BpV2bsagEWfBFM3MF8Uey6Qonb",
+                "url": "adeo-factory-cockpit-cfh2r8umj-demo-software-factory.vercel.app",
+                "state": "READY",
+                "readyState": "READY",
+                "created": 1789210704835,
+                "createdAt": 1789210704835,
+                "meta": {
+                  "githubCommitAuthorName": "R\u00e9mi Connesson",
+                  "githubCommitAuthorEmail": "remiconnesson2@gmail.com",
+                  "githubCommitMessage": "Package hidden Workflow assets within the Eve service output",
+                  "githubCommitOrg": "software-factory-workshop",
+                  "githubCommitRef": "main",
+                  "githubCommitRepo": "jira-clone",
+                  "githubCommitSha": "e33c7299096312cf8322be00ed0cfe7be8ec11bf",
+                  "githubDeployment": "1",
+                  "githubOrg": "software-factory-workshop",
+                  "githubRepo": "jira-clone",
+                  "githubRepoOwnerType": "Organization",
+                  "githubCommitRepoId": "1367117048",
+                  "githubRepoId": "1367117048",
+                  "githubRepoVisibility": "private",
+                  "githubHost": "github.com",
+                  "githubCommitAuthorLogin": "remiconnesson",
+                  "githubCommitVerification": "verified",
+                  "repoPushedAt": "1789210702000",
+                  "branchAlias": "adeo-factory-cockpit-git-main-demo-software-factory.vercel.app",
+                  "lambdaRuntimeStats": "{\"nodejs\":3}"
+                },
+                "target": "production",
+                "projectId": "prj_ZXLHFUJhgo5EdvSf1IstOMn0ft0A"
+              },
+              {
+                "uid": "dpl_ByaPsEL5XuotB7LTtVJ5PKcp3kqt",
+                "url": "adeo-factory-cockpit-e5odwv4f7-demo-software-factory.vercel.app",
+                "state": "ERROR",
+                "readyState": "ERROR",
+                "created": 1789210483840,
+                "createdAt": 1789210483840,
+                "meta": {
+                  "githubCommitAuthorName": "R\u00e9mi Connesson",
+                  "githubCommitAuthorEmail": "remiconnesson2@gmail.com",
+                  "githubCommitMessage": "Verify bridge assets in both Eve and Workflow function bundles",
+                  "githubCommitOrg": "software-factory-workshop",
+                  "githubCommitRef": "main",
+                  "githubCommitRepo": "jira-clone",
+                  "githubCommitSha": "1f5b6af6c2f691827c40aa221042afc3d1947918",
+                  "githubDeployment": "1",
+                  "githubOrg": "software-factory-workshop",
+                  "githubRepo": "jira-clone",
+                  "githubRepoOwnerType": "Organization",
+                  "githubCommitRepoId": "1367117048",
+                  "githubRepoId": "1367117048",
+                  "githubRepoVisibility": "private",
+                  "githubHost": "github.com",
+                  "githubCommitAuthorLogin": "remiconnesson",
+                  "githubCommitVerification": "verified",
+                  "repoPushedAt": "1789210481000",
+                  "branchAlias": "adeo-factory-cockpit-git-main-demo-software-factory.vercel.app"
+                },
+                "target": "production",
+                "projectId": "prj_ZXLHFUJhgo5EdvSf1IstOMn0ft0A"
+              },
+              {
+                "uid": "dpl_9JfxuxnkWNNoWu3BRoYiTEsFf3Dc",
+                "url": "adeo-factory-cockpit-2hb6lt352-demo-software-factory.vercel.app",
+                "state": "READY",
+                "readyState": "READY",
+                "created": 1789210111162,
+                "createdAt": 1789210111162,
+                "meta": {
+                  "githubCommitAuthorName": "R\u00e9mi Connesson",
+                  "githubCommitAuthorEmail": "remiconnesson2@gmail.com",
+                  "githubCommitMessage": "Preserve fx bridge assets in the hosted Eve build",
+                  "githubCommitOrg": "software-factory-workshop",
+                  "githubCommitRef": "main",
+                  "githubCommitRepo": "jira-clone",
+                  "githubCommitSha": "c0bd993ffc45deb8249557d44c195b3a3b390a10",
+                  "githubDeployment": "1",
+                  "githubOrg": "software-factory-workshop",
+                  "githubRepo": "jira-clone",
+                  "githubRepoOwnerType": "Organization",
+                  "githubCommitRepoId": "1367117048",
+                  "githubRepoId": "1367117048",
+                  "githubRepoVisibility": "private",
+                  "githubHost": "github.com",
+                  "githubCommitAuthorLogin": "remiconnesson",
+                  "githubCommitVerification": "verified",
+                  "repoPushedAt": "1789210108000",
+                  "branchAlias": "adeo-factory-cockpit-git-main-demo-software-factory.vercel.app",
+                  "lambdaRuntimeStats": "{\"nodejs\":3}"
+                },
+                "target": "production",
+                "projectId": "prj_ZXLHFUJhgo5EdvSf1IstOMn0ft0A"
+              },
+              {
+                "uid": "dpl_BT7mSzZ9mrNETgv4oj312CridvDT",
+                "url": "adeo-factory-cockpit-linfmm05g-demo-software-factory.vercel.app",
+                "state": "READY",
+                "readyState": "READY",
+                "created": 1789209805322,
+                "createdAt": 1789209805322,
+                "meta": {
+                  "githubCommitAuthorName": "R\u00e9mi Connesson",
+                  "githubCommitAuthorEmail": "remiconnesson2@gmail.com",
+                  "githubCommitMessage": "Ship the Eve task-mining station in the ADEO cockpit",
+                  "githubCommitOrg": "software-factory-workshop",
+                  "githubCommitRef": "main",
+                  "githubCommitRepo": "jira-clone",
+                  "githubCommitSha": "14dae90f2b96df13c20428b4b57f22558be5823d",
+                  "githubDeployment": "1",
+                  "githubOrg": "software-factory-workshop",
+                  "githubRepo": "jira-clone",
+                  "githubRepoOwnerType": "Organization",
+                  "githubCommitRepoId": "1367117048",
+                  "githubRepoId": "1367117048",
+                  "githubRepoVisibility": "private",
+                  "githubHost": "github.com",
+                  "githubCommitAuthorLogin": "remiconnesson",
+                  "githubCommitVerification": "verified",
+                  "repoPushedAt": "1789209802000",
+                  "branchAlias": "adeo-factory-cockpit-git-main-demo-software-factory.vercel.app",
+                  "lambdaRuntimeStats": "{\"nodejs\":3}"
+                },
+                "target": "production",
+                "projectId": "prj_ZXLHFUJhgo5EdvSf1IstOMn0ft0A"
+              },
+              {
+                "uid": "dpl_31dUWkstFeHdBm9JA14uehd97CCX",
+                "url": "adeo-factory-cockpit-63k732zlm-demo-software-factory.vercel.app",
+                "state": "READY",
+                "readyState": "READY",
+                "created": 1789207309543,
+                "createdAt": 1789207309543,
+                "meta": {
+                  "githubCommitAuthorName": "R\u00e9mi Connesson",
+                  "githubCommitAuthorEmail": "remiconnesson2@gmail.com",
+                  "githubCommitMessage": "Grow task mining through repository context and recorded experiments",
+                  "githubCommitOrg": "software-factory-workshop",
+                  "githubCommitRef": "main",
+                  "githubCommitRepo": "jira-clone",
+                  "githubCommitSha": "b555eb05312e577e289c7046eb28f69bb91317a1",
+                  "githubDeployment": "1",
+                  "githubOrg": "software-factory-workshop",
+                  "githubRepo": "jira-clone",
+                  "githubRepoOwnerType": "Organization",
+                  "githubCommitRepoId": "1367117048",
+                  "githubRepoId": "1367117048",
+                  "githubRepoVisibility": "private",
+                  "githubHost": "github.com",
+                  "githubCommitAuthorLogin": "remiconnesson",
+                  "githubCommitVerification": "verified",
+                  "repoPushedAt": "1789207306000",
+                  "branchAlias": "adeo-factory-cockpit-git-main-demo-software-factory.vercel.app",
+                  "lambdaRuntimeStats": "{\"nodejs\":1}"
+                },
+                "target": "production",
+                "projectId": "prj_ZXLHFUJhgo5EdvSf1IstOMn0ft0A"
+              },
+              {
+                "uid": "dpl_D1ThVChuvZwGsXekDcP93AVGXmhW",
+                "url": "adeo-factory-cockpit-im4qi1yia-demo-software-factory.vercel.app",
+                "state": "READY",
+                "readyState": "READY",
+                "created": 1789204210799,
+                "createdAt": 1789204210799,
+                "meta": {
+                  "githubCommitAuthorName": "R\u00e9mi Connesson",
+                  "githubCommitAuthorEmail": "remiconnesson2@gmail.com",
+                  "githubCommitMessage": "Note asynchronous task mining direction for cockpit starters",
+                  "githubCommitOrg": "software-factory-workshop",
+                  "githubCommitRef": "main",
+                  "githubCommitRepo": "jira-clone",
+                  "githubCommitSha": "9f22e3085969531b8198f831e0c460309ed15e81",
+                  "githubDeployment": "1",
+                  "githubOrg": "software-factory-workshop",
+                  "githubRepo": "jira-clone",
+                  "githubRepoOwnerType": "Organization",
+                  "githubCommitRepoId": "1367117048",
+                  "githubRepoId": "1367117048",
+                  "githubRepoVisibility": "private",
+                  "githubHost": "github.com",
+                  "githubCommitAuthorLogin": "remiconnesson",
+                  "githubCommitVerification": "verified",
+                  "repoPushedAt": "1789204208000",
+                  "branchAlias": "adeo-factory-cockpit-git-main-demo-software-factory.vercel.app",
+                  "lambdaRuntimeStats": "{\"nodejs\":1}"
+                },
+                "target": "production",
+                "projectId": "prj_ZXLHFUJhgo5EdvSf1IstOMn0ft0A"
+              },
+              {
+                "uid": "dpl_EXVbut2DxwDgC8534CUN8T5aDo8o",
+                "url": "adeo-factory-cockpit-fbbz8v3nk-demo-software-factory.vercel.app",
+                "state": "READY",
+                "readyState": "READY",
+                "created": 1789204026630,
+                "createdAt": 1789204026630,
+                "meta": {
+                  "githubCommitAuthorName": "R\u00e9mi Connesson",
+                  "githubCommitAuthorEmail": "remiconnesson2@gmail.com",
+                  "githubCommitMessage": "Reveal and focus the request editor when selecting a starter",
+                  "githubCommitOrg": "software-factory-workshop",
+                  "githubCommitRef": "main",
+                  "githubCommitRepo": "jira-clone",
+                  "githubCommitSha": "c5d3d1137ef58485972aff2c0a21c7f5e7313615",
+                  "githubDeployment": "1",
+                  "githubOrg": "software-factory-workshop",
+                  "githubRepo": "jira-clone",
+                  "githubRepoOwnerType": "Organization",
+                  "githubCommitRepoId": "1367117048",
+                  "githubRepoId": "1367117048",
+                  "githubRepoVisibility": "private",
+                  "githubHost": "github.com",
+                  "githubCommitAuthorLogin": "remiconnesson",
+                  "githubCommitVerification": "verified",
+                  "repoPushedAt": "1789204024000",
+                  "branchAlias": "adeo-factory-cockpit-git-main-demo-software-factory.vercel.app",
+                  "lambdaRuntimeStats": "{\"nodejs\":1}"
+                },
+                "target": "production",
+                "projectId": "prj_ZXLHFUJhgo5EdvSf1IstOMn0ft0A"
+              },
+              {
+                "uid": "dpl_9QswzyiHQGaHxLdUQpejWE7jXStx",
+                "url": "adeo-factory-cockpit-k7285yls9-demo-software-factory.vercel.app",
+                "state": "READY",
+                "readyState": "READY",
+                "created": 1789203700799,
+                "createdAt": 1789203700799,
+                "meta": {
+                  "githubCommitAuthorName": "R\u00e9mi Connesson",
+                  "githubCommitAuthorEmail": "remiconnesson2@gmail.com",
+                  "githubCommitMessage": "Record successful Git deployments and live Connect verification",
+                  "githubCommitOrg": "software-factory-workshop",
+                  "githubCommitRef": "main",
+                  "githubCommitRepo": "jira-clone",
+                  "githubCommitSha": "f3d1e6a5e56fda62149d98de6c3deee6ebd7f111",
+                  "githubDeployment": "1",
+                  "githubOrg": "software-factory-workshop",
+                  "githubRepo": "jira-clone",
+                  "githubRepoOwnerType": "Organization",
+                  "githubCommitRepoId": "1367117048",
+                  "githubRepoId": "1367117048",
+                  "githubRepoVisibility": "private",
+                  "githubHost": "github.com",
+                  "githubCommitAuthorLogin": "remiconnesson",
+                  "githubCommitVerification": "verified",
+                  "repoPushedAt": "1789203698000",
+                  "branchAlias": "adeo-factory-cockpit-git-main-demo-software-factory.vercel.app",
+                  "lambdaRuntimeStats": "{\"nodejs\":1}"
+                },
+                "target": "production",
+                "projectId": "prj_ZXLHFUJhgo5EdvSf1IstOMn0ft0A"
+              },
+              {
+                "uid": "dpl_9ANqnkGdJ4Qfb27rA9gA8o8xtTS4",
+                "url": "adeo-factory-cockpit-etzdatnya-demo-software-factory.vercel.app",
+                "state": "READY",
+                "readyState": "READY",
+                "created": 1789203586462,
+                "createdAt": 1789203586462,
+                "meta": {
+                  "githubCommitAuthorName": "R\u00e9mi Connesson",
+                  "githubCommitAuthorEmail": "remiconnesson2@gmail.com",
+                  "githubCommitMessage": "Fix connection hydration and record stage-zero verification",
+                  "githubCommitOrg": "software-factory-workshop",
+                  "githubCommitRef": "main",
+                  "githubCommitRepo": "jira-clone",
+                  "githubCommitSha": "8308ea9665455e03fa6a994b5b65cf8704975722",
+                  "githubDeployment": "1",
+                  "githubOrg": "software-factory-workshop",
+                  "githubRepo": "jira-clone",
+                  "githubRepoOwnerType": "Organization",
+                  "githubCommitRepoId": "1367117048",
+                  "githubRepoId": "1367117048",
+                  "githubRepoVisibility": "private",
+                  "githubHost": "github.com",
+                  "githubCommitAuthorLogin": "remiconnesson",
+                  "githubCommitVerification": "verified",
+                  "repoPushedAt": "1789203584000",
+                  "branchAlias": "adeo-factory-cockpit-git-main-demo-software-factory.vercel.app",
+                  "lambdaRuntimeStats": "{\"nodejs\":1}"
+                },
+                "target": "production",
+                "projectId": "prj_ZXLHFUJhgo5EdvSf1IstOMn0ft0A"
+              },
+              {
+                "uid": "dpl_GpU4rVREEmzjUh5p2ND9mFMcLctR",
+                "url": "adeo-factory-cockpit-bvcusuobt-demo-software-factory.vercel.app",
+                "state": "BLOCKED",
+                "readyState": "BLOCKED",
+                "created": 1789203446190,
+                "createdAt": 1789203446190,
+                "meta": {
+                  "githubCommitAuthorName": "R\u00e9mi Connesson",
+                  "githubCommitAuthorEmail": "remiconnesson2@gmail.com",
+                  "githubCommitMessage": "Bootstrap stage-zero ADEO Jira factory workspace",
+                  "githubCommitOrg": "software-factory-workshop",
+                  "githubCommitRef": "main",
+                  "githubCommitRepo": "jira-clone",
+                  "githubCommitSha": "31c17ccf13cd8edc8c4d9e1e23103d469b86350c",
+                  "githubDeployment": "1",
+                  "githubOrg": "software-factory-workshop",
+                  "githubRepo": "jira-clone",
+                  "gitRootDirectory": "apps/factory",
+                  "actor": "codex"
+                },
+                "target": "production",
+                "projectId": "prj_ZXLHFUJhgo5EdvSf1IstOMn0ft0A"
+              }
+            ],
+            "coverage": "Most recent 20 deployments; older deployment history exists and was not requested."
+          },
+          "toolName": "vercel_read"
+        },
+        "sequence": 0,
+        "status": "completed",
+        "stepIndex": 3,
+        "turnId": "turn_0"
+      },
+      "type": "action.result",
+      "meta": {
+        "at": "2026-09-12T12:30:36.148Z",
+        "id": "evt_01M2ASJ8KM0PVAFW7CQJDD5MZ9",
+        "deliveryIds": [
+          "b7fe3599-dc9e-43dc-bcd6-7681b26183c9"
+        ]
+      }
+    },
+    {
+      "data": {
+        "finishReason": "tool-calls",
+        "sequence": 0,
+        "stepIndex": 3,
+        "turnId": "turn_0",
+        "usage": {
+          "costUsd": 0.0032802,
+          "inputTokens": 31420,
+          "outputTokens": 691,
+          "cacheReadTokens": 0
+        },
+        "providerMetadata": {
+          "gateway": {
+            "generationId": "gen_01M2ASJ35YVM1E8AGGQDMMBCP2"
+          }
+        }
+      },
+      "type": "step.completed",
+      "meta": {
+        "at": "2026-09-12T12:30:36.196Z",
+        "id": "evt_01M2ASJ8N4D1ANEY0B90KY72SV",
+        "deliveryIds": [
+          "b7fe3599-dc9e-43dc-bcd6-7681b26183c9"
+        ]
+      }
+    },
+    {
+      "data": {
+        "result": {
+          "callId": "call_01a0959931907142b5bf832fc2c6c64b",
+          "kind": "tool-result",
+          "output": {
+            "resource": "build_logs",
+            "projectId": "prj_ZXLHFUJhgo5EdvSf1IstOMn0ft0A",
+            "capturedAt": "2026-09-12T12:30:40.694Z",
+            "complete": false,
+            "items": [],
+            "gap": "Choose a deployment ID from this project's deployment evidence before reading logs."
+          },
+          "toolName": "vercel_read"
+        },
+        "sequence": 0,
+        "status": "completed",
+        "stepIndex": 4,
+        "turnId": "turn_0"
+      },
+      "type": "action.result",
+      "meta": {
+        "at": "2026-09-12T12:30:40.695Z",
+        "id": "evt_01M2ASJD1QDN5MAS4NJHC9B405",
+        "deliveryIds": [
+          "b7fe3599-dc9e-43dc-bcd6-7681b26183c9"
+        ]
+      }
+    },
+    {
+      "data": {
+        "result": {
+          "callId": "call_01a0959930dc7911b5f86070836baba0",
+          "kind": "tool-result",
+          "output": {
+            "resource": "deployments",
+            "projectId": "prj_C3sDKTOQIOqpIpNO9w7bqcWYkwp4",
+            "capturedAt": "2026-09-12T12:30:40.692Z",
+            "complete": true,
+            "items": [
+              {
+                "uid": "dpl_A5oFTnQ7QVrEanjQYKraG7Fs9H17",
+                "url": "adeo-jira-clone-dtmoauzxp-demo-software-factory.vercel.app",
+                "state": "READY",
+                "readyState": "READY",
+                "created": 1789216044286,
+                "createdAt": 1789216044286,
+                "meta": {
+                  "githubCommitAuthorName": "R\u00e9mi Connesson",
+                  "githubCommitAuthorEmail": "remiconnesson2@gmail.com",
+                  "githubCommitMessage": "Record verified machine access and token rotation boundary",
+                  "githubCommitOrg": "software-factory-workshop",
+                  "githubCommitRef": "main",
+                  "githubCommitRepo": "jira-clone",
+                  "githubCommitSha": "3b6b8fad73f30200548cc9c641cb4e4723db4682",
+                  "githubDeployment": "1",
+                  "githubOrg": "software-factory-workshop",
+                  "githubRepo": "jira-clone",
+                  "githubRepoOwnerType": "Organization",
+                  "githubCommitRepoId": "1367117048",
+                  "githubRepoId": "1367117048",
+                  "githubRepoVisibility": "private",
+                  "githubHost": "github.com",
+                  "githubCommitAuthorLogin": "remiconnesson",
+                  "githubCommitVerification": "verified",
+                  "repoPushedAt": "1789216042000",
+                  "branchAlias": "adeo-jira-clone-git-main-demo-software-factory.vercel.app",
+                  "lambdaRuntimeStats": "{\"nodejs\":1}"
+                },
+                "target": "production",
+                "projectId": "prj_C3sDKTOQIOqpIpNO9w7bqcWYkwp4"
+              },
+              {
+                "uid": "dpl_5qzvnwSPVuvLe9vCCSJEyBRyhsY4",
+                "url": "adeo-jira-clone-ec83hi9pm-demo-software-factory.vercel.app",
+                "state": "READY",
+                "readyState": "READY",
+                "created": 1789215650159,
+                "createdAt": 1789215650159,
+                "meta": {
+                  "githubCommitAuthorName": "R\u00e9mi Connesson",
+                  "githubCommitAuthorEmail": "remiconnesson2@gmail.com",
+                  "githubCommitMessage": "Expose cockpit UI capabilities through tested APIs",
+                  "githubCommitOrg": "software-factory-workshop",
+                  "githubCommitRef": "feat/cockpit-api",
+                  "githubCommitRepo": "jira-clone",
+                  "githubCommitSha": "71ed287d9f2612d17289ffeaa3544e2fb7be5058",
+                  "githubDeployment": "1",
+                  "githubOrg": "software-factory-workshop",
+                  "githubRepo": "jira-clone",
+                  "githubRepoOwnerType": "Organization",
+                  "githubCommitRepoId": "1367117048",
+                  "githubRepoId": "1367117048",
+                  "githubRepoVisibility": "private",
+                  "githubHost": "github.com",
+                  "githubCommitAuthorLogin": "remiconnesson",
+                  "githubCommitVerification": "verified",
+                  "repoPushedAt": "1789215647000",
+                  "branchAlias": "adeo-jira-clone-git-feat-cockpit-api-demo-software-factory.vercel.app",
+                  "githubPrId": "1",
+                  "lambdaRuntimeStats": "{\"nodejs\":1}"
+                },
+                "target": null,
+                "projectId": "prj_C3sDKTOQIOqpIpNO9w7bqcWYkwp4"
+              },
+              {
+                "uid": "dpl_Fsjmk6BF3oH33nTmwKMfZozKFcr2",
+                "url": "adeo-jira-clone-pd8o1uq9l-demo-software-factory.vercel.app",
+                "state": "READY",
+                "readyState": "READY",
+                "created": 1789214046716,
+                "createdAt": 1789214046716,
+                "meta": {
+                  "githubCommitAuthorName": "R\u00e9mi Connesson",
+                  "githubCommitAuthorEmail": "remiconnesson2@gmail.com",
+                  "githubCommitMessage": "Capture context lessons and remaining native verification gaps",
+                  "githubCommitOrg": "software-factory-workshop",
+                  "githubCommitRef": "main",
+                  "githubCommitRepo": "jira-clone",
+                  "githubCommitSha": "aae9e140f3bbcaaa9cdfc97497ff0c1a31fc13f6",
+                  "githubDeployment": "1",
+                  "githubOrg": "software-factory-workshop",
+                  "githubRepo": "jira-clone",
+                  "githubRepoOwnerType": "Organization",
+                  "githubCommitRepoId": "1367117048",
+                  "githubRepoId": "1367117048",
+                  "githubRepoVisibility": "private",
+                  "githubHost": "github.com",
+                  "githubCommitAuthorLogin": "remiconnesson",
+                  "githubCommitVerification": "verified",
+                  "repoPushedAt": "1789214044000",
+                  "branchAlias": "adeo-jira-clone-git-main-demo-software-factory.vercel.app",
+                  "lambdaRuntimeStats": "{\"nodejs\":1}"
+                },
+                "target": "production",
+                "projectId": "prj_C3sDKTOQIOqpIpNO9w7bqcWYkwp4"
+              },
+              {
+                "uid": "dpl_BybD7ZeGN7FPfmw5yxcyhGbCqZHf",
+                "url": "adeo-jira-clone-e1lrjgc92-demo-software-factory.vercel.app",
+                "state": "READY",
+                "readyState": "READY",
+                "created": 1789213799182,
+                "createdAt": 1789213799182,
+                "meta": {
+                  "githubCommitAuthorName": "R\u00e9mi Connesson",
+                  "githubCommitAuthorEmail": "remiconnesson2@gmail.com",
+                  "githubCommitMessage": "Record native mining experiments and separate fx evidence",
+                  "githubCommitOrg": "software-factory-workshop",
+                  "githubCommitRef": "main",
+                  "githubCommitRepo": "jira-clone",
+                  "githubCommitSha": "c1d7974cf7c16f7c993af1b4938b3493b8bbf3eb",
+                  "githubDeployment": "1",
+                  "githubOrg": "software-factory-workshop",
+                  "githubRepo": "jira-clone",
+                  "githubRepoOwnerType": "Organization",
+                  "githubCommitRepoId": "1367117048",
+                  "githubRepoId": "1367117048",
+                  "githubRepoVisibility": "private",
+                  "githubHost": "github.com",
+                  "githubCommitAuthorLogin": "remiconnesson",
+                  "githubCommitVerification": "verified",
+                  "repoPushedAt": "1789213796000",
+                  "branchAlias": "adeo-jira-clone-git-main-demo-software-factory.vercel.app",
+                  "lambdaRuntimeStats": "{\"nodejs\":1}"
+                },
+                "target": "production",
+                "projectId": "prj_C3sDKTOQIOqpIpNO9w7bqcWYkwp4"
+              },
+              {
+                "uid": "dpl_CU5LJQzbRuke9hGZicmiRByqbPXm",
+                "url": "adeo-jira-clone-ptds31vog-demo-software-factory.vercel.app",
+                "state": "READY",
+                "readyState": "READY",
+                "created": 1789213596090,
+                "createdAt": 1789213596090,
+                "meta": {
+                  "githubCommitAuthorName": "R\u00e9mi Connesson",
+                  "githubCommitAuthorEmail": "remiconnesson2@gmail.com",
+                  "githubCommitMessage": "Focus investigations and distinguish required context gaps",
+                  "githubCommitOrg": "software-factory-workshop",
+                  "githubCommitRef": "main",
+                  "githubCommitRepo": "jira-clone",
+                  "githubCommitSha": "b81899e5d9ecd49b04840c649af0d63e0bbc8188",
+                  "githubDeployment": "1",
+                  "githubOrg": "software-factory-workshop",
+                  "githubRepo": "jira-clone",
+                  "githubRepoOwnerType": "Organization",
+                  "githubCommitRepoId": "1367117048",
+                  "githubRepoId": "1367117048",
+                  "githubRepoVisibility": "private",
+                  "githubHost": "github.com",
+                  "githubCommitAuthorLogin": "remiconnesson",
+                  "githubCommitVerification": "verified",
+                  "repoPushedAt": "1789213593000",
+                  "branchAlias": "adeo-jira-clone-git-main-demo-software-factory.vercel.app",
+                  "lambdaRuntimeStats": "{\"nodejs\":1}"
+                },
+                "target": "production",
+                "projectId": "prj_C3sDKTOQIOqpIpNO9w7bqcWYkwp4"
+              },
+              {
+                "uid": "dpl_HXfQKeu4hUo4DqG7KRguC9xV5weg",
+                "url": "adeo-jira-clone-awda9b12a-demo-software-factory.vercel.app",
+                "state": "READY",
+                "readyState": "READY",
+                "created": 1789213462018,
+                "createdAt": 1789213462018,
+                "meta": {
+                  "githubCommitAuthorName": "R\u00e9mi Connesson",
+                  "githubCommitAuthorEmail": "remiconnesson2@gmail.com",
+                  "githubCommitMessage": "Give native mining reports room to finish and clarify context",
+                  "githubCommitOrg": "software-factory-workshop",
+                  "githubCommitRef": "main",
+                  "githubCommitRepo": "jira-clone",
+                  "githubCommitSha": "42d335cbb0827b1d17d6be3d84c946b105533161",
+                  "githubDeployment": "1",
+                  "githubOrg": "software-factory-workshop",
+                  "githubRepo": "jira-clone",
+                  "githubRepoOwnerType": "Organization",
+                  "githubCommitRepoId": "1367117048",
+                  "githubRepoId": "1367117048",
+                  "githubRepoVisibility": "private",
+                  "githubHost": "github.com",
+                  "githubCommitAuthorLogin": "remiconnesson",
+                  "githubCommitVerification": "verified",
+                  "repoPushedAt": "1789213457000",
+                  "branchAlias": "adeo-jira-clone-git-main-demo-software-factory.vercel.app",
+                  "lambdaRuntimeStats": "{\"nodejs\":1}"
+                },
+                "target": "production",
+                "projectId": "prj_C3sDKTOQIOqpIpNO9w7bqcWYkwp4"
+              },
+              {
+                "uid": "dpl_4WZ5YZXfvi8B3rdeDSeZhyxkLGNQ",
+                "url": "adeo-jira-clone-pqsgig0xs-demo-software-factory.vercel.app",
+                "state": "READY",
+                "readyState": "READY",
+                "created": 1789213234417,
+                "createdAt": 1789213234417,
+                "meta": {
+                  "githubCommitAuthorName": "R\u00e9mi Connesson",
+                  "githubCommitAuthorEmail": "remiconnesson2@gmail.com",
+                  "githubCommitMessage": "Focus mining context on user outcomes and evidence",
+                  "githubCommitOrg": "software-factory-workshop",
+                  "githubCommitRef": "main",
+                  "githubCommitRepo": "jira-clone",
+                  "githubCommitSha": "1bbd2ae4721592ed98fac5dedcb62e89a040d4ec",
+                  "githubDeployment": "1",
+                  "githubOrg": "software-factory-workshop",
+                  "githubRepo": "jira-clone",
+                  "githubRepoOwnerType": "Organization",
+                  "githubCommitRepoId": "1367117048",
+                  "githubRepoId": "1367117048",
+                  "githubRepoVisibility": "private",
+                  "githubHost": "github.com",
+                  "githubCommitAuthorLogin": "remiconnesson",
+                  "githubCommitVerification": "verified",
+                  "repoPushedAt": "1789213232000",
+                  "branchAlias": "adeo-jira-clone-git-main-demo-software-factory.vercel.app",
+                  "lambdaRuntimeStats": "{\"nodejs\":1}"
+                },
+                "target": "production",
+                "projectId": "prj_C3sDKTOQIOqpIpNO9w7bqcWYkwp4"
+              },
+              {
+                "uid": "dpl_CiT4N2qDJP6MkpEXqKSmZviQx3VS",
+                "url": "adeo-jira-clone-bvee31w2g-demo-software-factory.vercel.app",
+                "state": "READY",
+                "readyState": "READY",
+                "created": 1789213203498,
+                "createdAt": 1789213203498,
+                "meta": {
+                  "githubCommitAuthorName": "R\u00e9mi Connesson",
+                  "githubCommitAuthorEmail": "remiconnesson2@gmail.com",
+                  "githubCommitMessage": "Fix native Eve sandbox authentication and context budget",
+                  "githubCommitOrg": "software-factory-workshop",
+                  "githubCommitRef": "main",
+                  "githubCommitRepo": "jira-clone",
+                  "githubCommitSha": "4baa031db5dfb61863a7b5b6e2484d1c58bc8de5",
+                  "githubDeployment": "1",
+                  "githubOrg": "software-factory-workshop",
+                  "githubRepo": "jira-clone",
+                  "githubRepoOwnerType": "Organization",
+                  "githubCommitRepoId": "1367117048",
+                  "githubRepoId": "1367117048",
+                  "githubRepoVisibility": "private",
+                  "githubHost": "github.com",
+                  "githubCommitAuthorLogin": "remiconnesson",
+                  "githubCommitVerification": "verified",
+                  "repoPushedAt": "1789213201000",
+                  "branchAlias": "adeo-jira-clone-git-main-demo-software-factory.vercel.app",
+                  "lambdaRuntimeStats": "{\"nodejs\":1}"
+                },
+                "target": "production",
+                "projectId": "prj_C3sDKTOQIOqpIpNO9w7bqcWYkwp4"
+              },
+              {
+                "uid": "dpl_8gLjqrg7mna1W1YhJUjkeaSJgcTN",
+                "url": "adeo-jira-clone-lql3tz2qe-demo-software-factory.vercel.app",
+                "state": "READY",
+                "readyState": "READY",
+                "created": 1789212922159,
+                "createdAt": 1789212922159,
+                "meta": {
+                  "githubCommitAuthorName": "R\u00e9mi Connesson",
+                  "githubCommitAuthorEmail": "remiconnesson2@gmail.com",
+                  "githubCommitMessage": "Replace fx-backed station with native Eve context investigation",
+                  "githubCommitOrg": "software-factory-workshop",
+                  "githubCommitRef": "main",
+                  "githubCommitRepo": "jira-clone",
+                  "githubCommitSha": "a7f5e271321a5f2e6a60495ecbc6ab78b64c923c",
+                  "githubDeployment": "1",
+                  "githubOrg": "software-factory-workshop",
+                  "githubRepo": "jira-clone",
+                  "githubRepoOwnerType": "Organization",
+                  "githubCommitRepoId": "1367117048",
+                  "githubRepoId": "1367117048",
+                  "githubRepoVisibility": "private",
+                  "githubHost": "github.com",
+                  "githubCommitAuthorLogin": "remiconnesson",
+                  "githubCommitVerification": "verified",
+                  "repoPushedAt": "1789212919000",
+                  "branchAlias": "adeo-jira-clone-git-main-demo-software-factory.vercel.app",
+                  "lambdaRuntimeStats": "{\"nodejs\":1}"
+                },
+                "target": "production",
+                "projectId": "prj_C3sDKTOQIOqpIpNO9w7bqcWYkwp4"
+              },
+              {
+                "uid": "dpl_5iA4toGf4183UGhUibkrSZyL6oDZ",
+                "url": "adeo-jira-clone-cdq85mccf-demo-software-factory.vercel.app",
+                "state": "READY",
+                "readyState": "READY",
+                "created": 1789211127458,
+                "createdAt": 1789211127458,
+                "meta": {
+                  "githubCommitAuthorName": "R\u00e9mi Connesson",
+                  "githubCommitAuthorEmail": "remiconnesson2@gmail.com",
+                  "githubCommitMessage": "Record hosted mining proof and distinguish stream disconnection",
+                  "githubCommitOrg": "software-factory-workshop",
+                  "githubCommitRef": "main",
+                  "githubCommitRepo": "jira-clone",
+                  "githubCommitSha": "315ea2e497ce2a5756caec83157e816af325e71e",
+                  "githubDeployment": "1",
+                  "githubOrg": "software-factory-workshop",
+                  "githubRepo": "jira-clone",
+                  "githubRepoOwnerType": "Organization",
+                  "githubCommitRepoId": "1367117048",
+                  "githubRepoId": "1367117048",
+                  "githubRepoVisibility": "private",
+                  "githubHost": "github.com",
+                  "githubCommitAuthorLogin": "remiconnesson",
+                  "githubCommitVerification": "verified",
+                  "repoPushedAt": "1789211125000",
+                  "branchAlias": "adeo-jira-clone-git-main-demo-software-factory.vercel.app",
+                  "lambdaRuntimeStats": "{\"nodejs\":1}"
+                },
+                "target": "production",
+                "projectId": "prj_C3sDKTOQIOqpIpNO9w7bqcWYkwp4"
+              },
+              {
+                "uid": "dpl_5i45YYWd8vRWJ6BqgrczgfWTZTXM",
+                "url": "adeo-jira-clone-k9anquswk-demo-software-factory.vercel.app",
+                "state": "READY",
+                "readyState": "READY",
+                "created": 1789210704916,
+                "createdAt": 1789210704916,
+                "meta": {
+                  "githubCommitAuthorName": "R\u00e9mi Connesson",
+                  "githubCommitAuthorEmail": "remiconnesson2@gmail.com",
+                  "githubCommitMessage": "Package hidden Workflow assets within the Eve service output",
+                  "githubCommitOrg": "software-factory-workshop",
+                  "githubCommitRef": "main",
+                  "githubCommitRepo": "jira-clone",
+                  "githubCommitSha": "e33c7299096312cf8322be00ed0cfe7be8ec11bf",
+                  "githubDeployment": "1",
+                  "githubOrg": "software-factory-workshop",
+                  "githubRepo": "jira-clone",
+                  "githubRepoOwnerType": "Organization",
+                  "githubCommitRepoId": "1367117048",
+                  "githubRepoId": "1367117048",
+                  "githubRepoVisibility": "private",
+                  "githubHost": "github.com",
+                  "githubCommitAuthorLogin": "remiconnesson",
+                  "githubCommitVerification": "verified",
+                  "repoPushedAt": "1789210702000",
+                  "branchAlias": "adeo-jira-clone-git-main-demo-software-factory.vercel.app",
+                  "lambdaRuntimeStats": "{\"nodejs\":1}"
+                },
+                "target": "production",
+                "projectId": "prj_C3sDKTOQIOqpIpNO9w7bqcWYkwp4"
+              },
+              {
+                "uid": "dpl_C8h2JS5nGEqXCQ22mAFYVn4m8k3h",
+                "url": "adeo-jira-clone-anvecch37-demo-software-factory.vercel.app",
+                "state": "READY",
+                "readyState": "READY",
+                "created": 1789210483821,
+                "createdAt": 1789210483821,
+                "meta": {
+                  "githubCommitAuthorName": "R\u00e9mi Connesson",
+                  "githubCommitAuthorEmail": "remiconnesson2@gmail.com",
+                  "githubCommitMessage": "Verify bridge assets in both Eve and Workflow function bundles",
+                  "githubCommitOrg": "software-factory-workshop",
+                  "githubCommitRef": "main",
+                  "githubCommitRepo": "jira-clone",
+                  "githubCommitSha": "1f5b6af6c2f691827c40aa221042afc3d1947918",
+                  "githubDeployment": "1",
+                  "githubOrg": "software-factory-workshop",
+                  "githubRepo": "jira-clone",
+                  "githubRepoOwnerType": "Organization",
+                  "githubCommitRepoId": "1367117048",
+                  "githubRepoId": "1367117048",
+                  "githubRepoVisibility": "private",
+                  "githubHost": "github.com",
+                  "githubCommitAuthorLogin": "remiconnesson",
+                  "githubCommitVerification": "verified",
+                  "repoPushedAt": "1789210481000",
+                  "branchAlias": "adeo-jira-clone-git-main-demo-software-factory.vercel.app",
+                  "lambdaRuntimeStats": "{\"nodejs\":1}"
+                },
+                "target": "production",
+                "projectId": "prj_C3sDKTOQIOqpIpNO9w7bqcWYkwp4"
+              },
+              {
+                "uid": "dpl_3VTDZpKVh8jX8C3SfuyuP9wgQYqn",
+                "url": "adeo-jira-clone-hd5owttex-demo-software-factory.vercel.app",
+                "state": "READY",
+                "readyState": "READY",
+                "created": 1789210111209,
+                "createdAt": 1789210111209,
+                "meta": {
+                  "githubCommitAuthorName": "R\u00e9mi Connesson",
+                  "githubCommitAuthorEmail": "remiconnesson2@gmail.com",
+                  "githubCommitMessage": "Preserve fx bridge assets in the hosted Eve build",
+                  "githubCommitOrg": "software-factory-workshop",
+                  "githubCommitRef": "main",
+                  "githubCommitRepo": "jira-clone",
+                  "githubCommitSha": "c0bd993ffc45deb8249557d44c195b3a3b390a10",
+                  "githubDeployment": "1",
+                  "githubOrg": "software-factory-workshop",
+                  "githubRepo": "jira-clone",
+                  "githubRepoOwnerType": "Organization",
+                  "githubCommitRepoId": "1367117048",
+                  "githubRepoId": "1367117048",
+                  "githubRepoVisibility": "private",
+                  "githubHost": "github.com",
+                  "githubCommitAuthorLogin": "remiconnesson",
+                  "githubCommitVerification": "verified",
+                  "repoPushedAt": "1789210108000",
+                  "branchAlias": "adeo-jira-clone-git-main-demo-software-factory.vercel.app",
+                  "lambdaRuntimeStats": "{\"nodejs\":1}"
+                },
+                "target": "production",
+                "projectId": "prj_C3sDKTOQIOqpIpNO9w7bqcWYkwp4"
+              },
+              {
+                "uid": "dpl_4pnC8FBNs4ntu4hTM8SJAHUsVPTM",
+                "url": "adeo-jira-clone-7unw2ptzf-demo-software-factory.vercel.app",
+                "state": "READY",
+                "readyState": "READY",
+                "created": 1789209807569,
+                "createdAt": 1789209807569,
+                "meta": {
+                  "githubCommitAuthorName": "R\u00e9mi Connesson",
+                  "githubCommitAuthorEmail": "remiconnesson2@gmail.com",
+                  "githubCommitMessage": "Ship the Eve task-mining station in the ADEO cockpit",
+                  "githubCommitOrg": "software-factory-workshop",
+                  "githubCommitRef": "main",
+                  "githubCommitRepo": "jira-clone",
+                  "githubCommitSha": "14dae90f2b96df13c20428b4b57f22558be5823d",
+                  "githubDeployment": "1",
+                  "githubOrg": "software-factory-workshop",
+                  "githubRepo": "jira-clone",
+                  "githubRepoOwnerType": "Organization",
+                  "githubCommitRepoId": "1367117048",
+                  "githubRepoId": "1367117048",
+                  "githubRepoVisibility": "private",
+                  "githubHost": "github.com",
+                  "githubCommitAuthorLogin": "remiconnesson",
+                  "githubCommitVerification": "verified",
+                  "repoPushedAt": "1789209802000",
+                  "branchAlias": "adeo-jira-clone-git-main-demo-software-factory.vercel.app",
+                  "lambdaRuntimeStats": "{\"nodejs\":1}"
+                },
+                "target": "production",
+                "projectId": "prj_C3sDKTOQIOqpIpNO9w7bqcWYkwp4"
+              },
+              {
+                "uid": "dpl_FfN5iHiykTRQK15VTRHJwX3wecNy",
+                "url": "adeo-jira-clone-rkrsqnwa7-demo-software-factory.vercel.app",
+                "state": "READY",
+                "readyState": "READY",
+                "created": 1789207309545,
+                "createdAt": 1789207309545,
+                "meta": {
+                  "githubCommitAuthorName": "R\u00e9mi Connesson",
+                  "githubCommitAuthorEmail": "remiconnesson2@gmail.com",
+                  "githubCommitMessage": "Grow task mining through repository context and recorded experiments",
+                  "githubCommitOrg": "software-factory-workshop",
+                  "githubCommitRef": "main",
+                  "githubCommitRepo": "jira-clone",
+                  "githubCommitSha": "b555eb05312e577e289c7046eb28f69bb91317a1",
+                  "githubDeployment": "1",
+                  "githubOrg": "software-factory-workshop",
+                  "githubRepo": "jira-clone",
+                  "githubRepoOwnerType": "Organization",
+                  "githubCommitRepoId": "1367117048",
+                  "githubRepoId": "1367117048",
+                  "githubRepoVisibility": "private",
+                  "githubHost": "github.com",
+                  "githubCommitAuthorLogin": "remiconnesson",
+                  "githubCommitVerification": "verified",
+                  "repoPushedAt": "1789207306000",
+                  "branchAlias": "adeo-jira-clone-git-main-demo-software-factory.vercel.app",
+                  "lambdaRuntimeStats": "{\"nodejs\":1}"
+                },
+                "target": "production",
+                "projectId": "prj_C3sDKTOQIOqpIpNO9w7bqcWYkwp4"
+              },
+              {
+                "uid": "dpl_5R1rkhfEJ4E5ob1XbeE1x4dJJrDs",
+                "url": "adeo-jira-clone-23gmmy4mv-demo-software-factory.vercel.app",
+                "state": "READY",
+                "readyState": "READY",
+                "created": 1789204210804,
+                "createdAt": 1789204210804,
+                "meta": {
+                  "githubCommitAuthorName": "R\u00e9mi Connesson",
+                  "githubCommitAuthorEmail": "remiconnesson2@gmail.com",
+                  "githubCommitMessage": "Note asynchronous task mining direction for cockpit starters",
+                  "githubCommitOrg": "software-factory-workshop",
+                  "githubCommitRef": "main",
+                  "githubCommitRepo": "jira-clone",
+                  "githubCommitSha": "9f22e3085969531b8198f831e0c460309ed15e81",
+                  "githubDeployment": "1",
+                  "githubOrg": "software-factory-workshop",
+                  "githubRepo": "jira-clone",
+                  "githubRepoOwnerType": "Organization",
+                  "githubCommitRepoId": "1367117048",
+                  "githubRepoId": "1367117048",
+                  "githubRepoVisibility": "private",
+                  "githubHost": "github.com",
+                  "githubCommitAuthorLogin": "remiconnesson",
+                  "githubCommitVerification": "verified",
+                  "repoPushedAt": "1789204208000",
+                  "branchAlias": "adeo-jira-clone-git-main-demo-software-factory.vercel.app",
+                  "lambdaRuntimeStats": "{\"nodejs\":1}"
+                },
+                "target": "production",
+                "projectId": "prj_C3sDKTOQIOqpIpNO9w7bqcWYkwp4"
+              },
+              {
+                "uid": "dpl_BxyGuZts35Ddx6XwDPg5rFcUEghj",
+                "url": "adeo-jira-clone-ojsdc38ox-demo-software-factory.vercel.app",
+                "state": "READY",
+                "readyState": "READY",
+                "created": 1789204026677,
+                "createdAt": 1789204026677,
+                "meta": {
+                  "githubCommitAuthorName": "R\u00e9mi Connesson",
+                  "githubCommitAuthorEmail": "remiconnesson2@gmail.com",
+                  "githubCommitMessage": "Reveal and focus the request editor when selecting a starter",
+                  "githubCommitOrg": "software-factory-workshop",
+                  "githubCommitRef": "main",
+                  "githubCommitRepo": "jira-clone",
+                  "githubCommitSha": "c5d3d1137ef58485972aff2c0a21c7f5e7313615",
+                  "githubDeployment": "1",
+                  "githubOrg": "software-factory-workshop",
+                  "githubRepo": "jira-clone",
+                  "githubRepoOwnerType": "Organization",
+                  "githubCommitRepoId": "1367117048",
+                  "githubRepoId": "1367117048",
+                  "githubRepoVisibility": "private",
+                  "githubHost": "github.com",
+                  "githubCommitAuthorLogin": "remiconnesson",
+                  "githubCommitVerification": "verified",
+                  "repoPushedAt": "1789204024000",
+                  "branchAlias": "adeo-jira-clone-git-main-demo-software-factory.vercel.app",
+                  "lambdaRuntimeStats": "{\"nodejs\":1}"
+                },
+                "target": "production",
+                "projectId": "prj_C3sDKTOQIOqpIpNO9w7bqcWYkwp4"
+              },
+              {
+                "uid": "dpl_7P8pK6voewLrGSY69A9LGtA2DNcA",
+                "url": "adeo-jira-clone-2quosm8fm-demo-software-factory.vercel.app",
+                "state": "READY",
+                "readyState": "READY",
+                "created": 1789203700772,
+                "createdAt": 1789203700772,
+                "meta": {
+                  "githubCommitAuthorName": "R\u00e9mi Connesson",
+                  "githubCommitAuthorEmail": "remiconnesson2@gmail.com",
+                  "githubCommitMessage": "Record successful Git deployments and live Connect verification",
+                  "githubCommitOrg": "software-factory-workshop",
+                  "githubCommitRef": "main",
+                  "githubCommitRepo": "jira-clone",
+                  "githubCommitSha": "f3d1e6a5e56fda62149d98de6c3deee6ebd7f111",
+                  "githubDeployment": "1",
+                  "githubOrg": "software-factory-workshop",
+                  "githubRepo": "jira-clone",
+                  "githubRepoOwnerType": "Organization",
+                  "githubCommitRepoId": "1367117048",
+                  "githubRepoId": "1367117048",
+                  "githubRepoVisibility": "private",
+                  "githubHost": "github.com",
+                  "githubCommitAuthorLogin": "remiconnesson",
+                  "githubCommitVerification": "verified",
+                  "repoPushedAt": "1789203698000",
+                  "branchAlias": "adeo-jira-clone-git-main-demo-software-factory.vercel.app",
+                  "lambdaRuntimeStats": "{\"nodejs\":1}"
+                },
+                "target": "production",
+                "projectId": "prj_C3sDKTOQIOqpIpNO9w7bqcWYkwp4"
+              },
+              {
+                "uid": "dpl_53APhsfDUcHB9t9Ea9whe7chzUsU",
+                "url": "adeo-jira-clone-62g1gtkco-demo-software-factory.vercel.app",
+                "state": "READY",
+                "readyState": "READY",
+                "created": 1789203586524,
+                "createdAt": 1789203586524,
+                "meta": {
+                  "githubCommitAuthorName": "R\u00e9mi Connesson",
+                  "githubCommitAuthorEmail": "remiconnesson2@gmail.com",
+                  "githubCommitMessage": "Fix connection hydration and record stage-zero verification",
+                  "githubCommitOrg": "software-factory-workshop",
+                  "githubCommitRef": "main",
+                  "githubCommitRepo": "jira-clone",
+                  "githubCommitSha": "8308ea9665455e03fa6a994b5b65cf8704975722",
+                  "githubDeployment": "1",
+                  "githubOrg": "software-factory-workshop",
+                  "githubRepo": "jira-clone",
+                  "githubRepoOwnerType": "Organization",
+                  "githubCommitRepoId": "1367117048",
+                  "githubRepoId": "1367117048",
+                  "githubRepoVisibility": "private",
+                  "githubHost": "github.com",
+                  "githubCommitAuthorLogin": "remiconnesson",
+                  "githubCommitVerification": "verified",
+                  "repoPushedAt": "1789203584000",
+                  "branchAlias": "adeo-jira-clone-git-main-demo-software-factory.vercel.app",
+                  "lambdaRuntimeStats": "{\"nodejs\":1}"
+                },
+                "target": "production",
+                "projectId": "prj_C3sDKTOQIOqpIpNO9w7bqcWYkwp4"
+              },
+              {
+                "uid": "dpl_A2LuThe57C5pAALVeCccCBmCdfjR",
+                "url": "adeo-jira-clone-crc7ivajk-demo-software-factory.vercel.app",
+                "state": "BLOCKED",
+                "readyState": "BLOCKED",
+                "created": 1789203520587,
+                "createdAt": 1789203520587,
+                "meta": {
+                  "githubCommitAuthorName": "R\u00e9mi Connesson",
+                  "githubCommitAuthorEmail": "remiconnesson2@gmail.com",
+                  "githubCommitMessage": "Bootstrap stage-zero ADEO Jira factory workspace",
+                  "githubCommitOrg": "software-factory-workshop",
+                  "githubCommitRef": "main",
+                  "githubCommitRepo": "jira-clone",
+                  "githubCommitSha": "31c17ccf13cd8edc8c4d9e1e23103d469b86350c",
+                  "githubDeployment": "1",
+                  "githubOrg": "software-factory-workshop",
+                  "githubRepo": "jira-clone",
+                  "gitDirty": "1",
+                  "gitRootDirectory": "apps/jira",
+                  "actor": "codex"
+                },
+                "target": "production",
+                "projectId": "prj_C3sDKTOQIOqpIpNO9w7bqcWYkwp4"
+              }
+            ],
+            "coverage": "Most recent 20 deployments; older deployment history exists and was not requested."
+          },
+          "toolName": "vercel_read"
+        },
+        "sequence": 0,
+        "status": "completed",
+        "stepIndex": 4,
+        "turnId": "turn_0"
+      },
+      "type": "action.result",
+      "meta": {
+        "at": "2026-09-12T12:30:40.923Z",
+        "id": "evt_01M2ASJD8VGVYX3ZCVVMNRQ00H",
+        "deliveryIds": [
+          "b7fe3599-dc9e-43dc-bcd6-7681b26183c9"
+        ]
+      }
+    },
+    {
+      "data": {
+        "finishReason": "tool-calls",
+        "sequence": 0,
+        "stepIndex": 4,
+        "turnId": "turn_0",
+        "usage": {
+          "costUsd": 0.003498646,
+          "inputTokens": 49324,
+          "outputTokens": 413,
+          "cacheReadTokens": 15473
+        },
+        "providerMetadata": {
+          "gateway": {
+            "generationId": "gen_01M2ASJ9696QAN0QPYS3BMEQKA"
+          }
+        }
+      },
+      "type": "step.completed",
+      "meta": {
+        "at": "2026-09-12T12:30:41.154Z",
+        "id": "evt_01M2ASJDG2NP7T9MX246A79F66",
+        "deliveryIds": [
+          "b7fe3599-dc9e-43dc-bcd6-7681b26183c9"
+        ]
+      }
+    },
+    {
+      "data": {
+        "finishReason": "tool-calls",
+        "sequence": 0,
+        "stepIndex": 5,
+        "turnId": "turn_0",
+        "usage": {
+          "costUsd": 0.00148293,
+          "inputTokens": 62593,
+          "outputTokens": 258,
+          "cacheReadTokens": 49265
+        },
+        "providerMetadata": {
+          "gateway": {
+            "generationId": "gen_01M2ASJE81278K44ZVHZM6BG32"
+          }
+        }
+      },
+      "type": "step.completed",
+      "meta": {
+        "at": "2026-09-12T12:30:45.391Z",
+        "id": "evt_01M2ASJHMFGDR027GHRM7KPPYN",
+        "deliveryIds": [
+          "b7fe3599-dc9e-43dc-bcd6-7681b26183c9"
+        ]
+      }
+    },
+    {
+      "data": {
+        "finishReason": "tool-calls",
+        "sequence": 0,
+        "stepIndex": 6,
+        "turnId": "turn_0",
+        "usage": {
+          "costUsd": 0.000707254,
+          "inputTokens": 62726,
+          "outputTokens": 2836,
+          "cacheReadTokens": 62577
+        },
+        "providerMetadata": {
+          "gateway": {
+            "generationId": "gen_01M2ASJJ3Z7YN5XKH3PXWKF3Y4"
+          }
+        }
+      },
+      "type": "step.completed",
+      "meta": {
+        "at": "2026-09-12T12:31:11.486Z",
+        "id": "evt_01M2ASKB3YSEZW531JXWQBE60S",
+        "deliveryIds": [
+          "b7fe3599-dc9e-43dc-bcd6-7681b26183c9"
+        ]
+      }
+    },
+    {
+      "data": {
+        "finishReason": "stop",
+        "sequence": 0,
+        "stepIndex": 7,
+        "turnId": "turn_0",
+        "usage": {
+          "costUsd": 0.00036361,
+          "inputTokens": 63677,
+          "outputTokens": 705,
+          "cacheReadTokens": 62705
+        },
+        "providerMetadata": {
+          "gateway": {
+            "generationId": "gen_01M2ASKBJ24M5MB41QDR8PTSCW"
+          }
+        }
+      },
+      "type": "step.completed",
+      "meta": {
+        "at": "2026-09-12T12:31:20.466Z",
+        "id": "evt_01M2ASKKWJHKDTNJSP67WGA0B3",
+        "deliveryIds": [
+          "b7fe3599-dc9e-43dc-bcd6-7681b26183c9"
+        ]
+      }
+    },
+    {
+      "data": {
+        "sequence": 0,
+        "turnId": "turn_0"
+      },
+      "type": "turn.completed",
+      "meta": {
+        "at": "2026-09-12T12:31:20.513Z",
+        "id": "evt_01M2ASKKY10M675RT8Z2MWHCJS",
+        "deliveryIds": [
+          "b7fe3599-dc9e-43dc-bcd6-7681b26183c9"
+        ]
+      }
+    },
+    {
+      "data": {
+        "continuationToken": "wrun_41M2ASGX7J0GQQ5XJY7ETJ54F7",
+        "wait": "next-user-message"
+      },
+      "type": "session.waiting",
+      "meta": {
+        "at": "2026-09-12T12:31:24.941Z",
+        "id": "evt_01M2ASKR8DFKDY0TDZK390J4PS",
+        "deliveryIds": [
+          "b7fe3599-dc9e-43dc-bcd6-7681b26183c9"
+        ]
+      }
+    }
+  ],
+  "usage": {
+    "inputTokens": 292730,
+    "outputTokens": 6401,
+    "costUsd": 0.011206628
+  },
+  "eventCount": 130
+}

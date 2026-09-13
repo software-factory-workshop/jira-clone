@@ -1,0 +1,47 @@
+{
+  "sessionId": "wrun_41M2AW710Q0GTFT56P7E0TXN1Z",
+  "deployment": "adeo-factory-cockpit-j3aku1zxp-demo-software-factory.vercel.app",
+  "purpose": "Real findings used for PR preview feedback browser verification",
+  "sourceRevision": "65ff1fb74af68344d8042a1b655e0c0c00e99d39",
+  "phase": "Incomplete",
+  "proposalCount": 2,
+  "contextGaps": [
+    "Missing complete GitHub issues inventory.",
+    "Missing Vercel project or deployment evidence for Jira."
+  ],
+  "usage": {
+    "inputTokens": 202283,
+    "outputTokens": 9040,
+    "costUsd": 0.008552186
+  },
+  "terminalEvents": [
+    {
+      "data": {
+        "sequence": 0,
+        "turnId": "turn_0"
+      },
+      "type": "turn.completed",
+      "meta": {
+        "at": "2026-09-12T13:18:57.486Z",
+        "id": "evt_01M2AWASYEE1MY0C9HS3ZQ0KCW",
+        "deliveryIds": [
+          "b0edc711-1dc2-4469-9956-1608f8db14db"
+        ]
+      }
+    },
+    {
+      "data": {
+        "continuationToken": "wrun_41M2AW710Q0GTFT56P7E0TXN1Z",
+        "wait": "next-user-message"
+      },
+      "type": "session.waiting",
+      "meta": {
+        "at": "2026-09-12T13:19:02.991Z",
+        "id": "evt_01M2AWAZAF3V63XTC22QHR1EY8",
+        "deliveryIds": [
+          "b0edc711-1dc2-4469-9956-1608f8db14db"
+        ]
+      }
+    }
+  ]
+}

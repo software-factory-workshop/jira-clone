@@ -2,6 +2,18 @@
 
 Grow a software factory with Eve, using an ADEO-branded Jira demo as its test subject. The factory is the workshop outcome. Jira gives us concrete work and product feedback with which to improve it.
 
+**Station 01 — task mining.** An Eve agent investigates the goal, source and GitHub work in a Vercel Sandbox, then returns proposals and a reflection for human review. See [the station contract](factory/task-mining-station.md) and [verification](docs/verification.md).
+
+## Review the starting point
+
+- Factory cockpit: https://adeo-factory-cockpit.vercel.app
+- Jira demo: https://adeo-jira-clone.vercel.app
+- Both applications use the ADEO Nuxt UI layer v0.1.1.
+
+The cockpit starts and resumes durable Eve investigations. It also has browser-local request drafts, starter prompts, project knowledge and the factory growth path. “Review in GitHub” opens a prefilled issue; the user decides whether to submit it. Draft storage is local to a browser, not shared team state. GitHub repository context uses Vercel Connect when installed.
+
+The Jira demo has searchable synthetic issues, status and assignee filtering, list/board views, issue details, bounded creation, edits, comments, transitions and reset. Its issue and comment persistence uses Neon Postgres when `DATABASE_URL` is configured, with an explicit in-memory fallback for tests and workshops. Passport-derived accounts, a labelled fallback role matrix, bounded Jira-shaped REST routes, eleven MCP tools and a fake OAuth provider are implemented locally. See [the current-state contract](docs/jira-current-state.md) for exact boundaries. This is not full Jira parity and does not provide production Connect or OAuth registration, SAML, SCIM or complete Jira permissions.
+
 ## Run locally
 
 Requires Node 24.11+ (24.x) and pnpm 10.33.4.
@@ -60,4 +72,8 @@ The cockpit's GitHub connector is `github/jira-clone`. Keep all cockpit deployme
 
 ## Private design-system package
 
-This project consumes the existing v0.1.1 package tarball, checked into this **private** repository. This is the same Nuxt layer, not a reimplementation. It keeps workshop installation reproducible while package-registry access is being configured. See [vendor provenance](vendor/README.md) and the [tracked package-access friction](.agents/friction-log/20260912094635-adeo-private-package/friction.md). Do not publish this repository or package artifact publicly.
+Stage zero consumes the existing v0.1.1 package tarball, checked into this **private** repository. This is the same Nuxt layer, not a reimplementation. It keeps workshop installation reproducible while package-registry access is being configured. See [vendor provenance](vendor/README.md) and the [tracked package-access friction](.agents/friction-log/20260912094635-adeo-private-package/friction.md). Do not publish this repository or package artifact publicly.
+
+## Next review
+
+Read [the cockpit scope](docs/cockpit.md), [the Jira current state](docs/jira-current-state.md) and [the growth experiment](docs/factory-growth-experiment.md). Review an investigation in the cockpit, then improve its context or select one bounded task.
