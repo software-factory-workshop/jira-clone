@@ -34,7 +34,7 @@ The detailed route and boundary contracts live in [the REST adapter guide](jira-
 
 ## Evidence status
 
-At this revision, `pnpm --filter @jira-clone/jira test` passes all 145 local tests covering the UI helpers, native routes, REST adapter, MCP tools, Passport resolver, OAuth provider and the Neon adapter with an injected SQL client. A passing local suite proves the checked-in contract. It does not prove that a hosted `DATABASE_URL` is provisioned, that a real Neon connection has been exercised, that the hosted aliases have been exercised in a browser, or that external Passport and Connect configuration is enabled. Record those observations separately in [verification.md](verification.md).
+At this revision, `pnpm --filter @jira-clone/jira test` passes all 145 local tests covering the UI helpers, native routes, REST adapter, MCP tools, Passport resolver, OAuth provider and the Neon adapter with an injected SQL client. A passing local suite proves the checked-in contract. Hosted production verification is recorded separately in [verification.md](verification.md): the dedicated `jira-clone-db` resource is connected to `adeo-jira-clone`, and authenticated Vercel CLI requests returned `persistence.mode: "neon"` and `durable: true` while exercising create, read and reset. The protected alias still requires Vercel SSO, so no end-user browser or Passport sign-in behavior is claimed. External Connect configuration remains out of scope.
 
 ## Source map
 
