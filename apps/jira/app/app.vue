@@ -38,7 +38,16 @@ import {
 import {
   capabilitiesForAccount,
   canInvokeMutation,
+  readOnlyMutationHint,
 } from "~/utils/roleAffordances";
+import {
+  detailDraftFromIssue,
+  isDetailDraftDirty,
+  saveDetailFields,
+  toDetailPatch,
+  validateDetailDraft,
+  type DetailFieldDraft,
+} from "~/utils/issueFields";
 
 const config = useRuntimeConfig();
 function demoErrorMessage(error: unknown, fallback: string): string {
@@ -203,6 +212,13 @@ const selectedTargets = computed(() =>
 );
 const selectedTarget = ref("");
 const selectedPriority = ref("");
+const detailSummary = ref("");
+const detailAssignee = ref("");
+const detailDescription = ref("");
+const detailSaving = ref(false);
+const detailFieldsError = ref<string | null>(null);
+const detailFieldsNotice = ref<string | null>(null);
+const detailWriteForbidden = ref<string | null>(null);
 const createOpen = ref(false);
 const createSaving = ref(false);
 const createError = ref<string | null>(null);
@@ -231,6 +247,13 @@ const persistenceReloadHint = computed(() =>
 watch(selected, (issue) => {
   selectedTarget.value = issue ? moveTargets(statuses, issue.status)[0] ?? "" : "";
   selectedPriority.value = issue ? issue.priority : "";
+  const draft = issue ? detailDraftFromIssue(issue) : { summary: "", assignee: "", description: "" };
+  detailSummary.value = draft.summary;
+  detailAssignee.value = draft.assignee;
+  detailDescription.value = draft.description;
+  detailFieldsError.value = null;
+  detailFieldsNotice.value = null;
+  detailSaving.value = false;
 });
 
 async function loadDetail(key: string) {
@@ -412,6 +435,18 @@ async function savePriority(key: string, next: string): Promise<BoardIssue> {
   return saved.issue;
 }
 
+async function saveDetailFieldPatch(
+  key: string,
+  patch: { title: string; assignee: string; description: string },
+): Promise<BoardIssue> {
+  const saved = await $fetch<{ issue: BoardIssue }>(`/api/issues/${key}`, {
+    method: "PATCH",
+    body: patch,
+    headers: demoHeaders(),
+  });
+  return saved.issue;
+}
+
 async function refresh() {
   loading.value = true;
   loadError.value = null;
@@ -473,6 +508,83 @@ async function changePriorityCard(key: string, next: string) {
   selectedKey.value = before;
   if (selectedKey.value === key && result.ok) void loadDetail(key);
   pendingKeys.value = pendingKeys.value.filter((pending) => pending !== key);
+}
+
+const detailDraftInvalid = computed(() =>
+  selected.value
+    ? validateDetailDraft({
+        summary: detailSummary.value,
+        assignee: detailAssignee.value,
+        description: detailDescription.value,
+      })
+    : "Select an issue to edit its fields.",
+);
+const detailDraftDirty = computed(() =>
+  selected.value
+    ? isDetailDraftDirty(
+        {
+          summary: detailSummary.value,
+          assignee: detailAssignee.value,
+          description: detailDescription.value,
+        },
+        selected.value,
+      )
+    : false,
+);
+
+async function saveDetailEdits() {
+  if (detailSaving.value || !selected.value || !selectedKey.value) return;
+  if (!canInvokeMutation("update", workspaceCapabilities.value)) {
+    detailWriteForbidden.value =
+      selected.value && readOnly.value
+        ? readOnlyMutationHint("update")
+        : "Demo-only save blocked: your role cannot write. Nothing was saved.";
+    return;
+  }
+  detailWriteForbidden.value = null;
+  const key = selectedKey.value;
+  const draft: DetailFieldDraft = {
+    summary: detailSummary.value,
+    assignee: detailAssignee.value,
+    description: detailDescription.value,
+  };
+  detailFieldsError.value = null;
+  detailFieldsNotice.value = null;
+  detailSaving.value = true;
+  try {
+    const result = await saveDetailFields(issues.value, key, draft, (k, patch) =>
+      saveDetailFieldPatch(k, patch),
+    );
+    issues.value = result.issues;
+    if (result.ok) {
+      // Reload through the canonical detail read first: it replaces the
+      // selected issue, which resets the draft state. The notice is set
+      // after the reload so it survives and names what was saved.
+      if (selectedKey.value === key) await loadDetail(key);
+      if (selectedKey.value === key) {
+        detailFieldsNotice.value = `Demo-only save: ${key} summary, assignee and description saved. Reload to confirm they persist on this server.`;
+      }
+    } else {
+      // A failed save keeps the submitted draft for retry; the list keeps
+      // the last saved values and nothing was written.
+      detailSummary.value = result.draft.summary;
+      detailAssignee.value = result.draft.assignee;
+      detailDescription.value = result.draft.description;
+      detailFieldsError.value = result.error;
+    }
+  } finally {
+    detailSaving.value = false;
+  }
+}
+
+function resetDetailDraft() {
+  if (!selected.value || detailSaving.value) return;
+  const draft = detailDraftFromIssue(selected.value);
+  detailSummary.value = draft.summary;
+  detailAssignee.value = draft.assignee;
+  detailDescription.value = draft.description;
+  detailFieldsError.value = null;
+  detailFieldsNotice.value = null;
 }
 
 function onDragStart(event: DragEvent, key: string) {
@@ -1015,18 +1127,73 @@ await refresh();
             <UBadge v-if="detailDemoOnly" color="neutral" variant="subtle"
               >Demo-only read</UBadge
             >
-            <h2>{{ selected.title }}</h2>
-            <p>{{ selected.description }}</p>
-            <dl>
-              <dt>Status</dt>
-              <dd>{{ selected.status }}</dd>
-              <dt>Type</dt>
-              <dd>{{ selected.type }}</dd>
-              <dt>Priority</dt>
-              <dd>{{ selected.priority }}</dd>
-              <dt>Assignee</dt>
-              <dd>{{ selected.assignee }}</dd>
-            </dl>
+            <form class="detail-fields" @submit.prevent="void saveDetailEdits()">
+              <label class="create-field">
+                <span>Summary</span>
+                <UInput
+                  v-model="detailSummary"
+                  placeholder="Issue summary"
+                  :aria-label="`Edit summary for ${selected.key}`"
+                  :disabled="!canWrite || detailSaving"
+                />
+              </label>
+              <div class="create-row">
+                <label class="create-field">
+                  <span>Assignee (send Unassigned to clear)</span>
+                  <UInput
+                    v-model="detailAssignee"
+                    placeholder="Unassigned"
+                    :aria-label="`Edit assignee for ${selected.key}`"
+                    :disabled="!canWrite || detailSaving"
+                  />
+                </label>
+                <p class="demo-save-hint">Status: {{ selected.status }} · Type: {{ selected.type }} · Priority: {{ selected.priority }}</p>
+              </div>
+              <label class="create-field">
+                <span>Description (empty clears it)</span>
+                <UTextarea
+                  v-model="detailDescription"
+                  placeholder="Demo-only description"
+                  :aria-label="`Edit description for ${selected.key}`"
+                  :disabled="!canWrite || detailSaving"
+                />
+              </label>
+              <p v-if="!canWrite" class="save-note" role="status">
+                <UIcon name="i-lucide-eye" /> {{ readOnlyMutationHint("update") }} The API remains the permission authority.
+              </p>
+              <p v-if="detailWriteForbidden" class="save-note" role="status">
+                <UIcon name="i-lucide-eye" /> {{ detailWriteForbidden }}
+              </p>
+              <p v-if="detailFieldsError" class="save-error" role="alert">
+                <UIcon name="i-lucide-triangle-alert" /> Demo save failed:
+                {{ detailFieldsError }} Your draft is kept for retry and nothing was saved.
+              </p>
+              <p v-if="detailFieldsNotice" class="save-note" role="status">
+                <UIcon name="i-lucide-check" /> {{ detailFieldsNotice }}
+              </p>
+              <div class="create-actions">
+                <UButton
+                  type="submit"
+                  icon="i-lucide-save"
+                  :loading="detailSaving"
+                  :disabled="!canWrite || detailSaving || !!detailDraftInvalid || !detailDraftDirty"
+                >
+                  Save summary, assignee and description
+                </UButton>
+                <UButton
+                  variant="outline"
+                  color="neutral"
+                  :disabled="!canWrite || detailSaving || !detailDraftDirty"
+                  @click="resetDetailDraft()"
+                >
+                  Reset draft
+                </UButton>
+              </div>
+              <p class="demo-save-hint">
+                Demo-only save: edits persist across reload on this server and reset on redeploy.
+                Blank summaries and blank assignees are rejected before saving; Unassigned clears the assignee and an empty description clears it.
+              </p>
+            </form>
             <label class="move-row">
               <span class="move-label">
                 <UIcon name="i-lucide-move" />Move

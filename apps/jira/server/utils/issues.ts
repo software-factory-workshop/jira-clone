@@ -15,8 +15,10 @@
  * Priority is a bounded synthetic allowlist (Highest, High, Medium, Low,
  * Lowest) chosen to cover the fixture values. It teaches the save path; it
  * does not claim Jira parity. Title, assignee and description edits share the
- * same save contract (used by the Jira-shaped REST update route); the native
- * PATCH route still sends status and/or priority only. Comments are flat,
+ * same single in-memory save boundary (used by the Jira-shaped REST update
+ * route and the native PATCH detail save); the native PATCH route sends
+ * status, priority, title, assignee and/or description. It does not claim
+ * durable persistence or verified Jira workflow parity. Comments are flat,
  * demo-only annotations without threading, edit/delete, permissions or
  * accounts.
  */
