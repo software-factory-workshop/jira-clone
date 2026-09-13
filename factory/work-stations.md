@@ -4,6 +4,8 @@ These are two explicit native Eve jobs. A worker takes an assigned task and retu
 
 Task mining remains read-only. A station is selected by an authenticated server route, not by text in a mining prompt. Task-miner, worker and reviewer are independent Eve root agents with their own instructions, tools, state, browser sessions and sandboxes. Worker and reviewer reject a mismatched immutable station identity before selecting a model. Sensitive tools enforce that assignment again at execution. A deterministic Vercel Workflow calls these agents; no dispatcher agent delegates the work.
 
+All three stations follow the [shared agent quality contract](policies/agent-quality.md). It defines source-first investigation, evidence labels, honest fallbacks, completion gates and the small show-me visual grammar. It adds no permission or merge authority.
+
 ## Reuse the context, separate the authority
 
 Both jobs reuse the current goal, source map, active work, ADEO guidance and pinned dependency setup. The worker starts from a pinned `main` commit, or the current head of an explicitly selected parent PR. The reviewer gets independently fetched base and head snapshots, the GitHub file inventory and the original task. The worker's summary is evidence to check, not the review's authority.
