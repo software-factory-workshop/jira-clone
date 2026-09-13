@@ -343,7 +343,7 @@ nav button span:last-child:not(:first-child) {
   font-weight: 600;
   margin: 16px 0 8px;
 }
-.starter-card p {
+.starter-card .starter-body {
   color: #75818a;
   font-size: 12px;
   line-height: 1.6;

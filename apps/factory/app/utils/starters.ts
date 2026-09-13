@@ -37,6 +37,16 @@ function keyFor(title: string): string {
   return title.trim().toLowerCase();
 }
 
+export function starterDraft(card: StarterCard): { title: string; body: string } {
+  if (card.meta.state !== "shipped") {
+    return { title: card.starter.title, body: card.starter.body };
+  }
+  return {
+    title: `Extend: ${card.starter.title}`,
+    body: `Already shipped: ${card.meta.note}\nNext step: ${card.meta.next}\n\nDraft an extension that builds on the shipped slice. Do not propose the shipped work again.`,
+  };
+}
+
 export function describeStarter(starter: StarterInput): StarterCard {
   const known = shipped[keyFor(starter.title)];
   if (known) {
