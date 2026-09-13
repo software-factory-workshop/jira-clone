@@ -1,14 +1,19 @@
-import { validateJiraManifest } from "./jira-policy.ts";
+import { validateJiraLockfile, validateJiraManifest, validateJiraMcpChangeSet, validateJiraNuxtConfig } from "./jira-policy.ts";
 import { createHash } from "node:crypto";
 import { z } from "zod";
 import { allowedWorkPath,MAX_WORK_CHANGES,MAX_WORK_FILE_BYTES,MAX_WORK_BYTES,type WorkChange } from "./work-github.ts";
 export function changesDigest(changes:WorkChange[]) {return createHash("sha256").update(JSON.stringify(changes)).digest("hex");}
-export function validateCollectedChanges(value:unknown,allowEmpty=false,manifest=""):WorkChange[] {
+export function validateCollectedChanges(value:unknown,allowEmpty=false,manifest="",nuxtConfig="",lockfile=""):WorkChange[] {
  const changes=z.array(z.object({path:z.string(),content:z.string().nullable()}).strict()).max(MAX_WORK_CHANGES).parse(value);
  if(!changes.length&&!allowEmpty)throw new Error("No source changes to publish.");
  let size=0;
+ const manifestChange=changes.find(change=>change.path==="apps/jira/package.json");
+ const candidateManifest=manifestChange?.content??manifest;
+ if (changes.some(change=>change.path.startsWith("apps/jira/") || change.path==="pnpm-lock.yaml") && manifest) validateJiraMcpChangeSet(changes.map(change=>change.path),manifest,candidateManifest);
  for(const c of changes){
   if(c.path==="apps/jira/package.json")validateJiraManifest(manifest,c.content);
+  if(c.path==="apps/jira/nuxt.config.ts")validateJiraNuxtConfig(nuxtConfig,c.content);
+  if(c.path==="pnpm-lock.yaml")validateJiraLockfile(lockfile,c.content,manifest,candidateManifest);
   if(!allowedWorkPath(c.path))throw new Error(`Protected path changed: ${c.path}`);
   if(c.content&&/^(<<<<<<< |\|\|\|\|\|\|\| |=======\s*$|>>>>>>> )/m.test(c.content))throw new Error(`Unresolved merge conflict in ${c.path}`);
   const bytes=Buffer.byteLength(c.content||"");size+=bytes;
@@ -27,8 +32,8 @@ export function collectChangesCommand(baseline:Array<{file:string;sha256:string}
  visit();for(const p of base.keys())if(!found.has(p))out.push({path:p,content:null});if(out.length>${MAX_WORK_CHANGES})throw Error('Too many changes');const result=JSON.stringify(out);if(Buffer.byteLength(result)>${MAX_WORK_BYTES*2})throw Error('Diff too large');console.log(result);`;
  return `export PATH="$HOME/.local/bin:$PATH"; node -e '${script.replaceAll("'","'\\''")}'`;
 }
-export async function collectChanges(sandbox:{run(input:{command:string}):PromiseLike<{exitCode:number;stdout:string;stderr:string}>},baseline:Array<{file:string;sha256:string}>,allowEmpty=false,manifest="") {
+export async function collectChanges(sandbox:{run(input:{command:string}):PromiseLike<{exitCode:number;stdout:string;stderr:string}>},baseline:Array<{file:string;sha256:string}>,allowEmpty=false,manifest="",nuxtConfig="",lockfile="") {
  const result=await sandbox.run({command:collectChangesCommand(baseline)});
  if(result.exitCode!==0)throw new Error(`Cannot collect source changes: ${result.stderr.slice(-1200)}`);
- return validateCollectedChanges(JSON.parse(result.stdout),allowEmpty,manifest);
+ return validateCollectedChanges(JSON.parse(result.stdout),allowEmpty,manifest,nuxtConfig,lockfile);
 }

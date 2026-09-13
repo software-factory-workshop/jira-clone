@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { z } from "zod";
-import { validateJiraManifest } from "./jira-policy.ts";
+import { validateJiraLockfile, validateJiraManifest, validateJiraMcpChangeSet, validateJiraNuxtConfig } from "./jira-policy.ts";
 import { includeSource, repository } from "./github.mjs";
 
 const sha = z.string().regex(/^[a-f0-9]{40}$/);
@@ -21,11 +21,11 @@ class GitHubError extends Error { readonly status: number; constructor(status: n
 function safePath(path: string) { return path.length > 0 && path.length <= 300 && !path.startsWith("/") && !/[\\\x00-\x1f\x7f]/.test(path) && path.split("/").every(part => part !== "" && part !== "." && part !== ".."); }
 export function allowedWorkPath(path: string): boolean {
   if (!safePath(path) || !includeSource(path)) return false;
-  if (path === "apps/jira/package.json") return true;
+  if (["apps/jira/package.json", "apps/jira/nuxt.config.ts", "pnpm-lock.yaml"].includes(path)) return true;
   const jiraServer = ["apps/jira/server/api/", "apps/jira/server/utils/"].some(prefix => path.startsWith(prefix));
   if (!jiraServer && !["apps/factory/app/", "apps/factory/tests/", "apps/jira/app/", "apps/jira/tests/", "docs/"].some(prefix => path.startsWith(prefix))) return false;
   const name = path.split("/").at(-1)!;
-  if (["package.json", "pnpm-lock.yaml", "pnpm-workspace.yaml", "turbo.json"].includes(name) || /^tsconfig(?:[.-].*)?\.json$/.test(name) || /\.config\.[cm]?[jt]s$/.test(name)) return false;
+  if (["package.json", "pnpm-workspace.yaml", "turbo.json"].includes(name) || /^tsconfig(?:[.-].*)?\.json$/.test(name) || /\.config\.[cm]?[jt]s$/.test(name)) return false;
   if (path.split("/").some(part => ["middleware", "modules"].includes(part)) || (!jiraServer && path.split("/").includes("server"))) return false;
   if (path.split("/").some(part => ["AGENTS.md", "CLAUDE.md", "SKILL.md", ".npmrc", ".output", ".nuxt", "dist", "coverage"].includes(part))) return false;
   return ![".agents/", ".github/", "factory/", "apps/factory/agent/", "apps/factory/scripts/", "vendor/"].some(prefix => path.startsWith(prefix));
@@ -147,12 +147,28 @@ export async function publishWork(token: string, input: PublishWorkInput, signal
   const branch = workBranch(input.sessionId);
   const source = await commitTree(token, input.baseSha, signal);
   const byPath = new Map(source.tree.map(item => [item.path, item]));
-  const manifestChange = input.changes.find(c=>c.path==="apps/jira/package.json");
-  if(manifestChange){
-    const prior=byPath.get(manifestChange.path);if(!prior)throw new Error("Jira manifest baseline missing.");
-    const blob=z.object({content:z.string(),encoding:z.literal("base64")}).parse((await request(token,`git/blobs/${prior.sha}`,signal)).data);
-    validateJiraManifest(Buffer.from(blob.content,"base64").toString(),manifestChange.content);
+  const specialPaths = new Set(["apps/jira/package.json", "apps/jira/nuxt.config.ts", "pnpm-lock.yaml"]);
+  const specialChanges = input.changes.filter(change => specialPaths.has(change.path));
+  const baselinePaths = new Set(specialChanges.map(change => change.path));
+  if (baselinePaths.has("pnpm-lock.yaml")) baselinePaths.add("apps/jira/package.json");
+  const baselineSpecial = new Map<string, string>();
+  if (baselinePaths.size) {
+    await Promise.all([...baselinePaths].map(async path => {
+      const prior = byPath.get(path);
+      if (!prior) throw new Error(`Jira publication baseline missing: ${path}.`);
+      const blob = z.object({ content: z.string(), encoding: z.literal("base64") }).parse((await request(token, `git/blobs/${prior.sha}`, signal)).data);
+      baselineSpecial.set(path, Buffer.from(blob.content, "base64").toString());
+    }));
   }
+  const manifestChange = input.changes.find(change => change.path === "apps/jira/package.json");
+  const baselineManifest = baselineSpecial.get("apps/jira/package.json") || "";
+  const candidateManifest = manifestChange?.content ?? baselineManifest;
+  if (baselineManifest) validateJiraMcpChangeSet(input.changes.map(change => change.path), baselineManifest, candidateManifest);
+  if (manifestChange) validateJiraManifest(baselineManifest, manifestChange.content);
+  const configChange = input.changes.find(change => change.path === "apps/jira/nuxt.config.ts");
+  if (configChange) validateJiraNuxtConfig(baselineSpecial.get("apps/jira/nuxt.config.ts") || "", configChange.content);
+  const lockfileChange = input.changes.find(change => change.path === "pnpm-lock.yaml");
+  if (lockfileChange) validateJiraLockfile(baselineSpecial.get("pnpm-lock.yaml") || "", lockfileChange.content, baselineManifest, candidateManifest);
   const tree = input.changes.map(change => {
     const previous = byPath.get(change.path);
     if (previous && (previous.type !== "blob" || !["100644", "100755"].includes(previous.mode))) throw new Error("Cannot publish over symlinks, submodules or directories.");

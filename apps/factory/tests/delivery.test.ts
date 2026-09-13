@@ -3,7 +3,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { applyReview,newDelivery,operationFor,deliveryRequest,referenceState,claimAdvance,commitAdvance,transition,requestResume } from '../runtime/lib/delivery-state.ts';
 import { hostResult,eventsForDelivery,snapshotEvents,resumeMessage,resumeReceipt } from '../runtime/lib/delivery-events.ts';
-import { validateJiraManifest,verificationCommands } from '../runtime/lib/jira-policy.ts';
+import { validateJiraLockfile, validateJiraManifest, validateJiraMcpChangeSet, validateJiraNuxtConfig,verificationCommands } from '../runtime/lib/jira-policy.ts';
 import { allowedWorkPath } from '../runtime/lib/work-github.ts';
 const task=deliveryRequest.parse({operationId:'11111111-1111-4111-8111-111111111111',title:'Jira state',brief:'Create a useful stateful issue list'});
 function state(){const s=newDelivery('tester',task);s.publication={number:1,url:'https://github.com/example/pull/1',headSha:'a'.repeat(40),targetHeadSha:'b'.repeat(40),targetBranch:'main',ownerSessionId:'wrun_owner',branch:'factory/owner'};return s;}
@@ -14,7 +14,28 @@ test('missing browser evidence stops for human review',()=>{const s=state();appl
 test('blocking findings queue same-owner revision with stable operation, never a new worker',()=>{const s=state();applyReview(s,{...review,verdict:'changes_requested',findings:[{severity:'blocking',path:'apps/jira/app/app.vue',message:'Save fails',evidence:'reproduced'}]});assert.equal(s.phase,'revision_starting');assert.equal(s.publication?.ownerSessionId,'wrun_owner');assert.equal(s.cycle,1);});
 test('model text and historical operation results cannot advance loop',()=>{assert.equal(hostResult([{type:'message.completed',data:{publication:{}}}],'publish_work','wrun_owner'),undefined);const e={type:'action.result',data:{status:'completed',result:{kind:'tool-result',toolName:'publish_work',output:{sessionId:'wrun_owner',operationId:'old'}}}};assert.equal(hostResult([e],'publish_work','wrun_owner','new'),undefined);assert.equal(hostResult([e],'publish_work','other'),undefined);assert.ok(hostResult([e],'publish_work','wrun_owner','old'));});
 test('Jira manifest permits only semantic addition of exact test script',()=>{const before={name:'jira',scripts:{build:'nuxt build'},dependencies:{nuxt:'4.5.2'}};const after={...before,scripts:{...before.scripts,test:'node --test tests/*.test.ts'}};assert.doesNotThrow(()=>validateJiraManifest(JSON.stringify(before),JSON.stringify(after)));for(const candidate of [null,JSON.stringify({...after,dependencies:{nuxt:'other'}}),JSON.stringify({...after,scripts:{...after.scripts,test:'echo pass'}})])assert.throws(()=>validateJiraManifest(JSON.stringify(before),candidate));});
-test('host policy opens Jira API/utils but keeps middleware/config protected and executes Jira tests',()=>{for(const path of ['apps/jira/server/api/issues.get.ts','apps/jira/server/utils/issues.ts','apps/jira/package.json'])assert.equal(allowedWorkPath(path),true);for(const path of ['apps/factory/server/api/a.ts','apps/jira/server/middleware/a.ts','apps/jira/server/api/../../bad.ts','apps/jira/nuxt.config.ts'])assert.equal(allowedWorkPath(path),false);assert.ok(verificationCommands(true).includes('pnpm --filter @jira-clone/jira test'));});
+test('host policy opens the bounded MCP files while keeping other config protected',()=>{for(const path of ['apps/jira/server/api/issues.get.ts','apps/jira/server/utils/issues.ts','apps/jira/package.json','apps/jira/nuxt.config.ts','pnpm-lock.yaml'])assert.equal(allowedWorkPath(path),true);for(const path of ['apps/factory/server/api/a.ts','apps/jira/server/middleware/a.ts','apps/jira/server/api/../../bad.ts','apps/factory/nuxt.config.ts','apps/jira/vite.config.ts'])assert.equal(allowedWorkPath(path),false);assert.ok(verificationCommands(true).includes('pnpm --filter @jira-clone/jira test'));});
+
+test('MCP manifest and Nuxt registration are exact additions',()=>{
+ const before=JSON.stringify({name:'jira',scripts:{build:'nuxt build'},dependencies:{nuxt:'4.5.2'}});
+ const manifest=JSON.stringify({name:'jira',scripts:{build:'nuxt build',test:'node --test tests/*.test.ts'},dependencies:{nuxt:'4.5.2','@nuxtjs/mcp-toolkit':'0.21.0',zod:'4.6.1'}});
+ assert.doesNotThrow(()=>validateJiraManifest(before,manifest));
+ assert.throws(()=>validateJiraManifest(before,JSON.stringify({name:'jira',scripts:{build:'nuxt build',test:'node --test tests/*.test.ts'},dependencies:{nuxt:'4.5.2','@nuxtjs/mcp-toolkit':'0.20.0',zod:'4.6.1'}})));
+ const config='export default defineNuxtConfig({\n  extends: ["@software-factory-workshop/nuxt-adeo-ds"],\n  css: ["~/assets/css/main.css"],\n});\n';
+ assert.doesNotThrow(()=>validateJiraNuxtConfig(config,config.replace('  extends: ["@software-factory-workshop/nuxt-adeo-ds"],\n','  extends: ["@software-factory-workshop/nuxt-adeo-ds"],\n  modules: ["@nuxtjs/mcp-toolkit"],\n  mcp: { name: "ADEO Jira Demo", version: "0.1.0" },\n')));
+ assert.throws(()=>validateJiraNuxtConfig(config,config.replace('css:','runtimeConfig:')));
+ assert.throws(()=>validateJiraMcpChangeSet(['apps/jira/package.json'],before,manifest));
+ assert.throws(()=>validateJiraMcpChangeSet(['apps/jira/nuxt.config.ts'],before,before));
+});
+
+test('lockfile policy preserves existing blocks and accepts only the MCP importer transition',()=>{
+ const baseManifest=JSON.stringify({scripts:{test:'node --test tests/*.test.ts'},dependencies:{nuxt:'4.5.2'}});
+ const candidateManifest=JSON.stringify({scripts:{test:'node --test tests/*.test.ts'},dependencies:{nuxt:'4.5.2','@nuxtjs/mcp-toolkit':'0.21.0',zod:'4.6.1'}});
+ const base="lockfileVersion: '9.0'\n\nimporters:\n\n  apps/jira:\n    dependencies:\n      nuxt:\n        specifier: 4.5.2\n        version: 4.5.2\n\npackages:\n\n  nuxt@4.5.2:\n    resolution: {integrity: sha512-base}\n\nsnapshots:\n\n  nuxt@4.5.2:\n    dependencies:\n      vue: 3.5.42\n";
+ const candidate=base.replace('      nuxt:\n        specifier: 4.5.2\n        version: 4.5.2\n','      \'@nuxtjs/mcp-toolkit\':\n        specifier: 0.21.0\n        version: 0.21.0(example)\n      nuxt:\n        specifier: 4.5.2\n        version: 4.5.2\n      zod:\n        specifier: 4.6.1\n        version: 4.6.1\n').replace('  nuxt@4.5.2:\n    resolution: {integrity: sha512-base}\n','  nuxt@4.5.2:\n    resolution: {integrity: sha512-base}\n\n  \'@nuxtjs/mcp-toolkit@0.21.0\':\n    resolution: {integrity: sha512-toolkit}\n').replace('  nuxt@4.5.2:\n    dependencies:\n      vue: 3.5.42\n','  nuxt@4.5.2:\n    dependencies:\n      vue: 3.5.42\n  \'@nuxtjs/mcp-toolkit@0.21.0(example)\': {}\n');
+ assert.doesNotThrow(()=>validateJiraLockfile(base,candidate,baseManifest,candidateManifest));
+ assert.throws(()=>validateJiraLockfile(base,candidate.replace('sha512-base','sha512-tampered'),baseManifest,candidateManifest));
+});
 
 test('revision events use live Eve meta.deliveryIds and exclude the previous turn',()=>{const current={type:'turn.started',meta:{deliveryIds:['delivery-current']},data:{}};assert.deepEqual(eventsForDelivery([{type:'turn.completed',meta:{deliveryIds:['delivery-old']}},current],'delivery-current'),[current]);assert.deepEqual(eventsForDelivery([{type:'turn.started',deliveryIds:['delivery-current']}],'delivery-current'),[]);});
 test('stale refs demand an explicit owner revision instead of a retry loop',()=>{const p=state().publication!;assert.equal(referenceState(p,{state:'open',headSha:p.headSha,targetBranch:p.targetBranch,targetHeadSha:'c'.repeat(40)}),'needs_revision');assert.equal(referenceState(p,{state:'closed',headSha:p.headSha,targetBranch:p.targetBranch,targetHeadSha:p.targetHeadSha}),'blocked');});

@@ -16,7 +16,7 @@ export default defineTool({description:"Publish verified source changes as one d
   if(operationId!==state.operationId)throw new Error("Prepare this authenticated operation before publishing.");
   let publication;
   {
-   const changes=await collectChanges(await ctx.getSandbox(),state.baseline,false,state.jiraManifest);
+   const changes=await collectChanges(await ctx.getSandbox(),state.baseline,false,state.jiraManifest,state.jiraNuxtConfig,state.jiraLockfile);
    if(!state.verifiedDigest||changesDigest(changes)!==state.verifiedDigest)throw new Error("Current source changes must pass verify_work before publication.");
    const token=await getToken("github/jira-clone",{subject:{type:"app"}});
    publication=await publishWork(token,{sessionId:ctx.session.id,baseSha:state.revision,operationId:state.operationId,targetBranch:state.targetBranch,targetHeadSha:state.targetHeadSha,parentPrNumber:state.parentPrNumber,previous:state.publication?{number:state.publication.number,headSha:state.publication.headSha}:undefined,mergeTarget:state.mergeTarget,title:request.title,body:publicationBody(input.summary,input.limitations,state.commands.slice(-verificationCommands(changes.some(c=>c.path.startsWith("apps/jira/"))).length)),changes},ctx.abortSignal);
