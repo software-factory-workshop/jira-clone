@@ -4,6 +4,14 @@ The delivery API coordinates the existing native Eve worker, independent reviewe
 
 A durable Vercel Workflow drives progress by calling the worker and reviewer root agents. Task mining is a third independent root agent. No coordinating model selects or dispatches agents. The workflow continues while the CLI or cockpit is disconnected; reconnecting observes the same saved delivery. The loop's private Blob record contains task identity, phase, operation IDs and host evidence. Cockpit drafts remain in their separate document.
 
+## Work ledger
+
+The delivery record is the current projection for one admitted code-change work item. It keeps the stable work ID, `kind`, derived `state`, detailed workflow `phase`, revision `cycle`, execution `attempt`, current `changeId`, and the latest execution reference together under the existing private Blob/CAS store. The workflow owns the transition table; callers cannot move a delivery directly between arbitrary phases. A healthy continuation of the same Eve owner keeps the same attempt, while a same-owner revision increments it.
+
+Every admission or phase change produces an immutable `DeliveryReceipt` under `factory/delivery/<id>/receipts/<receiptId>.json`. Receipt IDs are derived from the delivery, transition, operation and attempt, so retries can safely replay the same intent. The receipt is written before the mutable projection is updated, and the projection write remains an optimistic ETag-guarded CAS. Receipts can be inspected with `GET /factory/delivery/:id/receipts`; the cockpit remains a projection and does not become the ledger.
+
+This is the first FDK-shaped ledger boundary for the existing delivery loop, not a claim that the full factory entity model is present. Signals, tasks, changes, budgets and reports are not yet separate stores here; this implementation models the current delivery as one code-change task while keeping the transition and receipt contracts ready for that decomposition.
+
 ## API
 
 All routes require `factoryAuth`, including machine bearer identity or the protected Passport cockpit. This is a shared workshop workspace: another authenticated caller can resume a loop. Its original continuation address and worker ownership remain unchanged.
@@ -12,6 +20,7 @@ All routes require `factoryAuth`, including machine bearer identity or the prote
 | --- | --- | --- |
 | POST | `/factory/delivery` | `{operationId,title,brief,parentPrNumber?,maxRevisions?}` |
 | GET | `/factory/delivery/:id` | None |
+| GET | `/factory/delivery/:id/receipts` | None |
 | POST | `/factory/delivery/:id/advance` | `{}` |
 | POST | `/factory/delivery/:id/cancel` | `{}` |
 | POST | `/factory/delivery/:id/resume` | `{}`; retry a blocked observation with the original operation |
