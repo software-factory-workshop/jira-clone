@@ -56,20 +56,27 @@ export const attentionPhases: ReadonlySet<string> = new Set([
 ]);
 
 const maxAttentionReasonLength = 180;
+const observationTimeoutHintLength = 1500;
+
+const observationTimeoutHint =
+  'The delivery observer timed out before the session stream completed. No partial result was accepted; retry advance to re-observe the same session.';
 
 export function deriveAttentionReason(value: {
   error?: string;
   review?: { summary?: string };
   mergeDecision?: { reason?: string };
 }): string | undefined {
-  const candidates = [value.error, value.review?.summary, value.mergeDecision?.reason];
+  const candidates = [
+    value.error?.includes('no partial result accepted') ? `${value.error} ${observationTimeoutHint}` : value.error,
+    value.review?.summary,
+    value.mergeDecision?.reason,
+  ];
   for (const candidate of candidates) {
     if (typeof candidate !== "string") continue;
     const collapsed = candidate.replace(/\s+/g, " ").trim();
     if (!collapsed) continue;
-    return collapsed.length > maxAttentionReasonLength
-      ? `${collapsed.slice(0, maxAttentionReasonLength - 1).trimEnd()}…`
-      : collapsed;
+    const limit = collapsed.includes("no partial result accepted") ? observationTimeoutHintLength : maxAttentionReasonLength;
+    return collapsed.length > limit ? `${collapsed.slice(0, limit - 1).trimEnd()}…` : collapsed;
   }
   return undefined;
 }

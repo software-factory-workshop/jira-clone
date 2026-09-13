@@ -75,6 +75,14 @@ test("long attention reasons are safely bounded", () => {
   assert.ok(reason.endsWith("\u2026"));
 });
 
+test("timed-out observations keep the exact error and add the retry hint", () => {
+  const reason = deriveAttentionReason({ error: "Session observation timed out; no partial result accepted." });
+  assert.ok(reason?.startsWith("Session observation timed out; no partial result accepted."));
+  assert.ok(reason?.includes("retry advance"));
+  assert.ok(reason && reason.length <= 1500);
+  assert.equal(deriveAttentionReason({ error: "Worker failed" }), "Worker failed");
+});
+
 test("terminal attention cards keep a bounded reason while active cards do not need a line", () => {
   const blocked = summarizeDelivery({ id: "delivery-blocked", phase: "blocked", error: "Delivery is blocked" }, "History label", now);
   assert.equal(blocked?.phaseLabel, "Blocked");
