@@ -1,4 +1,5 @@
 import { hostReviewLimitations } from './review-policy.ts';
+import type { FactoryDecisionAudit } from './cedar/operation-runner.ts';
 
 export interface MergeFile { filename:string;previous_filename?:string;status:string;patch?:string }
 export interface MergeReview {
@@ -6,7 +7,7 @@ export interface MergeReview {
  findings:Array<{severity:string}>;limitations:string[];
  verification?:{prepared:boolean;repositoryChecksPassed:boolean;candidateUnchanged:boolean};
 }
-export type MergeDecision={status:'merged'|'manual'|'waiting';reason:string;commitSha?:string};
+export type MergeDecision={status:'merged'|'manual'|'waiting';reason:string;commitSha?:string;authorization?:FactoryDecisionAudit};
 const cosmeticProperty=/^(?:color|background-color|border(?:-(?:top|right|bottom|left))?-color|outline-color|text-decoration-color|font-weight)\s*:\s*[#\w\s(),.%/-]+;$/;
 function cosmetic(file:MergeFile){
  if(file.status!=='modified'||!/^apps\/(?:jira|factory)\/app\/.*\.css$/.test(file.filename)||!file.patch)return false;

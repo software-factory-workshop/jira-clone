@@ -6,6 +6,7 @@
     "dev": "nuxt dev --host 127.0.0.1 --port 3000",
     "build": "pnpm run build:agent && nuxt build",
     "build:agent": "node scripts/build-eve.mjs",
+    "factory:policies:sync": "node scripts/sync-cedar-policies.mjs",
     "typecheck": "nuxt typecheck && tsc -p tsconfig.agent.json",
     "test": "node --test tests/*.test.ts",
     "prepare": "nuxt prepare",
@@ -15,6 +16,7 @@
   },
   "dependencies": {
     "@agent-browser/eve": "file:../../vendor/agent-browser-eve-0.37.1-eve.0.52.5.tgz",
+    "@cedar-policy/cedar-wasm": "4.12.0",
     "@jira-clone/context": "workspace:*",
     "@software-factory-workshop/nuxt-adeo-ds": "file:../../vendor/software-factory-workshop-nuxt-adeo-ds-0.1.1.tgz",
     "@vercel/blob": "^2.8.0",
