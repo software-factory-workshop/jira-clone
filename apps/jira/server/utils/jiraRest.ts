@@ -57,6 +57,7 @@ import {
   type AppRequestIdentity,
 } from "./appAccounts.ts";
 import {
+  authorizeOAuthBearerRead,
   authorizeOAuthBearerWrite,
   resolveOAuthIssuer,
   validateOAuthBearer,
@@ -1244,6 +1245,36 @@ export function authorizeBearerWrite(
 }
 
 /**
+ * Shared OAuth bearer read gate for REST reads: the bearer validation must
+ * succeed and the grant must carry the `read` scope (see
+ * `authorizeOAuthBearerRead`). Any bearer outcome (missing, invalid or
+ * under-scoped) fails closed and never falls through to the demo fallback.
+ */
+export function authorizeBearerRead(
+  bearer: ReturnType<typeof validateOAuthBearer> | null,
+): RestWriteResult<AppAccount> {
+  if (!bearer) {
+    return {
+      ok: false,
+      statusCode: 401,
+      error: "No demo OAuth bearer identity was provided. Nothing was authorized.",
+    };
+  }
+  if (!bearer.ok) {
+    return { ok: false, statusCode: bearer.statusCode, error: bearer.error };
+  }
+  const checked = authorizeOAuthBearerRead(bearer);
+  if (!checked.ok) {
+    return {
+      ok: false,
+      statusCode: checked.statusCode,
+      error: checked.error,
+    };
+  }
+  return { ok: true, data: checked.account };
+}
+
+/**
  * Identity reader for the Jira-shaped HTTP write routes: only the trusted
  * `x-vercel-oidc-passport-token` header plus the existing explicit
  * `x-demo-user` fallback. Mirrors the native write routes exactly.
@@ -1276,5 +1307,82 @@ export function mcpWriteIdentity(demoUser: unknown): AppRequestIdentity {
     devUser: undefined,
     nodeEnv: "test",
   };
+}
+
+/**
+ * Raw `Authorization` header value from MCP per-request headers. Tool
+ * handlers receive the live HTTP headers through the MCP SDK
+ * (`extra.requestInfo.headers` on `@nuxtjs/mcp-toolkit@0.21.0` with
+ * `@modelcontextprotocol/sdk@1.30.0`); the header names are lowercased
+ * there. Returns the header value, or null when the MCP request carried no
+ * `Authorization` header. Pure; never writes.
+ */
+export function mcpAuthorizationHeader(requestHeaders: unknown): string | null {
+  if (!requestHeaders || typeof requestHeaders !== "object" || Array.isArray(requestHeaders)) {
+    return null;
+  }
+  const record = requestHeaders as Record<string, unknown>;
+  for (const name of ["authorization", "Authorization"]) {
+    const value = record[name];
+    if (typeof value === "string" && value.trim() !== "") {
+      return value;
+    }
+    if (Array.isArray(value)) {
+      const first = value.find((entry) => typeof entry === "string" && entry.trim() !== "");
+      if (typeof first === "string") {
+        return first;
+      }
+    }
+  }
+  return null;
+}
+
+/**
+ * Resolve a demo OAuth bearer identity for an MCP tool call from its
+ * per-request headers. Returns null when the MCP request carried no
+ * `Authorization` header (callers keep the labelled `demoUser` fallback);
+ * otherwise returns the bearer validation result, which callers enforce
+ * fail-closed: an invalid bearer never falls through to the demo fallback.
+ * Pure; never writes.
+ */
+export function mcpBearerIdentity(
+  requestHeaders: unknown,
+  issuerInput?: { envIssuer?: unknown; proto?: unknown; host?: unknown },
+): ReturnType<typeof validateOAuthBearer> | null {
+  const authorization = mcpAuthorizationHeader(requestHeaders);
+  if (authorization === null) {
+    return null;
+  }
+  return validateOAuthBearer(
+    authorization,
+    resolveOAuthIssuer({
+      envIssuer: issuerInput?.envIssuer ?? process.env.JIRA_OAUTH_ISSUER,
+      proto: issuerInput?.proto,
+      host: issuerInput?.host,
+    }),
+  );
+}
+
+/**
+ * Demo OAuth bearer authority for one MCP tool call. When the MCP request
+ * carried an `Authorization: Bearer` header, the server-derived bearer
+ * account and its scopes are authoritative: reads additionally require the
+ * `read` scope, writes additionally require the `write` scope (see
+ * `authorizeOAuthBearerRead`/`authorizeOAuthBearerWrite`), and any bearer
+ * outcome fails closed without falling through to `demoUser`. Callers pass
+ * `kind: "read"` for read tools and `kind: "write"` for write tools.
+ * Returns null when no bearer header was sent (callers keep the labelled
+ * `demoUser` fallback). Pure; never writes.
+ */
+export function mcpBearerAuthority(
+  requestHeaders: unknown,
+  kind: "read" | "write",
+  issuerInput?: { envIssuer?: unknown; proto?: unknown; host?: unknown },
+): RestWriteResult<AppAccount> | null {
+  const bearer = mcpBearerIdentity(requestHeaders, issuerInput);
+  if (!bearer) {
+    return null;
+  }
+  return kind === "read" ? authorizeBearerRead(bearer) : authorizeBearerWrite(bearer);
 }
 

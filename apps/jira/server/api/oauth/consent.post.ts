@@ -7,7 +7,9 @@ import { OAUTH_BOUNDARY, oauthApproveGrant } from "../../utils/jiraOAuth";
  * authorization code (5 minutes, bound to client, redirect URI, PKCE
  * challenge and the server-derived account); denial destroys the ticket
  * and returns access_denied with no code. Replay of a decided ticket fails
- * closed.
+ * closed. This JSON path stays machine-readable; the browser consent page
+ * posts to POST /api/oauth/consent/decision instead, which redirects
+ * (never JSON) to the registered redirect_uri.
  */
 export default defineEventHandler(async (event) => {
   const body = await readBody<{ grant_ticket?: unknown; approved?: unknown }>(event).catch(

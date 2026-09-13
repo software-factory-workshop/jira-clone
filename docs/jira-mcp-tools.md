@@ -28,13 +28,24 @@ Write results carry `actor` and `identitySource` metadata and preserve the
 deterministic `{fail:true}` no-write behavior.
 
 Identity boundary: MCP inputs cannot carry the raw Passport header (it only
-exists on the HTTP request boundary), so the write tools accept the same
+exists on the HTTP request boundary), so the tools accept the same
 explicit labelled `demoUser` fallback the REST adapter reads accept
 (`demo-admin`, `demo-member`, `demo-viewer`, explicit demo-member default).
-They run through the same `authorizeAppWrite` authority as the HTTP routes
-(viewer writes denied, unknown/malformed identities fail closed, nothing
-written on denial), but they run without Passport auth and never claim it:
-`identitySource` in write results always reports `demoFallback`.
+When the MCP request carries an `Authorization: Bearer` demo OAuth token,
+the server-derived bearer account is authoritative instead: the installed
+`@nuxtjs/mcp-toolkit@0.21.0` with `@modelcontextprotocol/sdk@1.30.0`
+propagates the live HTTP headers per call (`extra.requestInfo.headers`),
+and every tool enforces them fail-closed through `mcpBearerAuthority`
+(reads require the `read` scope, writes require `write` plus the existing
+member/admin authority; invalid, revoked, expired and deactivated bearers
+fail closed and never fall through to the `demoUser` fallback). The `me`
+tool reports the bearer account in that case. Requests without the header
+keep the labelled demo identity. The write tools run through the same
+`authorizeAppWrite` authority as the HTTP routes (viewer writes denied,
+unknown/malformed identities fail closed, nothing written on denial), but
+they run without Passport auth and never claim it: `identitySource` in
+write results reports `demoFallback` for the fallback path and `passport`
+for bearer-authorized calls.
 
 This is not full Jira parity, not a JQL engine, not production
 OAuth/Connect/SAML/SCIM, and persistence remains the existing in-memory demo
@@ -45,6 +56,10 @@ eleven-file surface (reads `readOnlyHint: true`, writes `readOnlyHint:
 false`), 1:1 read and write contract mapping, exact helper parity for the
 four write tools, viewer/unknown/malformed denial, unknown-key,
 unsupported-field, unknown-transition, off-matrix, blank-body, pagination
-and JQL cases, deterministic failed writes, and no mutation on denials.
+and JQL cases, deterministic failed writes, no mutation on denials, and
+the live per-request bearer authority (server-derived account wins,
+failures never fall back, read-only tokens read but cannot write).
+Bearer helper coverage lives in
+`apps/jira/tests/jira-oauth-browser.test.ts`.
 Bounded REST write coverage lives in
 `apps/jira/tests/jira-rest-writes.test.ts`.

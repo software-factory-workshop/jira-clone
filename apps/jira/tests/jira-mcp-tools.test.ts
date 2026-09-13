@@ -25,6 +25,7 @@ import {
   listComments,
   resetIssues,
 } from "../server/utils/issues.ts";
+import { resetOAuthState } from "../server/utils/jiraOAuth.ts";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const toolsDir = join(here, "..", "server", "mcp", "tools");
@@ -51,7 +52,7 @@ type CapturedTool = {
   description?: string;
   inputSchema?: Record<string, unknown>;
   annotations?: Record<string, unknown>;
-  handler: (args: Record<string, unknown>) => Promise<unknown>;
+  handler: (args: Record<string, unknown>, extra?: unknown) => Promise<unknown>;
 };
 
 const EXPECTED_FILES = [
@@ -111,12 +112,23 @@ async function loadTools(): Promise<Map<string, CapturedTool>> {
 async function callTool(
   tool: CapturedTool,
   args: Record<string, unknown>,
+  extra?: unknown,
 ): Promise<unknown> {
   try {
-    return await tool.handler(args);
+    return await tool.handler(args, extra);
   } catch (error) {
     return error;
   }
+}
+
+/**
+ * MCP per-request headers as the toolkit delivers them: the second handler
+ * argument (`extra.requestInfo.headers`, lowercased names) carries the live
+ * HTTP headers of the MCP request. Unknown shapes mean no bearer was sent.
+ */
+function mcpExtra(headers?: Record<string, string>): unknown {
+  if (!headers) return undefined;
+  return { requestInfo: { headers } };
 }
 
 function sourceFor(name: string): string {
@@ -492,4 +504,151 @@ test("mcp write tools enforce permissions and fail closed without writing", asyn
   assert.deepEqual(listComments("ADEO-1"), beforeComments);
   assert.equal(getIssue("ADEO-1")?.status, "To Do");
   resetIssues();
+});
+
+test("mcp bearer authority: present request headers are server-derived, failures never fall back", async () => {
+  resetIssues();
+  resetOAuthState();
+  const tools = await loadTools();
+  const ISSUER = "https://jira-demo.example/api/oauth";
+  const REDIRECT = "https://connect.vercel.com/callback";
+  const VERIFIER = "dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk";
+
+  async function bearerAccessToken(scope?: string): Promise<string> {
+    const { oauthRegisterClient, oauthBeginGrant, oauthApproveGrant, oauthExchangeCode, s256Challenge } =
+      await import("../server/utils/jiraOAuth.ts");
+    const registered = await oauthRegisterClient(
+      { client_name: "mcp bearer test", redirect_uris: [REDIRECT] },
+      ISSUER,
+    );
+    assert.ok(registered.ok);
+    if (!registered.ok) throw new Error("registration failed in test setup");
+    const grant = oauthBeginGrant(
+      {
+        response_type: "code",
+        client_id: registered.client.client_id,
+        redirect_uri: REDIRECT,
+        code_challenge: await s256Challenge(VERIFIER),
+        code_challenge_method: "S256",
+        ...(scope === undefined ? {} : { scope }),
+      },
+      {
+        id: "passport:mcp-member",
+        label: "MCP Member",
+        role: "member",
+        canWrite: true,
+        canReset: false,
+        demoOnly: true,
+        identitySource: "passport",
+        externalSub: "mcp-member",
+        email: null,
+        displayName: "MCP Member",
+        dev: true,
+        explicit: true,
+      },
+      ISSUER,
+    );
+    assert.ok(grant.ok);
+    if (!grant.ok) throw new Error("grant failed in test setup");
+    const approval = oauthApproveGrant({ grant_ticket: grant.ticket.grant_ticket, approved: true });
+    assert.ok(approval.ok);
+    if (!approval.ok) throw new Error("approval failed in test setup");
+    const exchanged = await oauthExchangeCode(
+      {
+        grant_type: "authorization_code",
+        code: approval.approval.code,
+        redirect_uri: REDIRECT,
+        code_verifier: VERIFIER,
+      },
+      { clientId: registered.client.client_id, secret: registered.clientSecret, method: "client_secret_post" },
+      ISSUER,
+    );
+    assert.ok(exchanged.ok);
+    if (!exchanged.ok) throw new Error("exchange failed in test setup");
+    // The helper resolves the issuer from the environment in tool handlers;
+    // pin it here so the live validation agrees with this issuer.
+    process.env.JIRA_OAUTH_ISSUER = ISSUER;
+    return exchanged.token.access_token;
+  }
+
+  try {
+    const token = await bearerAccessToken("read write");
+    const good = mcpExtra({ authorization: `Bearer ${token}` });
+
+    // Reads under a valid bearer serve the same contracts as the demo path.
+    const getIssue = tools.get("getIssue")!;
+    assert.deepEqual(
+      await callTool(getIssue, { issueKey: "ADEO-1" }, good),
+      (restIssue("ADEO-1") as { ok: true; data: unknown }).data,
+    );
+    const listIssues = tools.get("listIssues")!;
+    assert.deepEqual(
+      await callTool(listIssues, {}, good),
+      (restSearch({}) as { ok: true; data: unknown }).data,
+    );
+
+    // `me` reports the server-derived bearer account, not the demoUser input.
+    const me = tools.get("me")!;
+    const meResult = (await callTool(me, { demoUser: "demo-viewer" }, good)) as {
+      accountId: string;
+      identitySource: string;
+    };
+    assert.equal(meResult.accountId, "passport:mcp-member");
+    assert.equal(meResult.identitySource, "passport");
+
+    // Writes under a write-scope bearer succeed and report the bearer actor.
+    const createIssueTool = tools.get("createIssue")!;
+    const created = (await callTool(
+      createIssueTool,
+      { fields: { summary: "MCP bearer creation" } },
+      good,
+    )) as { issue: { key: string }; actor: { id: string }; identitySource: string };
+    assert.equal(created.actor.id, "passport:mcp-member");
+    assert.equal(created.identitySource, "passport");
+
+    // Unknown and malformed bearers fail closed on reads AND writes, even
+    // when a valid demoUser is also supplied: no demo fallback.
+    for (const headers of [
+      { authorization: "Bearer demo_at_unknown" },
+      { authorization: "Basic abc" },
+    ]) {
+      const extra = mcpExtra(headers);
+      const deniedRead = (await callTool(getIssue, { issueKey: "ADEO-1" }, extra)) as Error & {
+        statusCode: number;
+      };
+      assert.equal(deniedRead.statusCode, 401);
+      const deniedWrite = (await callTool(
+        createIssueTool,
+        { fields: { summary: "Never" }, demoUser: "demo-admin" },
+        extra,
+      )) as Error & { statusCode: number };
+      assert.equal(deniedWrite.statusCode, 401);
+    }
+
+    // A read-only bearer reads but cannot write through the tools.
+    const readOnly = await bearerAccessToken("read");
+    const readOnlyExtra = mcpExtra({ authorization: `Bearer ${readOnly}` });
+    assert.deepEqual(
+      await callTool(getIssue, { issueKey: "ADEO-1" }, readOnlyExtra),
+      (restIssue("ADEO-1") as { ok: true; data: unknown }).data,
+    );
+    const readOnlyWrite = (await callTool(
+      createIssueTool,
+      { fields: { summary: "Read scope must not write" } },
+      readOnlyExtra,
+    )) as Error & { statusCode: number };
+    assert.equal(readOnlyWrite.statusCode, 403);
+
+    // No bearer header: the labelled demoUser fallback is untouched.
+    const fallback = (await callTool(me, { demoUser: "demo-viewer" })) as {
+      accountId: string;
+      identitySource: string;
+    };
+    assert.equal(fallback.accountId, "demo-viewer");
+    assert.equal(fallback.identitySource, "demoFallback");
+  } finally {
+    delete process.env.JIRA_OAUTH_ISSUER;
+  }
+  resetIssues();
+  resetOAuthState();
 });

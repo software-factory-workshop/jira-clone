@@ -736,13 +736,14 @@ export type OAuthGrantTicketResult =
       ticket: {
         grant_ticket: string;
         client_id: string;
+        client_name: string;
         redirect_uri: string;
         scope: string;
         state: string | null;
         resource: string | null;
         expires_in: number;
         consent_path: string;
-        account: { accountId: string; label: string; role: DemoRole };
+        account: { accountId: string; label: string; role: DemoRole; identitySource: AppIdentitySource };
       };
     }
   | OAuthFailure;
@@ -877,13 +878,19 @@ export function oauthBeginGrant(
     ticket: {
       grant_ticket: ticket,
       client_id: client.clientId,
+      client_name: client.clientName,
       redirect_uri: redirectChecked.redirectUri,
       scope: scopes.join(" "),
       state,
       resource,
       expires_in: OAUTH_GRANT_TICKET_TTL_S,
       consent_path: `${OAUTH_ISSUER_PATH}/consent`,
-      account: { accountId: account.id, label: account.label, role: account.role },
+      account: {
+        accountId: account.id,
+        label: account.label,
+        role: account.role,
+        identitySource: account.identitySource,
+      },
     },
   };
 }
@@ -906,39 +913,21 @@ export type OAuthApproveResult =
   | OAuthFailure;
 
 /**
- * Approve a grant ticket (the consent decision) and mint the one-time
+ * Approve a grant ticket (the JSON consent decision) and mint the one-time
  * authorization code. Denials (`approved: false`) destroy the ticket and
- * return `access_denied` with no code. The JSON consent POST is the demo's
- * only approval path; the browser demo page is a labelled demo stand-in.
+ * return `access_denied` with no code. Shares one-time ticket consumption
+ * with the browser redirect decision below.
  */
 export function oauthApproveGrant(
   input: OAuthApproveInput,
   now?: number,
 ): OAuthApproveResult {
   const issuedAt = nowSeconds(now);
-  if (typeof input.grant_ticket !== "string" || input.grant_ticket === "") {
-    return fail(
-      400,
-      OAUTH_ERRORS.invalidRequest,
-      "Invalid approval: grant_ticket is required. Nothing was issued.",
-    );
+  const taken = takeGrantTicket(input.grant_ticket, issuedAt);
+  if (!taken.ok) {
+    return taken;
   }
-  const pending = grantTickets.get(input.grant_ticket);
-  if (!pending) {
-    return fail(
-      400,
-      OAUTH_ERRORS.invalidGrant,
-      "Unknown or consumed grant ticket: it may have expired or already been decided. Nothing was issued.",
-    );
-  }
-  grantTickets.delete(input.grant_ticket);
-  if (issuedAt > pending.expiresAt) {
-    return fail(
-      400,
-      OAUTH_ERRORS.invalidGrant,
-      "Expired grant ticket: approve again within 5 minutes. Nothing was issued.",
-    );
-  }
+  const pending = taken.pending;
   if (input.approved !== true) {
     return fail(
       403,
@@ -946,6 +935,55 @@ export function oauthApproveGrant(
       "The demo account denied this authorization request. No code was issued.",
     );
   }
+  const code = mintAuthCode(pending, issuedAt);
+  return {
+    ok: true,
+    approval: {
+      code,
+      state: pending.state,
+      expires_in: OAUTH_CODE_TTL_S,
+      redirect_uri: pending.redirectUri,
+    },
+  };
+}
+
+/**
+ * Consume a pre-consent grant ticket exactly once. Unknown, already-decided
+ * and expired tickets fail closed with nothing issued. Shared by the JSON
+ * consent decision and the browser redirect decision below.
+ */
+function takeGrantTicket(
+  ticket: unknown,
+  issuedAt: number,
+): { ok: true; pending: GrantTicket } | OAuthFailure {
+  if (typeof ticket !== "string" || ticket === "") {
+    return fail(
+      400,
+      OAUTH_ERRORS.invalidRequest,
+      "Invalid approval: grant_ticket is required. Nothing was issued.",
+    );
+  }
+  const pending = grantTickets.get(ticket);
+  if (!pending) {
+    return fail(
+      400,
+      OAUTH_ERRORS.invalidGrant,
+      "Unknown or consumed grant ticket: it may have expired or already been decided. Nothing was issued.",
+    );
+  }
+  grantTickets.delete(ticket);
+  if (issuedAt > pending.expiresAt) {
+    return fail(
+      400,
+      OAUTH_ERRORS.invalidGrant,
+      "Expired grant ticket: approve again within 5 minutes. Nothing was issued.",
+    );
+  }
+  return { ok: true, pending };
+}
+
+/** Mint the one-time authorization code bound to a consumed grant ticket. */
+function mintAuthCode(pending: GrantTicket, issuedAt: number): string {
   const code = randomToken("demo_code");
   authCodes.set(code, {
     code,
@@ -957,14 +995,84 @@ export function oauthApproveGrant(
     used: false,
     expiresAt: issuedAt + OAUTH_CODE_TTL_S,
   });
+  return code;
+}
+
+export type OAuthBrowserDecisionInput = {
+  grant_ticket?: unknown;
+  /** Browser consent form decision: exactly `approve` or `deny`. */
+  decision?: unknown;
+  /** Extra caller-supplied identity material is ignored by design. */
+  [extra: string]: unknown;
+};
+
+export type OAuthBrowserDecisionResult =
+  | {
+      ok: true;
+      /** Exact registered redirect_uri with the decision parameters appended. */
+      redirectTo: string;
+    }
+  | OAuthFailure;
+
+/**
+ * Append decision parameters to an exactly-registered redirect URI without
+ * touching its base: the registered value (which never carries a fragment)
+ * is preserved verbatim and parameters are URL-encoded. Pure.
+ */
+export function oauthRedirectWithParams(
+  redirectUri: string,
+  params: Record<string, string>,
+): string {
+  const query = new URLSearchParams(params).toString();
+  if (query === "") {
+    return redirectUri;
+  }
+  return `${redirectUri}${redirectUri.includes("?") ? "&" : "?"}${query}`;
+}
+
+/**
+ * Decide a grant ticket from the browser consent form and redirect (never
+ * JSON): approval mints the one-time code and redirects exactly to the
+ * registered redirect_uri with `code` and `state`; denial redirects with
+ * `error=access_denied` and `state`. The ticket is consumed exactly once;
+ * unknown, replayed, expired and malformed decisions fail closed with no
+ * redirect. Any caller-supplied user id in the input is ignored: the code
+ * always binds the server-derived account snapshotted at grant time.
+ */
+export function oauthBrowserDecision(
+  input: OAuthBrowserDecisionInput,
+  now?: number,
+): OAuthBrowserDecisionResult {
+  const issuedAt = nowSeconds(now);
+  const taken = takeGrantTicket(input.grant_ticket, issuedAt);
+  if (!taken.ok) {
+    return taken;
+  }
+  const pending = taken.pending;
+  if (input.decision !== "approve" && input.decision !== "deny") {
+    return fail(
+      400,
+      OAUTH_ERRORS.invalidRequest,
+      "Invalid consent decision: expected decision=approve or decision=deny from the demo consent form. " +
+        "The grant ticket was consumed and nothing was issued.",
+    );
+  }
+  if (input.decision === "deny") {
+    return {
+      ok: true,
+      redirectTo: oauthRedirectWithParams(pending.redirectUri, {
+        error: OAUTH_ERRORS.accessDenied,
+        ...(pending.state === null ? {} : { state: pending.state }),
+      }),
+    };
+  }
+  const code = mintAuthCode(pending, issuedAt);
   return {
     ok: true,
-    approval: {
+    redirectTo: oauthRedirectWithParams(pending.redirectUri, {
       code,
-      state: pending.state,
-      expires_in: OAUTH_CODE_TTL_S,
-      redirect_uri: pending.redirectUri,
-    },
+      ...(pending.state === null ? {} : { state: pending.state }),
+    }),
   };
 }
 
@@ -1493,6 +1601,35 @@ export function authorizeOAuthBearerWrite(validation: OAuthBearerValidation): {
       error:
         `Demo-only OAuth permission denied: ${validation.account.label} (${validation.account.role}) cannot write. ` +
         "Nothing was written.",
+    };
+  }
+  return { ok: true, account: validation.account };
+}
+
+/**
+ * OAuth-aware read gate for REST reads: the bearer validation must succeed
+ * and the grant must carry the `read` scope. Reads never fall through to the
+ * demo fallback when an `Authorization: Bearer` header is present: an
+ * invalid/revoked/expired/deactivated bearer fails closed here.
+ */
+export function authorizeOAuthBearerRead(validation: OAuthBearerValidation): {
+  ok: true;
+  account: AppAccount;
+} | { ok: false; statusCode: 401 | 403; error: string } {
+  if (!validation.ok) {
+    return {
+      ok: false,
+      statusCode: validation.statusCode,
+      error: validation.error,
+    };
+  }
+  if (!validation.scopes.includes("read")) {
+    return {
+      ok: false,
+      statusCode: 403,
+      error:
+        `Demo-only OAuth permission denied: this token carries scope "${validation.scopes.join(" ") || "none"}" ` +
+        "but reads require the read scope. Nothing was authorized.",
     };
   }
   return { ok: true, account: validation.account };
