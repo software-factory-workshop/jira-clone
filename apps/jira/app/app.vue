@@ -34,6 +34,10 @@ import {
   moveTargets,
   type BoardIssue,
 } from "~/utils/boardMove";
+import {
+  capabilitiesForAccount,
+  canInvokeMutation,
+} from "~/utils/roleAffordances";
 
 const config = useRuntimeConfig();
 function demoErrorMessage(error: unknown, fallback: string): string {
@@ -68,6 +72,19 @@ const meIdentitySource = ref<"passport" | "demoFallback">("demoFallback");
 const meAccountId = ref<string>(DEFAULT_DEMO_USER_ID);
 const meDisplayName = ref<string>(DEMO_ACCOUNT_OPTIONS[1]!.label);
 const meRole = ref<DemoAccountOption["role"]>("member");
+const meCanWrite = ref(true);
+const meCanReset = ref(false);
+/** UI affordances derived from the already loaded /api/me capability. The API stays the permission authority. */
+const workspaceCapabilities = computed(() =>
+  capabilitiesForAccount({
+    role: meRole.value,
+    canWrite: meCanWrite.value,
+    canReset: meCanReset.value,
+  }),
+);
+const canWrite = computed(() => workspaceCapabilities.value.canWrite);
+const canReset = computed(() => workspaceCapabilities.value.canReset);
+const readOnly = computed(() => workspaceCapabilities.value.readOnly);
 const meIsFallback = computed(() => meIdentitySource.value === "demoFallback");
 const demoAccountItems = DEMO_ACCOUNT_OPTIONS.map((account) => ({
   label: `${account.label} — ${account.role} · ${account.blurb}`,
@@ -90,6 +107,8 @@ type MeResponse = {
     label: string;
     displayName?: string | null;
     role: DemoAccountOption["role"];
+    canWrite?: boolean;
+    canReset?: boolean;
     identitySource: "passport" | "demoFallback";
     explicit: boolean;
   };
@@ -104,6 +123,9 @@ async function loadMe() {
     meAccountId.value = data.account.id;
     meDisplayName.value = data.account.displayName ?? data.account.label;
     meRole.value = data.account.role;
+    const accountCapabilities = capabilitiesForAccount(data.account);
+    meCanWrite.value = accountCapabilities.canWrite;
+    meCanReset.value = accountCapabilities.canReset;
     // The synthetic switcher only drives the explicit local/demo fallback:
     // a Passport-derived identity keeps its own display and never maps onto
     // the synthetic options.
@@ -242,6 +264,7 @@ async function loadComments(key: string) {
 
 async function postComment() {
   if (!selectedKey.value || commentSaving.value) return;
+  if (!canInvokeMutation("comment", workspaceCapabilities.value)) return;
   const key = selectedKey.value;
   const submittedDraft = commentDraft.value;
   commentError.value = null;
@@ -386,6 +409,7 @@ async function refresh() {
 
 async function moveCard(key: string, toStatus: string) {
   if (pendingKeys.value.includes(key)) return;
+  if (!canInvokeMutation("update", workspaceCapabilities.value)) return;
   pendingKeys.value = [...pendingKeys.value, key];
   moveError.value = null;
   saveNotice.value = null;
@@ -406,6 +430,7 @@ async function moveCard(key: string, toStatus: string) {
 
 async function changePriorityCard(key: string, next: string) {
   if (pendingKeys.value.includes(key)) return;
+  if (!canInvokeMutation("update", workspaceCapabilities.value)) return;
   pendingKeys.value = [...pendingKeys.value, key];
   priorityError.value = null;
   saveNotice.value = null;
@@ -446,6 +471,7 @@ function onDropColumn(toStatus: string) {
 }
 
 function openCreate() {
+  if (!canInvokeMutation("create", workspaceCapabilities.value)) return;
   createError.value = null;
   createOpen.value = true;
 }
@@ -458,6 +484,7 @@ function closeCreate() {
 
 async function createCard() {
   if (createSaving.value) return;
+  if (!canInvokeMutation("create", workspaceCapabilities.value)) return;
   createError.value = null;
   saveNotice.value = null;
   if (draftTitle.value.trim() === "") {
@@ -495,6 +522,7 @@ async function createCard() {
 }
 
 async function resetBoard() {
+  if (!canInvokeMutation("reset", workspaceCapabilities.value)) return;
   moveError.value = null;
   priorityError.value = null;
   saveNotice.value = null;
@@ -616,9 +644,12 @@ await refresh();
             demo account, and the API remains the permission authority.
           </p>
           <div class="demo-save-bar">
+            <UBadge v-if="readOnly" color="warning" variant="solid">Read-only workspace</UBadge>
             <UButton
               icon="i-lucide-plus"
               size="sm"
+              :disabled="!canWrite"
+              :aria-describedby="readOnly ? 'workspace-access-hint' : undefined"
               @click="openCreate()"
             >
               Create issue
@@ -628,6 +659,8 @@ await refresh();
               variant="outline"
               color="neutral"
               size="sm"
+              :disabled="!canReset"
+              :aria-describedby="readOnly ? 'workspace-access-hint' : undefined"
               @click="resetBoard()"
             >
               Reset demo board
@@ -637,6 +670,12 @@ await refresh();
               the demo-only store.
             </span>
           </div>
+          <p v-if="readOnly" id="workspace-access-hint" class="save-note" role="status">
+            <UIcon name="i-lucide-eye" /> Read-only workspace: reading, search,
+            filters and issue detail stay available, while priority edits,
+            status moves, create, reset and comment submission are unavailable.
+            The API remains the permission authority.
+          </p>
           <p v-if="loading" class="empty" role="status">Loading demo board…</p>
           <p v-if="loadError" class="save-error" role="alert">
             <UIcon name="i-lucide-triangle-alert" /> {{ loadError }}
@@ -725,7 +764,7 @@ await refresh();
                       :model-value="issue.priority"
                       :items="priorities"
                       :aria-label="priorityLabel(issue)"
-                      :disabled="pendingKeys.includes(issue.key)"
+                      :disabled="!canWrite || pendingKeys.includes(issue.key)"
                       size="sm"
                       @update:model-value="
                         (next) => {
@@ -770,7 +809,7 @@ await refresh();
                 :key="issue.key"
                 class="issue-card"
                 :class="{ dragging: draggedKey === issue.key }"
-                draggable="true"
+                :draggable="canWrite"
                 :aria-label="`${issue.key} ${issue.title}`"
                 @dragstart="onDragStart($event, issue.key)"
                 @dragend="onDragEnd()"
@@ -796,7 +835,7 @@ await refresh();
                     :items="statuses"
                     :aria-label="cardMoveLabel(issue)"
                     :aria-describedby="`allowed-${issue.key}`"
-                    :disabled="pendingKeys.includes(issue.key)"
+                    :disabled="!canWrite || pendingKeys.includes(issue.key)"
                     size="sm"
                     @update:model-value="
                       (next) => {
@@ -968,6 +1007,7 @@ await refresh();
                 :aria-label="`Move ${selected.key} to another column`"
                 aria-describedby="allowed-detail"
                 :disabled="
+                  !canWrite ||
                   !selectedTargets.length ||
                   pendingKeys.includes(selected.key)
                 "
@@ -980,7 +1020,7 @@ await refresh();
             <UButton
               icon="i-lucide-move"
               :loading="pendingKeys.includes(selected.key)"
-              :disabled="!selectedTarget"
+              :disabled="!canWrite || !selectedTarget"
               @click="
                 selected &&
                   selectedTarget &&
@@ -998,14 +1038,14 @@ await refresh();
                 v-model="selectedPriority"
                 :items="priorities"
                 :aria-label="`Change priority for ${selected.key}`"
-                :disabled="pendingKeys.includes(selected.key)"
+                :disabled="!canWrite || pendingKeys.includes(selected.key)"
                 size="sm"
               />
             </label>
             <UButton
               icon="i-lucide-flag"
               :loading="pendingKeys.includes(selected.key)"
-              :disabled="!selectedPriority || selectedPriority === selected.priority"
+              :disabled="!canWrite || !selectedPriority || selectedPriority === selected.priority"
               @click="
                 selected &&
                   selectedPriority &&
@@ -1060,7 +1100,7 @@ await refresh();
                     v-model="commentDraft"
                     placeholder="Write a demo-only comment"
                     aria-label="Add a demo comment"
-                    :disabled="commentSaving"
+                    :disabled="!canWrite || commentSaving"
                   />
                 </label>
                 <p
@@ -1092,7 +1132,7 @@ await refresh();
                   type="submit"
                   icon="i-lucide-message-square-plus"
                   :loading="commentSaving"
-                  :disabled="!commentDraft.trim()"
+                  :disabled="!canWrite || !commentDraft.trim()"
                 >
                   Add demo comment
                 </UButton>
