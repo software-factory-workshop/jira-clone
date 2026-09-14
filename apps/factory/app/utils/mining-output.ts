@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { factoryRepository } from "../../runtime/lib/factory-config.ts";
 
 const githubReadSchema = z.object({
   resource: z.string(), complete: z.boolean(), capturedAt: z.string(),
@@ -85,7 +86,7 @@ function proposalRequest(input: {
   const handoffNote = handoff === "delivery"
     ? "Selected to start the durable delivery. Preserve this scope through implementation and review."
     : "Selected for review as an editable draft. Implementation has not started.";
-  sections.push(`---\nProposal: ${id}\nProposal identity: ${proposal.id && provenance ? "Recorded by the investigation" : "Derived from the legacy session and proposal position"}\nInvestigation: ${provenance?.sessionId || sessionId}\nRepository: ${provenance?.repository || "software-factory-workshop/jira-clone"}\nSource revision: ${provenance?.revision || revision || "Unavailable"}\nCaptured: ${provenance?.capturedAt || capturedAt || "Unavailable"}\nInvestigation status: ${phase}\n\n${handoffNote}`);
+  sections.push(`---\nProposal: ${id}\nProposal identity: ${proposal.id && provenance ? "Recorded by the investigation" : "Derived from the legacy session and proposal position"}\nInvestigation: ${provenance?.sessionId || sessionId}\nRepository: ${provenance?.repository || factoryRepository}\nSource revision: ${provenance?.revision || revision || "Unavailable"}\nCaptured: ${provenance?.capturedAt || capturedAt || "Unavailable"}\nInvestigation status: ${phase}\n\n${handoffNote}`);
   return { title: proposal.title, body: sections.join("\n\n") };
 }
 

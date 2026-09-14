@@ -6,6 +6,7 @@ import { z } from "zod";
 import { miningState } from "../lib/mining-state";
 import { latestVercelReads } from "../lib/vercel-context";
 import { repository, model, scope } from "../lib/github.mjs";
+import { vercelProjects } from "../lib/factory-config.ts";
 import { proposalInputSchema, recordProposals, renderProposal } from "../lib/proposals";
 const tool = defineTool({
  description:"Record up to three ranked proposals and reflection. Trusted repository, command and integration evidence are attached by the host. Missing setup or inventories make the investigation incomplete. Call once after investigation.",
@@ -18,7 +19,7 @@ const tool = defineTool({
   const gaps=[...state.contextGaps,...vercelEvidence.filter(r=>!r.complete&&r.gap).map(r=>r.gap!),...input.contextGaps];
   if(!state.prepared) gaps.push("Repository dependencies were not successfully prepared.");
   for(const resource of ["issues","pulls"]) if(!state.githubReads.some(r=>r.resource===resource&&r.complete)) gaps.push(`Missing complete GitHub ${resource} inventory.`);
-  for(const [label,projectId] of [["cockpit",scope.projectId],["Jira","prj_C3sDKTOQIOqpIpNO9w7bqcWYkwp4"]]) if(!vercelEvidence.some(r=>r.projectId===projectId&&r.complete&&(r.resource==="project"||r.resource==="deployments"))) gaps.push(`Missing Vercel project or deployment evidence for ${label}.`);
+  for(const [label,projectId] of [["cockpit",scope.projectId],["Jira",vercelProjects.jira]]) if(!vercelEvidence.some(r=>r.projectId===projectId&&r.complete&&(r.resource==="project"||r.resource==="deployments"))) gaps.push(`Missing Vercel project or deployment evidence for ${label}.`);
   if(state.commands.length<2) gaps.push("No focused reproduction or inspection command was recorded after setup.");
   const capturedAt = new Date().toISOString();
   const proposals = recordProposals(input.proposals, { sessionId: ctx.session.id, revision: state.revision, capturedAt });

@@ -1,5 +1,6 @@
 import { getToken } from '@vercel/connect';
 import { repository } from './github.mjs';
+import { githubConnectorName, requiredCheckName } from './factory-config.ts';
 import { mergeEligibility,type MergeFile,type MergeReview,type MergeDecision } from './merge-policy.ts';
 import { changeResource } from './cedar/model.ts';
 import { factoryDeliveryDriverPrincipal } from './cedar/guard.ts';
@@ -11,7 +12,7 @@ export interface MergeInput {
 }
 // GitHub remains the final authority: exact candidate SHA, green checks, no forced merges.
 export async function mergeReviewed(input:MergeInput, token?:string):Promise<MergeDecision>{
- token ||= await getToken('github/jira-clone',{subject:{type:'app'}});
+ token ||= await getToken(githubConnectorName,{subject:{type:'app'}});
  let authorization:FactoryDecisionAudit|undefined;
  async function api(path:string,method='GET',body?:unknown,graphql=false){
   const response=await fetch(graphql?'https://api.github.com/graphql':`https://api.github.com/repos/${repository}/${path}`,{method,headers:{Authorization:`Bearer ${token}`,Accept:'application/vnd.github+json','Content-Type':'application/json'},body:body?JSON.stringify(body):undefined,redirect:'error',signal:AbortSignal.timeout(20000)});
@@ -33,8 +34,8 @@ export async function mergeReviewed(input:MergeInput, token?:string):Promise<Mer
   if(decision)return decision;
   const [checks,status]=await Promise.all([api(`commits/${p.headSha}/check-runs?per_page=100&filter=latest`),api(`commits/${p.headSha}/status?per_page=100`)]);
   if(checks.total_count!==checks.check_runs.length||status.total_count!==status.statuses.length)return{status:'manual',reason:'Check inventory is incomplete.'};
-  if(checks.check_runs.some((c:any)=>c.status==='completed'&&(!['success','neutral','skipped'].includes(c.conclusion)||(c.name==='check'&&c.app?.slug==='github-actions'&&c.conclusion!=='success')))||status.statuses.some((s:any)=>['failure','error'].includes(s.state)))return{status:'manual',reason:'GitHub checks did not pass.'};
-  if(!checks.check_runs.some((c:any)=>c.name==='check'&&c.app?.slug==='github-actions'&&c.status==='completed'&&c.conclusion==='success'))return{status:'waiting',reason:'Waiting for the repository check workflow on the reviewed commit.'};
+  if(checks.check_runs.some((c:any)=>c.status==='completed'&&(!['success','neutral','skipped'].includes(c.conclusion)||(c.name===requiredCheckName&&c.app?.slug==='github-actions'&&c.conclusion!=='success')))||status.statuses.some((s:any)=>['failure','error'].includes(s.state)))return{status:'manual',reason:'GitHub checks did not pass.'};
+  if(!checks.check_runs.some((c:any)=>c.name===requiredCheckName&&c.app?.slug==='github-actions'&&c.status==='completed'&&c.conclusion==='success'))return{status:'waiting',reason:'Waiting for the repository check workflow on the reviewed commit.'};
   if(!checks.check_runs.length&&!status.statuses.length||checks.check_runs.some((c:any)=>c.status!=='completed')||status.statuses.some((s:any)=>s.state!=='success'))return{status:'waiting',reason:'Waiting for all GitHub checks to pass.'};
   if(pr.mergeable===null)return{status:'waiting',reason:'GitHub is calculating mergeability.'};
   if(pr.mergeable===false||!['clean','unstable','blocked'].includes(pr.mergeable_state))return{status:'manual',reason:'Candidate cannot be safely merged into its reviewed target.'};

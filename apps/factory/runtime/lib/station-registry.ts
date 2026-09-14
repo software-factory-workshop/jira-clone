@@ -1,5 +1,6 @@
 import { get, put, BlobPreconditionFailedError } from '@vercel/blob';
 import type { RootAgent } from './root-agent-client';
+import { factoryBlobPaths } from './factory-config.ts';
 
 export interface StationRegistry {
   sessions: Record<string, RootAgent>;
@@ -30,7 +31,7 @@ export function bindStation(registry: StationRegistry, root: RootAgent, address:
   registry.sessions[sessionId] = root;
 }
 
-const path = 'factory/station-registry-v1.json';
+const path = factoryBlobPaths.stationRegistry;
 export async function readStationRegistry() {
   const response = await get(path, { access: 'private', useCache: false, headers: { 'accept-encoding': 'identity' } });
   if (!response) return { registry: emptyRegistry(), etag: undefined };

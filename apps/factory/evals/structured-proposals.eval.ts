@@ -1,5 +1,6 @@
 import { defineEval } from "eve/evals";
 import { equals } from "eve/evals/expect";
+import { factoryRepository } from "../runtime/lib/factory-config.ts";
 
 export default defineEval({
   description: "Native Eve records independently reviewable proposals with host-owned identity and provenance",
@@ -22,7 +23,7 @@ export default defineEval({
         && provenance?.sessionId === t.sessionId
         && provenance?.revision === record.revision
         && provenance?.capturedAt === record.capturedAt
-        && provenance?.repository === "software-factory-workshop/jira-clone"
+        && provenance?.repository === factoryRepository
         && provenance?.executionSurface === "native-eve";
     }), equals(true));
     t.log("Proposal identity is host-derived; this check does not approve any task draft or establish proposal usefulness.");

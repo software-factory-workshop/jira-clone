@@ -1,4 +1,5 @@
 import { isDeepStrictEqual } from "node:util";
+import { jiraTestCommand, mcpToolkitPackage, mcpToolkitVersion, mcpZodVersion } from "./factory-config.ts";
 
 // Why this is an exact string splice: the worker may author Jira code but not
 // dependencies, scripts or configuration. The one integration slice it needs
@@ -7,12 +8,10 @@ import { isDeepStrictEqual } from "node:util";
 // commands run and again before publication. Widening it is a reviewed change
 // by the development session, never something a worker can do from inside a run.
 
-export const jiraTestCommand = "node --test tests/*.test.ts";
-export const mcpToolkitVersion = "0.21.0";
-export const mcpZodVersion = "4.6.1";
-const mcpToolkit = "@nuxtjs/mcp-toolkit";
+export { jiraTestCommand, mcpToolkitVersion, mcpZodVersion } from "./factory-config.ts";
+const mcpToolkit = mcpToolkitPackage;
 const mcpConfigMarker = '  extends: ["@software-factory-workshop/nuxt-adeo-ds"],\n';
-const mcpConfigInsertion = `${mcpConfigMarker}  modules: ["@nuxtjs/mcp-toolkit"],\n  mcp: { name: "ADEO Jira Demo", version: "0.1.0" },\n`;
+const mcpConfigInsertion = `${mcpConfigMarker}  modules: ["${mcpToolkit}"],\n  mcp: { name: "ADEO Jira Demo", version: "0.1.0" },\n`;
 
 function parsedManifest(value: string, label: string): Record<string, any> {
   try {
@@ -152,7 +151,7 @@ function validateMcpDependencyBlock(block: string | undefined, key: string) {
   if (!block) throw new Error(`Lockfile is missing Jira dependency ${key}.`);
   const lines = block.trim().split("\n").map(line => line.trim());
   if (key === `'${mcpToolkit}'`) {
-    if (lines.length !== 3 || lines[0] !== `'${mcpToolkit}':` || lines[1] !== `specifier: ${mcpToolkitVersion}` || !lines[2]!.startsWith("version: 0.21.0(")) throw new Error("Jira MCP lockfile entry is not pinned to the approved toolkit.");
+    if (lines.length !== 3 || lines[0] !== `'${mcpToolkit}':` || lines[1] !== `specifier: ${mcpToolkitVersion}` || !lines[2]!.startsWith(`version: ${mcpToolkitVersion}(`)) throw new Error("Jira MCP lockfile entry is not pinned to the approved toolkit.");
     return;
   }
   if (lines.length !== 3 || lines[0] !== "zod:" || lines[1] !== `specifier: ${mcpZodVersion}` || lines[2] !== `version: ${mcpZodVersion}`) throw new Error("Jira MCP lockfile entry is not pinned to the approved zod version.");
@@ -210,7 +209,7 @@ export function validateJiraLockfile(baseline: string, candidate: string | null,
 
   const packageAdditions = validateAdditiveSection(section(baseline, "packages").text, section(candidate, "packages").text, "Package lockfile", additionsAllowed);
   const snapshotAdditions = validateAdditiveSection(section(baseline, "snapshots").text, section(candidate, "snapshots").text, "Snapshot lockfile", additionsAllowed);
-  if (additionsAllowed && (!packageAdditions.some(key => key.includes("@nuxtjs/mcp-toolkit@0.21.0")) || !snapshotAdditions.some(key => key.includes("@nuxtjs/mcp-toolkit@0.21.0")))) throw new Error("MCP lockfile additions are incomplete.");
+  if (additionsAllowed && (!packageAdditions.some(key => key.includes(`${mcpToolkit}@${mcpToolkitVersion}`)) || !snapshotAdditions.some(key => key.includes(`${mcpToolkit}@${mcpToolkitVersion}`)))) throw new Error("MCP lockfile additions are incomplete.");
 
   for (const entry of baseSections) {
     if (["importers", "packages", "snapshots"].includes(entry.name)) continue;

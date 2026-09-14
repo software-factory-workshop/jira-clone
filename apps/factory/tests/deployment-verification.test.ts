@@ -5,8 +5,9 @@ import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { deploymentStatus } from "../scripts/verify-vercel-status.mjs";
 import { CEDAR_WASM_RELATIVE_PATHS, verifyNativeOutput } from "../scripts/verify-native-output.mjs";
+import { vercelProjectNames, vercelTeamName } from "../runtime/lib/factory-config.ts";
 const sha = "a".repeat(40);
-const statuses = ["adeo-factory-cockpit", "adeo-jira-clone"].map(project => ({ context: `Vercel – ${project}`, state: "success", target_url: `https://vercel.com/demo-software-factory/${project}/deployment` }));
+const statuses = [vercelProjectNames.cockpit, vercelProjectNames.jira].map(project => ({ context: `Vercel – ${project}`, state: "success", target_url: `https://vercel.com/${vercelTeamName}/${project}/deployment` }));
 test("deployment proof requires the exact commit and both fixed team/project statuses", () => {
   assert(deploymentStatus({sha,statuses},sha).every(status=>status.state==="success"));
   assert.equal(deploymentStatus({sha,statuses:statuses.slice(0,1)},sha)[1].state,"pending");

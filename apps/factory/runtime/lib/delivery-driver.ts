@@ -1,9 +1,10 @@
 import { getVercelOidcToken } from '@vercel/oidc';
+import { factoryPorts } from './factory-config.ts';
 
 // Agent services notify the outer Nuxt workflow host. The host owns orchestration;
 // no Eve session, tool executor, or model launches the workflow.
 async function driverRequest(id: string, request: Request, method: 'POST' | 'DELETE') {
-  const origin = process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : (process.env.FACTORY_COCKPIT_ORIGIN || 'http://127.0.0.1:3000');
+  const origin = process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : (process.env.FACTORY_COCKPIT_ORIGIN || `http://127.0.0.1:${factoryPorts.cockpit}`);
   const headers = new Headers();
   if (process.env.VERCEL === '1') {
     const token = await getVercelOidcToken();

@@ -2,6 +2,7 @@ import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
 import { get, put } from "@vercel/blob";
 import type { BrowserFrame, BrowserObservation } from "./review-browser.ts";
 import type { VisualReviewApp, VisualReviewArtifact, VisualReviewFrame } from "./visual-review.ts";
+import { factoryBlobPaths, factoryPorts } from "./factory-config.ts";
 
 const MAX_IMAGE_BYTES = 4 * 1024 * 1024;
 const artifactIdPattern = /^[a-f0-9]{32}$/;
@@ -30,12 +31,12 @@ function artifactId(input: { sessionId: string; headSha: string; app: VisualRevi
 function origin() {
   const configured = process.env.FACTORY_PUBLIC_URL?.trim();
   if (configured) return configured.replace(/\/+$/, "");
-  return process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "http://localhost:3000";
+  return process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : `http://localhost:${factoryPorts.cockpit}`;
 }
 
 function pathFor(id: string) {
   if (!artifactIdPattern.test(id)) throw new Error("Invalid visual artifact ID.");
-  return `factory/review-artifacts/${id}`;
+  return `${factoryBlobPaths.reviewArtifactsPrefix}${id}`;
 }
 
 function manifestPath(id: string) {
@@ -57,7 +58,7 @@ function parseImage(dataUrl: string) {
 }
 
 function frameUrl(id: string, token: string, phase: "before" | "after") {
-  return `${origin()}/factory/review-artifacts/${id}/${token}?phase=${phase}`;
+  return `${origin()}/${factoryBlobPaths.reviewArtifactsPrefix}${id}/${token}?phase=${phase}`;
 }
 
 async function readManifest(id: string): Promise<VisualArtifactManifest | undefined> {

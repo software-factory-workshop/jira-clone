@@ -9,7 +9,9 @@ import {ownerPublication,ownerFromBody} from "../runtime/lib/work-owner.ts";
 import {workBranch,publishWork} from "../runtime/lib/work-github.ts";
 import {mergeSources} from "../runtime/lib/work-merge.ts";
 import {validateCollectedChanges} from "../runtime/lib/work-changes.ts";
+import {factoryRepository,factoryRepositoryUrl} from "../runtime/lib/factory-config.ts";
 const exec=promisify(execFile);const owner="wrun_owner",branch=workBranch(owner),a="a".repeat(40),b="b".repeat(40),h="c".repeat(40),next="d".repeat(40),tree="e".repeat(40);
+const pullUrl=(number:number)=>`${factoryRepositoryUrl}/pull/${number}`;
 const proof={type:"action.result",data:{status:"completed",result:{kind:"tool-result",toolName:"publish_work",output:{station:"worker",sessionId:owner,revisionProtocol:1,publication:{branch,number:4,headSha:h,ownerSessionId:owner,targetBranch:"main",targetHeadSha:a}}}}};
 test("ownership requires host successful publication, same durable session/branch/PR and revision-capable runtime",()=>{
  assert(ownerPublication(proof,owner,4,branch));assert.equal(ownerPublication(proof,"wrun_other",4,branch),null);assert.equal(ownerPublication(proof,owner,5,branch),null);
@@ -39,9 +41,9 @@ test("protected conflicts reject before workspace replacement",async()=>{
 });
 test("revision writes only owned ref, uses expected-head nonforce update and retains child target",async t=>{
  const writes:any[]=[];let current=h;let message="";let parents:string[]=[];let targetRef="factory/parent";
- const pr=()=>({number:4,html_url:"https://github.com/software-factory-workshop/jira-clone/pull/4",title:"revise",body:"",state:"open",draft:true,head:{sha:current,ref:branch,repo:{full_name:"software-factory-workshop/jira-clone"}},base:{sha:a,ref:targetRef,repo:{full_name:"software-factory-workshop/jira-clone"}}});
+ const pr=()=>({number:4,html_url:pullUrl(4),title:"revise",body:"",state:"open",draft:true,head:{sha:current,ref:branch,repo:{full_name:factoryRepository}},base:{sha:a,ref:targetRef,repo:{full_name:factoryRepository}}});
  t.mock.method(globalThis,"fetch",async(url,init:any)=>{
-  const path=new URL(String(url)).pathname.split("/jira-clone/")[1];
+  const path=new URL(String(url)).pathname.split(`/repos/${factoryRepository}/`)[1]!;
   if(init.method!=="GET"){
    const body=JSON.parse(init.body);writes.push({path,method:init.method,body});
    if(path==="git/trees")return Response.json({sha:tree});
@@ -96,7 +98,7 @@ test("refresh refuses inherited excluded or executable-mode changes without drop
 });
 test("review invalidates a retarget even when both branch tips have the same SHA",async t=>{
  const {verifyPullRequestHead}=await import("../runtime/lib/work-github.ts");
- t.mock.method(globalThis,"fetch",async(url)=>String(url).includes("git/ref/")?Response.json({object:{sha:a}}):Response.json({number:4,html_url:"https://github.com/software-factory-workshop/jira-clone/pull/4",title:"test",body:"",state:"open",head:{sha:h,ref:branch,repo:{full_name:"software-factory-workshop/jira-clone"}},base:{sha:a,ref:"new-target",repo:{full_name:"software-factory-workshop/jira-clone"}}}));
+ t.mock.method(globalThis,"fetch",async(url)=>String(url).includes("git/ref/")?Response.json({object:{sha:a}}):Response.json({number:4,html_url:pullUrl(4),title:"test",body:"",state:"open",head:{sha:h,ref:branch,repo:{full_name:factoryRepository}},base:{sha:a,ref:"new-target",repo:{full_name:factoryRepository}}}));
  await assert.rejects(verifyPullRequestHead("test",4,h,undefined,a,"old-target"),/changed/);
  await verifyPullRequestHead("test",4,h,undefined,a,"new-target");
 });

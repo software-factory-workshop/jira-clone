@@ -10,10 +10,11 @@ import { collectChanges } from "../../../lib/work-changes";
 import { mergeSources } from "../../../lib/work-merge";
 import { prepareRepository } from "../../../lib/prepare-context";
 import { manifestFor } from "../../../lib/github.mjs";
+import { githubConnectorName } from "../../../lib/factory-config.ts";
 export default defineTool({description:"Refresh your own workspace against its latest target branch with a three-way merge. Preserves your source edits, exposes real conflict markers for resolution, and invalidates previous checks. Never writes the target branch.",inputSchema:z.object({}).strict(),
  async execute(_,ctx){
   requireStation(ctx,"worker");const log=useLogger(ctx);const state=workState.get();if(!state.prepared||state.recorded)throw new Error("Prepare the active unpublished operation first.");
-  const token=await getToken("github/jira-clone",{subject:{type:"app"}});
+  const token=await getToken(githubConnectorName,{subject:{type:"app"}});
   if(state.publication){const pr=await readPull(token,state.publication.number,ctx.abortSignal);if(pr.head.sha!==state.publication.headSha||pr.base.ref!==state.targetBranch)throw new WorkError("stale_head","Owned PR changed; preserving current workspace.");}
   const targetHead=await readBranch(token,state.targetBranch,ctx.abortSignal);
   if(targetHead===state.targetHeadSha){log.set({factory:{station:"worker",stage:"refresh_target",outcome:"unchanged",targetHeadSha:targetHead}});return{phase:"Target unchanged",targetHeadSha:targetHead};}

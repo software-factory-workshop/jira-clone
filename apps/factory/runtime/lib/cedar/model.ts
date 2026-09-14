@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { factoryRepository } from "../factory-config.ts";
 
 const idSchema = z.string().min(1).max(240);
 const revisionSchema = z
@@ -81,7 +82,7 @@ export type FactoryPrincipal = z.infer<typeof factoryPrincipalSchema>;
 
 /** Stable identifiers for the only repository currently in the factory scope. */
 export const FACTORY_PROJECT_ID = "workshop-software-factory";
-export const FACTORY_REPOSITORY_ID = "software-factory-workshop/jira-clone";
+export const FACTORY_REPOSITORY_ID = factoryRepository;
 export const FACTORY_DEFAULT_BRANCH = "main";
 
 export function changeResource(input: {

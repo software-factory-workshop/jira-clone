@@ -12,6 +12,7 @@ import { buildVisualReviewPacket,withVisualReviewSection,type VisualReviewApp } 
 import { storeBrowserComparison } from '../../../lib/visual-review-store';
 import { changeResource } from "../../../lib/cedar/model.ts";
 import { factoryPrincipalFromStation, runGuardedFactoryOperation } from "../../../lib/cedar/guard.ts";
+import { githubConnectorName } from "../../../lib/factory-config.ts";
 export const reviewSchema=z.object({verdict:z.enum(["approve","changes_requested","incomplete"]),summary:z.string().min(10).max(3000),findings:z.array(z.object({severity:z.enum(["blocking","nonblocking"]),path:z.string(),line:z.number().int().positive().optional(),message:z.string(),evidence:z.string()})).max(15),limitations:z.array(z.string()).max(10)}).strict();
 export default defineTool({description:"Record an independent structured review of the exact fetched PR head. Rechecks remote head before recording; does not submit a GitHub review or merge.",inputSchema:reviewSchema,
  async execute(input,ctx){
@@ -22,7 +23,7 @@ export default defineTool({description:"Record an independent structured review 
   if(input.verdict==="approve"&&blockers.length)throw new Error(`Approval refused by host policy: ${blockers.join(" ")}`);
  const candidateUnchanged=!(await collectChanges(await ctx.getSandbox(),state.baseline,true,state.jiraManifest,state.jiraNuxtConfig,state.jiraLockfile)).length;
  if(input.verdict==="approve"&&!candidateUnchanged)throw new Error("Candidate changed after verification; approval refused.");
-  const token=await getToken("github/jira-clone",{subject:{type:"app"}});
+  const token=await getToken(githubConnectorName,{subject:{type:"app"}});
   await verifyPullRequestHead(token,state.pull.number,state.pull.headSha,ctx.abortSignal,state.pull.baseSha,state.pull.targetBranch);
   const principal=factoryPrincipalFromStation(ctx,"reviewer");
   const evidenceId=`review:${ctx.session.id}:${state.pull.headSha}`;

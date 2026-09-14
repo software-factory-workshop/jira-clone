@@ -1,8 +1,9 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { reconcileManuallyMergedDelivery, type GithubMergeEvidence } from "../runtime/lib/delivery-reconcile.ts";
+import { factoryRepository } from "../runtime/lib/factory-config.ts";
 
-const repository = "software-factory-workshop/jira-clone";
+const repository = factoryRepository;
 const headSha = "a".repeat(40);
 const targetHeadSha = "b".repeat(40);
 const mergeCommitSha = "c".repeat(40);

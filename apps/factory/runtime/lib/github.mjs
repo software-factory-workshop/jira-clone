@@ -1,9 +1,10 @@
 import { createHash } from 'node:crypto';
 import { githubInput } from './github-input.mjs';
+import { factoryModelIds, factoryRepository, passportProjectId, vercelTeamId, vercelTeamName } from './factory-config.ts';
 
-export const repository = 'software-factory-workshop/jira-clone';
-export const scope = { team: 'demo-software-factory', teamId: 'team_Ljrc7ENgQWsCySwCwijvA0zy', projectId: 'prj_ZXLHFUJhgo5EdvSf1IstOMn0ft0A' };
-export const model = 'meta/muse-spark-1.3-contributor';
+export const repository = factoryRepository;
+export const scope = { team: vercelTeamName, teamId: vercelTeamId, projectId: passportProjectId };
+export const model = factoryModelIds.taskMiner;
 
 export function verifyGatewayScope(oidc, apiKey) {
   if (apiKey) throw new Error("Task mining uses project OIDC for AI Gateway. Unset AI_GATEWAY_API_KEY before running this agent.");

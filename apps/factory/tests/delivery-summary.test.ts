@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { attentionPhases, deriveAttentionReason, describeDeliveryPhase, formatDeliveryUpdatedAt, isLoopRun, summarizeDelivery } from "../app/utils/delivery-summary.ts";
+import { factoryRepositoryUrl } from "../runtime/lib/factory-config.ts";
 
 const now = new Date("2026-09-12T12:00:00.000Z");
 
@@ -26,14 +27,14 @@ test("a saved delivery projects a compact card with title, phase, target and PR 
     phase: "reviewing",
     updatedAt: new Date(now.getTime() - 2 * 60_000).toISOString(),
     request: { title: "Jira issue list" },
-    publication: { number: 4, url: "https://github.com/software-factory-workshop/jira-clone/pull/4", targetBranch: "main" },
+    publication: { number: 4, url: `${factoryRepositoryUrl}/pull/4`, targetBranch: "main" },
   }, "Fallback title", now);
   assert.equal(summary?.title, "Jira issue list");
   assert.equal(summary?.phaseLabel, "Reviewing");
   assert.equal(summary?.updatedLabel, "Updated 2 min ago");
   assert.equal(summary?.targetBranch, "main");
   assert.equal(summary?.prNumber, 4);
-  assert.equal(summary?.prUrl, "https://github.com/software-factory-workshop/jira-clone/pull/4");
+  assert.equal(summary?.prUrl, `${factoryRepositoryUrl}/pull/4`);
 });
 
 test("unpublished deliveries fall back to the history title without a PR link", () => {

@@ -2,21 +2,24 @@ import test from "node:test";
 import { defaultMessageReducer } from "eve/client";
 import assert from "node:assert/strict";
 import { dispatchedTask, parsePullRequest, parseStationResult, pendingStationRequests, stationLinkSchema, latestStationTurn, readStationStream, workerRequest, stationLaunchError, matchesStationDelivery, parseStationToolResult, appendStationTail, advanceStationTurn, boundStationProjection, eventToolId, MAX_STATION_TAIL_EVENTS, MAX_STATION_PROJECTION_MESSAGES, MAX_STATION_PROJECTION_PARTS } from "../app/utils/work-station.ts";
+import { factoryPorts, factoryRepositoryUrl } from "../runtime/lib/factory-config.ts";
 const sha = "a".repeat(40);
+const pullUrl = (number: number) => `${factoryRepositoryUrl}/pull/${number}`;
+const jiraOrigin = `http://127.0.0.1:${factoryPorts.jira}`;
 test("review input only accepts PRs in the configured repository", () => {
   assert.equal(parsePullRequest("2"), 2);
-  assert.equal(parsePullRequest("https://github.com/software-factory-workshop/jira-clone/pull/2"), 2);
+  assert.equal(parsePullRequest(pullUrl(2)), 2);
   assert.equal(parsePullRequest("https://github.com/other/repo/pull/2"), undefined);
-  assert.equal(parsePullRequest("https://github.com/software-factory-workshop/jira-clone/issues/2"), undefined);
+  assert.equal(parsePullRequest(`${factoryRepositoryUrl}/issues/2`), undefined);
   assert.equal(parsePullRequest("0"), undefined);
 });
 test("worker success requires a real scoped PR link and exact head/base identity", () => {
-  const result = { station: "worker", sessionId: "wrun_test", revision: sha, summary: "Changed code", commands: [], publication: { branch: "factory/change", number: 2, url: "https://github.com/software-factory-workshop/jira-clone/pull/2", headSha: sha, baseSha: sha } };
+  const result = { station: "worker", sessionId: "wrun_test", revision: sha, summary: "Changed code", commands: [], publication: { branch: "factory/change", number: 2, url: pullUrl(2), headSha: sha, baseSha: sha } };
   assert.equal(parseStationResult(result)?.station, "worker");
   assert.equal(parseStationResult({ ...result, publication: { ...result.publication, headSha: "unknown" } }), undefined);
 });
 test("review findings retain exact reviewed head, limitations and command failures", () => {
-  const result = parseStationResult({ station: "reviewer", sessionId: "wrun_test", prNumber: 2, url: "https://github.com/software-factory-workshop/jira-clone/pull/2", baseSha: sha, headSha: sha, targetBranch: "factory/parent", verdict: "changes_requested", summary: "A regression", findings: [{ severity: "blocking", path: "app.ts", line: 12, message: "Lost draft", evidence: "Reproduced save/restore race" }], commands: [{ command: "pnpm test", exitCode: 1, stdout: "Failed", stderr: "" }], limitations: ["No hosted browser run"], capturedAt: "2026-09-12T14:00:00Z" });
+  const result = parseStationResult({ station: "reviewer", sessionId: "wrun_test", prNumber: 2, url: pullUrl(2), baseSha: sha, headSha: sha, targetBranch: "factory/parent", verdict: "changes_requested", summary: "A regression", findings: [{ severity: "blocking", path: "app.ts", line: 12, message: "Lost draft", evidence: "Reproduced save/restore race" }], commands: [{ command: "pnpm test", exitCode: 1, stdout: "Failed", stderr: "" }], limitations: ["No hosted browser run"], capturedAt: "2026-09-12T14:00:00Z" });
   assert(result?.station === "reviewer");
   assert.equal(result.headSha, sha);
   assert.equal(result.targetBranch, "factory/parent");
@@ -25,8 +28,8 @@ test("review findings retain exact reviewed head, limitations and command failur
   assert.deepEqual(result.limitations, ["No hosted browser run"]);
 });
 test("station projections retain the host-owned visual packet", () => {
-  const packet = { version: 1, status: "complete", requiredApps: ["jira"], baseSha: sha, headSha: sha, targetBranch: "main", reviewerSessionId: "wrun_reviewer", capturedAt: "2026-09-12T14:00:00Z", artifacts: [{ id: "a".repeat(32), app: "jira", origin: "http://127.0.0.1:3001", route: "/issues", baseSha: sha, headSha: sha, targetBranch: "main", capturedAt: "2026-09-12T14:00:00Z", before: { phase: "before", url: "https://factory.example/frame?phase=before", sha256: "b".repeat(64), mediaType: "image/png" }, after: { phase: "after", url: "https://factory.example/frame?phase=after", sha256: "c".repeat(64), mediaType: "image/png" } }], limitations: [] } as const;
-  const result = parseStationResult({ station: "reviewer", sessionId: "wrun_reviewer", prNumber: 2, url: "https://github.com/software-factory-workshop/jira-clone/pull/2", baseSha: sha, headSha: sha, targetBranch: "main", verdict: "approve", summary: "Reviewed", findings: [], commands: [], limitations: [], visualReview: packet, capturedAt: "2026-09-12T14:00:00Z" });
+  const packet = { version: 1, status: "complete", requiredApps: ["jira"], baseSha: sha, headSha: sha, targetBranch: "main", reviewerSessionId: "wrun_reviewer", capturedAt: "2026-09-12T14:00:00Z", artifacts: [{ id: "a".repeat(32), app: "jira", origin: jiraOrigin, route: "/issues", baseSha: sha, headSha: sha, targetBranch: "main", capturedAt: "2026-09-12T14:00:00Z", before: { phase: "before", url: "https://factory.example/frame?phase=before", sha256: "b".repeat(64), mediaType: "image/png" }, after: { phase: "after", url: "https://factory.example/frame?phase=after", sha256: "c".repeat(64), mediaType: "image/png" } }], limitations: [] } as const;
+  const result = parseStationResult({ station: "reviewer", sessionId: "wrun_reviewer", prNumber: 2, url: pullUrl(2), baseSha: sha, headSha: sha, targetBranch: "main", verdict: "approve", summary: "Reviewed", findings: [], commands: [], limitations: [], visualReview: packet, capturedAt: "2026-09-12T14:00:00Z" });
   assert(result?.station === "reviewer");
   assert.equal(result.visualReview?.status, "complete");
   assert.equal(result.visualReview?.artifacts[0]?.after?.url, "https://factory.example/frame?phase=after");
@@ -90,7 +93,7 @@ test("station projections bound messages and parts without losing active request
   const reducer = defaultMessageReducer();
   let data = reducer.initial();
   const operationId = "d4c2d7da-37da-45ad-a782-c903e59a3c5d";
-  const result = { station: "worker", sessionId: "wrun_worker", operationId, revision: sha, summary: "Published", commands: [], publication: { branch: "factory/work", number: 2, url: "https://github.com/software-factory-workshop/jira-clone/pull/2", headSha: sha, baseSha: sha } };
+  const result = { station: "worker", sessionId: "wrun_worker", operationId, revision: sha, summary: "Published", commands: [], publication: { branch: "factory/work", number: 2, url: pullUrl(2), headSha: sha, baseSha: sha } };
   const pinned = { messages: [{ id: "old", role: "assistant", metadata: { turnId: "old" }, parts: [
     { type: "dynamic-tool", state: "approval-requested", toolCallId: "request", toolName: "session_limit_continuation", input: {}, approval: { id: "request" }, toolMetadata: { eve: { kind: "tool-call", name: "session_limit_continuation", inputRequest: { requestId: "request", prompt: "Continue?" } } } },
     { type: "dynamic-tool", state: "output-available", toolCallId: "publish", toolName: "publish_work", input: {}, output: result },
@@ -141,7 +144,7 @@ test("unavailable ownership does not suggest silently taking the branch", () => 
 });
 
 test("child PR results preserve target branch and owner provenance", () => {
-  const result = parseStationResult({ station: "worker", sessionId: "wrun_child", revision: sha, summary: "Contributed", commands: [], publication: { branch: "factory/child", number: 3, url: "https://github.com/software-factory-workshop/jira-clone/pull/3", headSha: sha, baseSha: sha, targetBranch: "factory/parent", targetHeadSha: sha, ownerSessionId: "wrun_child", parentPrNumber: 2 } });
+  const result = parseStationResult({ station: "worker", sessionId: "wrun_child", revision: sha, summary: "Contributed", commands: [], publication: { branch: "factory/child", number: 3, url: pullUrl(3), headSha: sha, baseSha: sha, targetBranch: "factory/parent", targetHeadSha: sha, ownerSessionId: "wrun_child", parentPrNumber: 2 } });
   assert(result?.station === "worker");
   assert.equal(result.publication.parentPrNumber, 2);
   assert.equal(result.publication.targetBranch, "factory/parent");
@@ -160,7 +163,7 @@ test("revision run links and event projection identify the new delivery", () => 
 
 test("the previous publication is not a completed revision of the same owner session", () => {
   const operationId = "d4c2d7da-37da-45ad-a782-c903e59a3c5d";
-  const output = { station: "worker", sessionId: "wrun_owner", revision: sha, summary: "Changed", commands: [], publication: { branch: "factory/owner", number: 2, url: "https://github.com/software-factory-workshop/jira-clone/pull/2", headSha: sha, baseSha: sha } };
+  const output = { station: "worker", sessionId: "wrun_owner", revision: sha, summary: "Changed", commands: [], publication: { branch: "factory/owner", number: 2, url: pullUrl(2), headSha: sha, baseSha: sha } };
   assert.equal(parseStationResult(output, operationId), undefined);
   assert.equal(parseStationResult({ ...output, operationId: "77e646cd-a877-43c3-a87f-b69e302e4a94" }, operationId), undefined);
   assert.equal(parseStationResult({ ...output, operationId }, operationId)?.sessionId, "wrun_owner");
@@ -168,7 +171,7 @@ test("the previous publication is not a completed revision of the same owner ses
 
 test("an identical revision replay displays only the owner's matching cached publication", () => {
   const operationId = "d4c2d7da-37da-45ad-a782-c903e59a3c5d";
-  const result = { station: "worker", sessionId: "wrun_owner", operationId, revision: sha, summary: "Already done", commands: [], publication: { branch: "factory/owner", number: 2, url: "https://github.com/software-factory-workshop/jira-clone/pull/2", headSha: sha, baseSha: sha } };
+  const result = { station: "worker", sessionId: "wrun_owner", operationId, revision: sha, summary: "Already done", commands: [], publication: { branch: "factory/owner", number: 2, url: pullUrl(2), headSha: sha, baseSha: sha } };
   const output = { phase: "Already published", result };
   assert.equal(parseStationToolResult("prepare_work", output, operationId)?.sessionId, "wrun_owner");
   assert.equal(parseStationToolResult("prepare_work", output, "77e646cd-a877-43c3-a87f-b69e302e4a94"), undefined);

@@ -4,6 +4,7 @@ import { applyReview, deliveryRequest, newDelivery, requestResume, transition } 
 import { ownerFromBody, ownerPublication, verifyOwnerStream } from '../runtime/lib/work-owner.ts';
 import { workBranch } from '../runtime/lib/work-github.ts';
 import { stationLaunchError } from '../app/utils/work-station.ts';
+import { factoryRepositoryUrl } from '../runtime/lib/factory-config.ts';
 
 const owner = 'wrun_owner';
 const branch = workBranch(owner);
@@ -22,7 +23,7 @@ function streamSession(events: unknown[], tail = events.length - 1) {
 }
 function published() {
   const s = newDelivery('tester', task);
-  s.publication = { number: 48, url: 'https://github.com/software-factory-workshop/jira-clone/pull/48', headSha: h, targetHeadSha: a, targetBranch: 'main', ownerSessionId: owner, branch };
+  s.publication = { number: 48, url: `${factoryRepositoryUrl}/pull/48`, headSha: h, targetHeadSha: a, targetBranch: 'main', ownerSessionId: owner, branch };
   return s;
 }
 const blocking = { verdict: 'changes_requested', summary: 'needs work', headSha: h, baseSha: a, targetBranch: 'main', findings: [{ severity: 'blocking', path: 'apps/jira/app/app.vue', message: 'Save fails', evidence: 'reproduced' }], limitations: [] } as const;

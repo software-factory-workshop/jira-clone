@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { proposalInputSchema, recordProposals, renderProposal } from "../runtime/lib/proposals.ts";
+import { factoryRepository } from "../runtime/lib/factory-config.ts";
 
 const proposal = {
   title: "Review one candidate", outcome: "A focused review draft", whyNow: "The owner needs to decide",
@@ -23,7 +24,7 @@ test("model output cannot choose identity or trusted provenance", () => {
   assert.equal(proposalInputSchema.safeParse({ ...proposal, id: "forged" }).success, false);
   assert.equal(proposalInputSchema.safeParse({ ...proposal, provenance: context }).success, false);
   const [recorded] = recordProposals([proposal], context);
-  assert.deepEqual(recorded.provenance, { ...context, repository: "software-factory-workshop/jira-clone", executionSurface: "native-eve", source: "git-revision" });
+  assert.deepEqual(recorded.provenance, { ...context, repository: factoryRepository, executionSurface: "native-eve", source: "git-revision" });
 });
 
 test("recording keeps each candidate independent while preserving Markdown compatibility", () => {

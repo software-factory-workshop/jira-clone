@@ -6,6 +6,7 @@ import { readPull,verifyOwnerCommit,WorkError } from "../lib/work-github";
 import { ownerFromBody,verifyOwnerStream } from "../lib/work-owner";
 import { workerRequest, reviewerRequest,revisionRequest,stationAddress } from "../lib/station-access";
 import { rootRequest,rootSession,recordedRoot } from "../lib/root-agent-client";
+import { githubConnectorName } from "../lib/factory-config.ts";
 export async function stationOperation(request:Request,{from,params,resolveSession,attachSession}:RouteHandlerArgs,addressPrefix?:string){
   const auth=await routeAuth(request,factoryAuth);
   if(auth instanceof Response) return auth;
@@ -13,7 +14,7 @@ export async function stationOperation(request:Request,{from,params,resolveSessi
   if(station==="revisions") {
    try {
     const revision=revisionRequest.parse(await request.json());
-    const token=await getToken("github/jira-clone",{subject:{type:"app"}});
+    const token=await getToken(githubConnectorName,{subject:{type:"app"}});
     const pr=await readPull(token,revision.prNumber);
     if(pr.state!=="open")throw new WorkError("invalid_request","Only open pull requests can be revised.");
     const ownerId=ownerFromBody(pr.body||"");const root=await recordedRoot(ownerId);const owner=root?rootSession(root,ownerId):attachSession(ownerId);

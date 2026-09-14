@@ -1,6 +1,7 @@
 import { get, put, BlobPreconditionFailedError } from '@vercel/blob';
 import { documentSchema,emptyDocument,CockpitConflict,type CockpitDocument } from '../../shared/cockpit.ts';
-const pathname='factory/cockpit-v1.json';
+import { factoryBlobPaths } from './factory-config.ts';
+const pathname=factoryBlobPaths.cockpit;
 export async function readCockpit() {
  const response=await get(pathname,{access:'private',useCache:false,headers:{'accept-encoding':'identity'}});
  if(!response)return {document:emptyDocument(),etag:undefined};

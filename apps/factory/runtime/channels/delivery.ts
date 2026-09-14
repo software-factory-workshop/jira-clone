@@ -15,6 +15,7 @@ import { listDeliveryReceipts,readDelivery,updateDelivery } from '../lib/deliver
 import { classifyDeliveryError,snapshotEvents,childIn,hostResult,stoppedWithoutResult,eventsForDelivery,modelUsageFromEvents,resumeMessage,resumeReceipt,type ClassifiedDeliveryError, type EventSnapshot } from '../lib/delivery-events';
 import { readPull,readBranch,WorkError,workBranch } from '../lib/work-github';
 import { repository } from '../lib/github.mjs';
+import { githubConnectorName } from '../lib/factory-config.ts';
 import { reconcileManuallyMergedDelivery } from '../lib/delivery-reconcile';
 import { visualReviewPacketSchema } from '../lib/visual-review';
 const publication=z.object({number:z.number().int().positive(),url:z.string().url(),headSha:z.string().regex(/^[a-f0-9]{40}$/),targetHeadSha:z.string().regex(/^[a-f0-9]{40}$/),targetBranch:z.string(),ownerSessionId:z.string(),branch:z.string()});
@@ -31,7 +32,7 @@ function rememberObservation(state: Delivery, snapshot: EventSnapshot) {
 }
 function protectedRoute(fn:(request:Request,args:RouteHandlerArgs)=>Promise<Response>){return async(request:Request,args:RouteHandlerArgs)=>{const auth=await routeAuth(request,factoryAuth);if(auth instanceof Response)return auth;try{return await fn(request,args);}catch(error){return classifiedResponse(classifyDeliveryError(error));}};}
 async function checkCurrent(p:NonNullable<Delivery['publication']>){
- const token=await getToken('github/jira-clone',{subject:{type:'app'}});const pr=await readPull(token,p.number);const targetHeadSha=await readBranch(token,pr.base.ref);
+ const token=await getToken(githubConnectorName,{subject:{type:'app'}});const pr=await readPull(token,p.number);const targetHeadSha=await readBranch(token,pr.base.ref);
  const status=referenceState(p,{state:pr.state,headSha:pr.head.sha,targetBranch:pr.base.ref,targetHeadSha});
  if(status==='needs_revision')throw new WorkError('needs_revision','PR head or target advanced. Request /revise for the original owner to incorporate current changes with refresh_target, verify and republish; then the loop requests a fresh review.');
  if(status==='blocked')throw new WorkError('target_closed','PR closed or retargeted; an explicit target decision is required. No branch was adopted.');
@@ -140,7 +141,7 @@ export default defineChannel({routes:[
  GET('/factory/delivery/:id/reconcile',protectedRoute(async(_,ctx)=>{
   const state=await existing(ctx.params.id);
   if(!state.publication)return Response.json({deliveryId:state.id,...reconcileManuallyMergedDelivery(state,undefined,repository)});
-  const token=await getToken('github/jira-clone',{subject:{type:'app'}});
+  const token=await getToken(githubConnectorName,{subject:{type:'app'}});
   const pull=await readPull(token,state.publication.number);
   return Response.json({deliveryId:state.id,...reconcileManuallyMergedDelivery(state,{repository,number:pull.number,merged:pull.merged===true,state:pull.state,headSha:pull.head.sha,targetHeadSha:pull.base.sha,targetBranch:pull.base.ref,mergeCommitSha:pull.merge_commit_sha??undefined},repository)});
  })),

@@ -2,6 +2,7 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {lowRiskFiles,mergeEligibility,type MergeReview} from '../runtime/lib/merge-policy.ts';
 import {hostReviewLimitations} from '../runtime/lib/review-policy.ts';
+import { factoryRepository, requiredCheckName } from '../runtime/lib/factory-config.ts';
 const doc={filename:'apps/jira/app/assets/colors.css',status:'modified',patch:'@@ -1,3 +1,3 @@\n .card {\n-color: red;\n+color: blue;\n }'};
 const review:MergeReview={headSha:'a'.repeat(40),baseSha:'b'.repeat(40),targetBranch:'main',verdict:'approve',findings:[],limitations:[],verification:{prepared:true,repositoryChecksPassed:true,candidateUnchanged:true}};
 const input={files:[doc],review,headSha:review.headSha,baseSha:review.baseSha,targetBranch:'main',workerSessionId:'worker',reviewerSessionId:'reviewer'};
@@ -33,9 +34,9 @@ test('GitHub merge checks reject stale heads and pending checks, bind successful
   if(path.endsWith('/merge')){
    assert.equal(JSON.parse(String(init?.body)).sha,review.headSha);merges++;data={merged:true,sha:'d'.repeat(40)};
   }else if(path.includes('/files?'))data=[doc];
-  else if(path.includes('/check-runs?'))data={total_count:2,check_runs:[{name:'check',app:{slug:'github-actions'},status:pending?'in_progress':'completed',conclusion:pending?null:requiredConclusion},{name:'Vercel Agent Review',app:{slug:'vercel'},status:optionalStatus,conclusion:optionalConclusion}]};
+  else if(path.includes('/check-runs?'))data={total_count:2,check_runs:[{name:requiredCheckName,app:{slug:'github-actions'},status:pending?'in_progress':'completed',conclusion:pending?null:requiredConclusion},{name:'Vercel Agent Review',app:{slug:'vercel'},status:optionalStatus,conclusion:optionalConclusion}]};
   else if(path.includes('/status?'))data={total_count:0,statuses:[]};
-  else data={state:'open',head:{sha:stale?'c'.repeat(40):review.headSha,repo:{full_name:'software-factory-workshop/jira-clone'}},base:{sha:review.baseSha,ref:'main',repo:{full_name:'software-factory-workshop/jira-clone'}},changed_files:1,draft:false,mergeable:true,mergeable_state:'clean'};
+  else data={state:'open',head:{sha:stale?'c'.repeat(40):review.headSha,repo:{full_name:factoryRepository}},base:{sha:review.baseSha,ref:'main',repo:{full_name:factoryRepository}},changed_files:1,draft:false,mergeable:true,mergeable_state:'clean'};
   return Response.json(data);
  };
  try{
