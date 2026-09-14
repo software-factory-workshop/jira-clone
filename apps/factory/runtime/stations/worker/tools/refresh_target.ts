@@ -32,11 +32,11 @@ export default defineTool({description:"Refresh your own workspace against its l
   const clean=await sandbox.run({command:`rm -rf /workspace/${staging}; mkdir -p /workspace/${staging}`});if(clean.exitCode!==0)throw new Error("Cannot stage merged source; original source preserved.");
   for(const entry of merged.entries)await sandbox.writeBinaryFile({path:`${staging}/${entry.file}`,content:entry.content});
   const swapped=await sandbox.run({command:`set -eu; rm -rf /workspace/repo-before-refresh; mv /workspace/repo /workspace/repo-before-refresh; mv /workspace/${staging} /workspace/repo`});if(swapped.exitCode!==0)throw new Error("Source swap failed; original remains in /workspace/repo-before-refresh or /workspace/repo, staged merge retained.");
-  workState.update(s=>({...s,prepared:true,revision:targetHead,targetHeadSha:targetHead,mergeTarget:!!s.publication,jiraManifest:jiraManifest(theirs.entries),jiraNuxtConfig:jiraNuxtConfig(theirs.entries),jiraLockfile:jiraLockfile(theirs.entries),baseline:manifestFor(theirs.entries).map(({file,sha256})=>({file,sha256})),verifiedDigest:null}));
+  workState.update(s=>({...s,prepared:true,basePrepared:false,revision:targetHead,targetHeadSha:targetHead,mergeTarget:!!s.publication,jiraManifest:jiraManifest(theirs.entries),jiraNuxtConfig:jiraNuxtConfig(theirs.entries),jiraLockfile:jiraLockfile(theirs.entries),baseline:manifestFor(theirs.entries).map(({file,sha256})=>({file,sha256})),verifiedDigest:null}));
   let setupComplete=false;
   try{
-   const setup=await prepareRepository(sandbox,token,ctx.abortSignal,{revision:targetHead,entries:merged.entries});setupComplete=setup.prepared;
-   workState.update(s=>({...s,commands:[...s.commands,...setup.commands],contextGaps:setup.contextGaps}));
+   const setup=await prepareRepository(sandbox,token,ctx.abortSignal,{revision:targetHead,entries:merged.entries},undefined,theirs);setupComplete=setup.prepared;
+   workState.update(s=>({...s,basePrepared:setup.basePrepared,commands:[...s.commands,...setup.commands],contextGaps:[...setup.contextGaps,...setup.baseContextGaps]}));
   }catch(error){workState.update(s=>({...s,contextGaps:[`Merged source retained; dependency setup interrupted: ${error instanceof Error?error.message:"unknown error"}`]}));}
 
   log.set({factory:{station:"worker",stage:"refresh_target",outcome:merged.conflicts.length?"conflicts":"refreshed",targetBranch:state.targetBranch,targetHeadSha:targetHead,conflictCount:merged.conflicts.length,setupComplete}});
