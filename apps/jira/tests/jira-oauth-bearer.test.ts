@@ -6,6 +6,7 @@ import {
   restAddComment,
   restBearerIdentity,
   restCreateIssue,
+  restMyself,
   restTransitionIssue,
   restUpdateIssue,
 } from "../server/utils/jiraRest.ts";
@@ -258,4 +259,28 @@ test("oauth bearer: issuer agreement between discovery and validation", () => {
   const missing = validateOAuthBearer("Bearer demo_at_unknown", ISSUER);
   assert.equal(missing.ok, false);
   assert.equal(missing.ok ? 0 : missing.statusCode, 401);
+});
+
+test("oauth bearer: myself answers as the bearer account and fails closed on bad tokens", async () => {
+  resetOAuthState();
+  const viewer = await bearerToken({ role: "viewer", scope: "read" });
+  const me = restMyself("demo-member", { nodeEnv: "test" }, { bearer: bearerFor(viewer.accessToken) });
+  assert.equal(me.ok, true);
+  if (me.ok) {
+    // The bearer identity wins over the x-demo-user fallback header.
+    assert.equal(me.data.demoRole, "viewer");
+    assert.equal(me.data.accountId, "passport:bearer-viewer");
+    assert.equal(me.data.identitySource, "passport");
+  }
+  const unknown = restMyself("demo-member", { nodeEnv: "test" }, { bearer: bearerFor("demo_at_unknown") });
+  assert.equal(unknown.ok, false);
+  assert.equal(unknown.ok ? 0 : unknown.statusCode, 401);
+  const malformed = restMyself("demo-member", { nodeEnv: "test" }, {
+    bearer: restBearerIdentity("Basic abc", { envIssuer: ISSUER }),
+  });
+  assert.equal(malformed.ok, false);
+  // No bearer: the demo read path is untouched.
+  const fallback = restMyself("demo-member", { nodeEnv: "test" }, { bearer: null });
+  assert.equal(fallback.ok, true);
+  if (fallback.ok) assert.equal(fallback.data.accountId, "demo-member");
 });
