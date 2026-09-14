@@ -165,3 +165,22 @@ test("owner questions take priority over generic waiting copy", () => {
   assert.equal(summary?.blocker, "Which target should receive this change?");
   assert.equal(summary?.nextAction, "Answer the worker's question to continue.");
 });
+
+test("delivery status names GitHub lifecycle blockers and eligible next action", () => {
+  const draft = summarizeDeliveryStatus({
+    id: "delivery-draft",
+    phase: "human_review",
+    github: { number: 8, lifecycle: "draft", blockers: ["PR #8 is still Draft; mark it ready for review before merging."] },
+  });
+  assert.equal(draft?.latestResult, "GitHub PR #8 is still Draft.");
+  assert.equal(draft?.blocker, "PR #8 is still Draft; mark it ready for review before merging.");
+  assert.equal(draft?.nextAction, "Mark the PR ready for review from this delivery.");
+
+  const eligible = summarizeDeliveryStatus({
+    id: "delivery-eligible",
+    phase: "ready",
+    github: { number: 9, lifecycle: "ready", checks: { status: "passed" } },
+    mergeDecision: { status: "eligible" },
+  });
+  assert.equal(eligible?.nextAction, "Merge the eligible PR from Cockpit.");
+});

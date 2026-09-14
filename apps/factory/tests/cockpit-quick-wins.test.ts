@@ -12,6 +12,8 @@ async function source(path: string) {
 
 test("cockpit quick wins keep delivery evidence and operator actions visible", async () => {
   const delivery = await source("apps/factory/app/components/DeliveryLoop.vue");
+  const lifecycle = await source("apps/factory/app/components/PullRequestLifecycle.vue");
+  const deliveryRoute = await source("apps/factory/runtime/channels/delivery.ts");
   const history = await source("apps/factory/app/components/WorkHistory.vue");
   const newDraft = await source("apps/factory/app/components/NewDraftEditor.vue");
   const run = await source("apps/factory/app/components/WorkRun.vue");
@@ -25,6 +27,8 @@ test("cockpit quick wins keep delivery evidence and operator actions visible", a
   assert.match(delivery, /entry\.receiptId/);
   assert.match(delivery, /Review evidence/);
   assert.match(delivery, /DeliveryStatusSummary/);
+  assert.match(delivery, /PullRequestLifecycle/);
+  assert.match(delivery, /refreshGithubStatus/);
   assert.match(delivery, /Limitations/);
   assert.match(delivery, /repositoryChecksPassed/);
   assert.match(delivery, /parentPrNumber/);
@@ -32,6 +36,13 @@ test("cockpit quick wins keep delivery evidence and operator actions visible", a
   assert.match(delivery, /principalId/);
   assert.match(delivery, /title="Stop this delivery\?"/);
   assert.doesNotMatch(delivery, /window\.confirm/);
+  assert.match(lifecycle, /Mark ready for review/);
+  assert.match(lifecycle, /Merge pull request/);
+  assert.match(lifecycle, /GitHub is authoritative/);
+  assert.match(deliveryRoute, /\/factory\/delivery\/:id\/pr\/ready/);
+  assert.match(deliveryRoute, /\/factory\/delivery\/:id\/pr\/merge/);
+  assert.match(deliveryRoute, /inspectMergeCandidate/);
+  assert.match(deliveryRoute, /snapshotIsMergedCandidate/);
 
   assert.match(history, /need attention/);
   assert.match(history, /orderedRuns/);

@@ -19,6 +19,12 @@ const deliverySnapshotSchema = z.object({
     url: z.string(),
     targetBranch: z.string().optional(),
   }).passthrough().optional(),
+  github: z.object({
+    number: z.number().int().positive(),
+    lifecycle: z.enum(["draft", "ready", "merged", "closed"]),
+    checks: z.object({ status: z.enum(["passed", "pending", "failed"]), blockers: z.array(z.string()).optional() }).passthrough().optional(),
+    blockers: z.array(z.string()).optional(),
+  }).passthrough().optional(),
   history: z.array(z.object({ to: z.string().optional(), phase: z.string().optional() }).passthrough()).optional(),
 }).passthrough();
 export type DeliverySnapshot = z.infer<typeof deliverySnapshotSchema>;
@@ -84,6 +90,7 @@ export function deriveAttentionReason(value: {
   error?: string;
   review?: { summary?: string };
   mergeDecision?: { reason?: string };
+  github?: { blockers?: string[]; checks?: { blockers?: string[] } };
   question?: string;
 }): string | undefined {
   const candidates: Array<{ text: string | undefined; limit: number }> = [
@@ -92,6 +99,7 @@ export function deriveAttentionReason(value: {
       : { text: value.error, limit: maxAttentionReasonLength },
     { text: value.review?.summary, limit: maxAttentionReasonLength },
     { text: value.mergeDecision?.reason, limit: maxAttentionReasonLength },
+    { text: value.github?.blockers?.[0] || value.github?.checks?.blockers?.[0], limit: maxAttentionReasonLength },
     { text: value.question, limit: maxAttentionReasonLength },
   ];
   for (const candidate of candidates) {
@@ -113,7 +121,8 @@ type DeliveryStatusInput = {
   failure?: { retryable?: boolean };
   publication?: { number?: number };
   review?: { verdict?: string; summary?: string; limitations?: string[] };
-  mergeDecision?: { status?: string; reason?: string };
+  github?: { number?: number; lifecycle?: string; checks?: { status?: string; blockers?: string[] }; blockers?: string[] };
+  mergeDecision?: { status?: string; reason?: string; blockers?: string[] };
   questions?: Array<{ question: string; answer?: string }>;
   history?: Array<{ to?: string; phase?: string }>;
 };
@@ -123,6 +132,8 @@ function latestOwnerQuestion(value: DeliveryStatusInput): string | undefined {
 }
 
 function latestResultFor(value: DeliveryStatusInput, phaseLabel: string): string {
+  if (value.github?.lifecycle === "merged" && value.github.number) return `GitHub confirms PR #${value.github.number} is merged.`;
+  if (value.github?.lifecycle === "draft" && value.github.number) return `GitHub PR #${value.github.number} is still Draft.`;
   if (value.review?.summary) {
     const verdict = value.review.verdict ? ` · ${value.review.verdict}` : "";
     return `Independent review${verdict}: ${value.review.summary}`;
@@ -137,6 +148,9 @@ function latestResultFor(value: DeliveryStatusInput, phaseLabel: string): string
 function blockerFor(value: DeliveryStatusInput, question?: string): string | undefined {
   if (question) return question;
   if (value.error) return value.error;
+  if (value.github?.blockers?.length) return value.github.blockers[0];
+  if (value.github?.checks?.blockers?.length) return value.github.checks.blockers[0];
+  if (value.mergeDecision?.blockers?.length) return value.mergeDecision.blockers[0];
   if (value.phase === "blocked") return "The delivery is blocked and needs a recovery decision.";
   if (value.phase === "human_review") {
     return value.mergeDecision?.reason || (value.review?.limitations?.length
@@ -148,6 +162,11 @@ function blockerFor(value: DeliveryStatusInput, question?: string): string | und
 }
 
 function nextActionFor(value: DeliveryStatusInput, question?: string): string {
+  if (value.github?.lifecycle === "merged") return "No action needed; GitHub confirms this PR is complete.";
+  if (value.github?.lifecycle === "draft") return "Mark the PR ready for review from this delivery.";
+  if (value.mergeDecision?.status === "eligible") return "Merge the eligible PR from Cockpit.";
+  if (value.github?.checks?.status === "failed") return "Resolve the named GitHub validation blockers, then refresh status.";
+  if (value.github?.checks?.status === "pending") return "Wait for GitHub validation to settle, then refresh status.";
   switch (value.phase) {
     case "awaiting_input":
       return question ? "Answer the worker's question to continue." : "Check the worker run for the pending owner question.";

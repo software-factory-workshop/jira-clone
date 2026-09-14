@@ -20,6 +20,21 @@ interface Delivery {
   failure?: { kind: string; retryable: boolean };
   failedPhase?: string;
   publication?: { number: number; url: string; branch?: string; targetBranch?: string; headSha?: string; targetHeadSha?: string; ownerSessionId?: string; parentPrNumber?: number };
+  github?: {
+    number: number;
+    url: string;
+    lifecycle: "draft" | "ready" | "merged" | "closed";
+    draft: boolean;
+    merged: boolean;
+    headSha: string;
+    targetHeadSha: string;
+    targetBranch: string;
+    mergeable: boolean | null;
+    mergeableState?: string;
+    checkedAt: string;
+    checks: { status: "passed" | "pending" | "failed"; total: number; completed: number; requiredPassed: boolean; failures: string[]; pending: string[]; blockers: string[] };
+    blockers: string[];
+  };
   review?: {
     verdict: string;
     summary: string;
@@ -31,15 +46,13 @@ interface Delivery {
     verification?: { prepared: boolean; repositoryChecksPassed: boolean; candidateUnchanged: boolean };
     visualReview?: VisualReviewPacket;
   };
-  mergeDecision?: { status: string; reason?: string };
+  mergeDecision?: { status: "merged" | "manual" | "waiting" | "eligible"; reason?: string; blockers?: string[]; checkedHeadSha?: string; checkedAt?: string };
   questions?: Array<{ question: string; options?: string[]; operationId: string; sessionId: string; askedAt: string; answer?: string; answeredBy?: string; answeredAt?: string }>;
   error?: string;
   request?: { title?: string; brief?: string; parentPrNumber?: number };
   history: Array<{ phase: string; to?: string; at?: string; actor?: string; reason?: string; receiptId?: string; sessionId?: string; headSha?: string }>;
   usage?: { model?: string; inputTokens?: number; outputTokens?: number; usd?: number; factorySha?: string };
 }
-interface ReconciliationResult { eligible: boolean; reason: string; commitSha?: string }
-
 const props = withDefaults(defineProps<{
   title?: string;
   brief?: string;
@@ -61,8 +74,9 @@ const working = ref(false);
 const stopping = ref(false);
 const revision = ref("");
 const confirmStop = ref(false);
-const reconciliation = ref<ReconciliationResult>();
 const reconciling = ref(false);
+const readying = ref(false);
+const mergingPr = ref(false);
 const copiedEvidence = ref<string>();
 const ownerAnswer = ref("");
 const answeringOwner = ref(false);
@@ -70,8 +84,7 @@ let copyTimer: ReturnType<typeof setTimeout> | undefined;
 let operationId: string | undefined;
 let timer: ReturnType<typeof setTimeout> | undefined;
 let disposed = false;
-const stopped = new Set(["human_review", "ready", "blocked", "needs_revision", "cancelled", "merged"]);
-const reconcilable = new Set(["human_review", "ready", "blocked"]);
+const stopped = new Set(["cancelled", "merged"]);
 const cockpit = useCockpit();
 
 const pendingOwnerQuestion = computed(() => run.value?.phase === "awaiting_input"
@@ -135,7 +148,7 @@ function gateLabel(value?: boolean) {
   return value === true ? "passed" : value === false ? "failed" : "not recorded";
 }
 function mergeColor(status?: string) {
-  return status === "merged" ? "success" : status === "waiting" ? "warning" : "neutral";
+  return status === "merged" || status === "eligible" ? "success" : status === "waiting" ? "warning" : status === "manual" ? "error" : "neutral";
 }
 function findingColor(severity: string) {
   return severity === "blocking" ? "error" : "warning";
@@ -151,7 +164,16 @@ async function remember(value: Delivery) {
 }
 
 function schedule() {
+  clearTimeout(timer);
   if (!disposed && run.value && !stopped.has(run.value.phase)) timer = setTimeout(() => void refresh(), 3000);
+}
+
+function adoptActionDelivery(cause: unknown) {
+  const data = (cause && typeof cause === "object" && "data" in cause) ? (cause as { data?: unknown }).data : undefined;
+  if (!data || typeof data !== "object") return;
+  const delivery = "delivery" in data ? (data as { delivery?: unknown }).delivery : undefined;
+  if (!delivery || typeof delivery !== "object" || !("id" in delivery)) return;
+  run.value = delivery as Delivery;
 }
 
 async function start() {
@@ -177,7 +199,10 @@ async function refresh() {
   if (!run.value || working.value) return;
   working.value = true;
   try {
-    run.value = await $fetch<Delivery>(`/factory/delivery/${encodeURIComponent(run.value.id)}`, { retry: 0 });
+    const id = run.value.id;
+    run.value = run.value.publication
+      ? await $fetch<Delivery>(`/factory/delivery/${encodeURIComponent(id)}/reconcile`, { retry: 0 })
+      : await $fetch<Delivery>(`/factory/delivery/${encodeURIComponent(id)}`, { retry: 0 });
     error.value = "";
   } catch (cause) {
     error.value = cockpitActionMessage(cause, "Could not refresh this delivery. Reconnect to the same run.");
@@ -209,16 +234,52 @@ async function submitOwnerAnswer(value = ownerAnswer.value) {
   }
 }
 
-async function reconcile() {
-  if (!run.value?.publication || reconciling.value) return;
+async function refreshGithubStatus() {
+  if (!run.value?.publication || reconciling.value || working.value) return;
+  clearTimeout(timer);
   reconciling.value = true;
   try {
-    reconciliation.value = await $fetch<ReconciliationResult>(`/factory/delivery/${encodeURIComponent(run.value.id)}/reconcile`, { retry: 0 });
+    run.value = await $fetch<Delivery>(`/factory/delivery/${encodeURIComponent(run.value.id)}/reconcile`, { retry: 0 });
     error.value = "";
   } catch (cause) {
-    error.value = cockpitActionMessage(cause, "Could not verify GitHub merge evidence. No delivery state was changed.");
+    error.value = cockpitActionMessage(cause, "Could not refresh GitHub status. The saved delivery remains available; retry when GitHub responds.");
   } finally {
     reconciling.value = false;
+    schedule();
+  }
+}
+
+async function markReady() {
+  if (!run.value?.publication || readying.value || working.value) return;
+  clearTimeout(timer);
+  readying.value = true;
+  error.value = "";
+  try {
+    run.value = await $fetch<Delivery>(`/factory/delivery/${encodeURIComponent(run.value.id)}/pr/ready`, { method: "POST", retry: 0 });
+    schedule();
+  } catch (cause) {
+    adoptActionDelivery(cause);
+    error.value = cockpitActionMessage(cause, "Could not confirm the PR ready transition. GitHub state was not assumed.");
+  } finally {
+    readying.value = false;
+    schedule();
+  }
+}
+
+async function mergePr() {
+  if (!run.value?.publication || mergingPr.value || working.value) return;
+  clearTimeout(timer);
+  mergingPr.value = true;
+  error.value = "";
+  try {
+    run.value = await $fetch<Delivery>(`/factory/delivery/${encodeURIComponent(run.value.id)}/pr/merge`, { method: "POST", retry: 0 });
+    schedule();
+  } catch (cause) {
+    adoptActionDelivery(cause);
+    error.value = cockpitActionMessage(cause, "Merge was not completed. Review the exact GitHub and policy blockers below.");
+  } finally {
+    mergingPr.value = false;
+    schedule();
   }
 }
 
@@ -288,9 +349,9 @@ async function copyEvidence(value: string) {
 watch(() => route.query.delivery, async (id) => {
   clearTimeout(timer);
   if (typeof id !== "string") return;
-  reconciliation.value = undefined;
   try {
     run.value = await $fetch<Delivery>(`/factory/delivery/${encodeURIComponent(id)}`);
+    if (run.value.publication) await refreshGithubStatus();
     schedule();
   } catch (cause) {
     error.value = cockpitActionMessage(cause, "Could not load this delivery. Keep its URL to retry.");
@@ -325,6 +386,20 @@ onBeforeUnmount(() => {
       <p class="delivery-brief-text">{{ run.request.brief }}</p>
     </div>
     <DeliveryStatusSummary v-if="statusSummary" :summary="statusSummary" />
+    <PullRequestLifecycle
+      v-if="run?.publication"
+      :publication="run.publication"
+      :github="run.github"
+      :review="run.review"
+      :merge-decision="run.mergeDecision"
+      :busy="working || readying || mergingPr"
+      :refreshing="reconciling"
+      :readying="readying"
+      :merging="mergingPr"
+      @refresh="refreshGithubStatus"
+      @ready="markReady"
+      @merge="mergePr"
+    />
 
     <ClientOnly>
       <CockpitFlow
@@ -372,7 +447,7 @@ onBeforeUnmount(() => {
         <div v-if="run.usage?.factorySha"><dt>Factory SHA</dt><dd><code>{{ run.usage.factorySha }}</code></dd></div>
       </dl>
     </details>
-    <div v-if="run?.mergeDecision" class="delivery-note delivery-decision"><UBadge :color="mergeColor(run.mergeDecision.status)" variant="soft">Merge decision · {{ run.mergeDecision.status }}</UBadge><span v-if="run.mergeDecision.reason">{{ run.mergeDecision.reason }}</span></div>
+    <div v-if="run?.mergeDecision && !run.publication" class="delivery-note delivery-decision"><UBadge :color="mergeColor(run.mergeDecision.status)" variant="soft">Merge decision · {{ run.mergeDecision.status }}</UBadge><span v-if="run.mergeDecision.reason">{{ run.mergeDecision.reason }}</span></div>
     <p v-if="run?.error" class="delivery-error" role="alert">{{ run.error }}</p>
     <p v-if="run?.review" class="delivery-note">{{ run.review.summary }}</p>
     <VisualReviewPanel v-if="run?.review" :packet="run.review.visualReview" :binding="visualReviewBinding" />
@@ -417,9 +492,8 @@ onBeforeUnmount(() => {
     <div class="delivery-actions">
       <UButton v-if="canCompose && !run" :disabled="!title.trim() || !briefReady || working || stopping" :loading="working" icon="i-lucide-play" @click="start">Start durable delivery</UButton>
       <UButton v-if="run?.publication" :to="run.publication.url" target="_blank" rel="noopener noreferrer" variant="outline" icon="i-lucide-git-pull-request">Open PR #{{ run.publication.number }}</UButton>
-      <UButton v-if="run?.publication && reconcilable.has(run.phase)" variant="outline" :loading="reconciling" :disabled="working || reconciling" icon="i-lucide-shield-check" @click="reconcile">Check manual merge</UButton>
       <UButton v-if="run && (run.phase === 'blocked' || (run.phase === 'human_review' && !run.publication))" color="warning" variant="outline" :disabled="working" icon="i-lucide-rotate-ccw" @click="resume">Resume observation</UButton>
-      <UButton v-else-if="run" variant="outline" :loading="working" icon="i-lucide-refresh-cw" @click="refresh">Refresh status</UButton>
+      <UButton v-if="run" variant="outline" :loading="working" :disabled="working || reconciling || readying || mergingPr" icon="i-lucide-refresh-cw" @click="refresh">Refresh status</UButton>
       <UButton v-if="run && !stopped.has(run.phase)" variant="outline" color="error" :loading="stopping" :disabled="working || stopping" @click="requestCancel">Stop delivery</UButton>
     </div>
     <UModal
@@ -436,7 +510,6 @@ onBeforeUnmount(() => {
         </div>
       </template>
     </UModal>
-    <UAlert v-if="reconciliation" :color="reconciliation.eligible ? 'success' : 'warning'" variant="soft" title="Manual merge evidence" :description="reconciliation.reason" />
     <p v-if="mode === 'compose'" class="delivery-requirement" :class="{ ready: briefReady }" role="status">A durable delivery needs at least {{ MIN_WORK_REQUEST_LENGTH }} characters in the brief ({{ briefLength }}/{{ MIN_WORK_REQUEST_LENGTH }}).</p>
     <p v-if="error" class="delivery-error" role="alert">{{ error }}</p>
 

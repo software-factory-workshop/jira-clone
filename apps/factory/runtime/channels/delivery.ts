@@ -1,5 +1,4 @@
 import { factorySession } from "../lib/root-agent-client";
-import { mergeReviewed } from "../lib/merge-reviewed";
 import { ensureDeliveryDriver,cancelDeliveryDriver } from '../lib/delivery-driver';
 import { ownsDriver } from '../lib/delivery-driver-state';
 import { defineChannel,GET,POST,type RouteHandlerArgs } from 'eve/channels';
@@ -14,9 +13,10 @@ import { answerOwnerQuestion, deliveryRequest,newDelivery,operationFor,transitio
 import { listDeliveryReceipts,readDelivery,updateDelivery } from '../lib/delivery-store';
 import { classifyDeliveryError,snapshotEvents,childIn,hostResult,stoppedWithoutResult,eventsForDelivery,modelUsageFromEvents,resumeMessage,resumeReceipt,type ClassifiedDeliveryError, type EventSnapshot } from '../lib/delivery-events';
 import { readPull,readBranch,WorkError,workBranch } from '../lib/work-github';
-import { repository } from '../lib/github.mjs';
 import { githubConnectorName } from '../lib/factory-config.ts';
-import { reconcileManuallyMergedDelivery } from '../lib/delivery-reconcile';
+import { inspectMergeCandidate, markPullRequestReady, readGithubPullSnapshot, snapshotIsMergedCandidate } from '../lib/pr-lifecycle';
+import type { MergeDecision, MergeReview } from '../lib/merge-policy';
+import { mergeReviewed } from '../lib/merge-reviewed';
 import { visualReviewPacketSchema } from '../lib/visual-review';
 const publication=z.object({number:z.number().int().positive(),url:z.string().url(),headSha:z.string().regex(/^[a-f0-9]{40}$/),targetHeadSha:z.string().regex(/^[a-f0-9]{40}$/),targetBranch:z.string(),ownerSessionId:z.string(),branch:z.string()});
 const review=z.object({verdict:z.enum(['approve','changes_requested','incomplete']),summary:z.string(),headSha:z.string(),baseSha:z.string(),targetBranch:z.string(),findings:z.array(z.object({severity:z.string(),path:z.string(),message:z.string(),evidence:z.string()})),limitations:z.array(z.string()),visualReview:visualReviewPacketSchema.optional(),verification:z.object({prepared:z.boolean(),repositoryChecksPassed:z.boolean(),candidateUnchanged:z.boolean()}).optional()});
@@ -37,19 +37,38 @@ async function checkCurrent(p:NonNullable<Delivery['publication']>){
  if(status==='needs_revision')throw new WorkError('needs_revision','PR head or target advanced. Request /revise for the original owner to incorporate current changes with refresh_target, verify and republish; then the loop requests a fresh review.');
  if(status==='blocked')throw new WorkError('target_closed','PR closed or retargeted; an explicit target decision is required. No branch was adopted.');
 }
+function mergeReviewFor(state: Delivery): MergeReview | undefined {
+ if(state.mergeReview)return state.mergeReview;
+ return state.review as unknown as MergeReview|undefined;
+}
+async function persistGithubObservation(id:string, expected:NonNullable<Delivery['publication']>, snapshot:Awaited<ReturnType<typeof readGithubPullSnapshot>>, decision:MergeDecision, options:{beginMerge?:boolean;fallbackPhase?:'ready'|'human_review'}={}){
+ return updateDelivery(id,current=>{
+  if(!current)throw new Error('Delivery not found');
+  if(!current.publication||current.publication.number!==expected.number||current.publication.headSha!==expected.headSha||current.publication.targetBranch!==expected.targetBranch)return{state:current,result:current};
+  current.github=snapshot;
+  current.mergeDecision=decision;
+  if(decision.status==='eligible'&&options.beginMerge&&['human_review','ready','blocked','needs_revision'].includes(current.phase)){
+   transition(current,'merging',{actor:'operator',reason:'Exact GitHub and host policy checks passed; the requested merge is in flight.'});
+  }else if(decision.status==='merged'&&snapshotIsMergedCandidate(snapshot,current.publication)&&['human_review','ready','blocked','needs_revision','merging'].includes(current.phase)){
+   transition(current,'merged',{actor:'reconciler',reason:decision.reason});
+  }else if(['manual','waiting'].includes(decision.status)&&current.phase==='merging'){
+   transition(current,options.fallbackPhase||'ready',{actor:'provider',reason:decision.reason});
+  }
+  return{state:current,result:current};
+ });
+}
+function mergeFailureResponse(state:Delivery,decision:MergeDecision){
+ return Response.json({delivery:state,error:{code:'merge_not_eligible',message:decision.reason},blockers:decision.blockers||[decision.reason]},{status:409});
+}
 async function advance(request:Request,ctx:RouteHandlerArgs){
- const id=ctx.params.id;let state=await existing(id);if(terminal(state.phase)||state.phase==='awaiting_input')return Response.json(state);
+ const id=ctx.params.id;let state=await existing(id);if(terminal(state.phase)||state.phase==='awaiting_input'||state.phase==='merging')return Response.json(state);
  const driverGeneration=request.headers.get('x-factory-driver-generation');
  if(driverGeneration&&!ownsDriver(state,driverGeneration,request.headers.get('x-factory-driver-run')||''))return Response.json(state);
  const claim=await updateDelivery(id,current=>{if(!current)throw new Error('Delivery not found');const result=claimAdvance(current);return{state:current,result};});
  if(!claim)return Response.json(await existing(id));state=claim;let claimedVersion=claim.version;const startedPhase=claim.phase;
  let failure: ClassifiedDeliveryError|undefined;
  try{
-  if(state.phase==='merging'){
-   if(!state.publication||!state.mergeReview||!state.reviewerSessionId)throw new Error('Missing bound review for merge decision');
-   state.mergeDecision=await mergeReviewed({publication:state.publication,review:state.mergeReview,reviewerSessionId:state.reviewerSessionId});
-   if(state.mergeDecision.status!=='waiting')transition(state,state.mergeDecision.status==='merged'?'merged':'human_review',{reason:state.mergeDecision.reason});
-  }else if(state.phase==='owner_resuming'){
+  if(state.phase==='owner_resuming'){
    if(!state.childSessionId||state.publication||!state.resumeOperationId)throw new Error('Recovery requires the original unpublished worker.');
    let deliveryId:string|undefined;
    if(state.resumeAttemptedAt){
@@ -99,8 +118,8 @@ async function advance(request:Request,ctx:RouteHandlerArgs){
    if(usage)state.usage=usage;
    const result=hostResult(events,state.phase==='reviewing'?'record_review':'publish_work',owner,state.phase==='reviewing'?undefined:state.operationId);
    if(result&&state.phase==='reviewing'){
-    const observed=review.parse(result);await checkCurrent(state.publication!);applyReview(state,observed);
-    if(['ready','human_review'].includes(state.phase)){state.mergeReview=observed;state.reviewerSessionId=owner;transition(state,'merging');}
+   const observed=review.parse(result);await checkCurrent(state.publication!);applyReview(state,observed);
+    if(['ready','human_review'].includes(state.phase)){state.mergeReview=observed;state.reviewerSessionId=owner;}
    }else if(result){
     const p=publication.parse(result.publication);if(result.revisionProtocol!==1||p.branch!==workBranch(owner)||p.ownerSessionId!==owner)throw new Error('Publication owner does not match the executing worker');
     state.publication=p;state.changeId??=state.id;await checkCurrent(p);state.operationId=operationFor(state.id,'review',state.cycle);transition(state,'review_starting',{reason:'The worker publication is recorded; independent verification is next.'});
@@ -146,10 +165,40 @@ export default defineChannel({routes:[
  GET('/factory/delivery/:id',protectedRoute(async(_,ctx)=>Response.json(await existing(ctx.params.id)))),
  GET('/factory/delivery/:id/reconcile',protectedRoute(async(_,ctx)=>{
   const state=await existing(ctx.params.id);
-  if(!state.publication)return Response.json({deliveryId:state.id,...reconcileManuallyMergedDelivery(state,undefined,repository)});
+  if(!state.publication)return Response.json(state);
   const token=await getToken(githubConnectorName,{subject:{type:'app'}});
-  const pull=await readPull(token,state.publication.number);
-  return Response.json({deliveryId:state.id,...reconcileManuallyMergedDelivery(state,{repository,number:pull.number,merged:pull.merged===true,state:pull.state,headSha:pull.head.sha,targetHeadSha:pull.base.sha,targetBranch:pull.base.ref,mergeCommitSha:pull.merge_commit_sha??undefined},repository)});
+  const inspection=await inspectMergeCandidate(token,state.publication,mergeReviewFor(state),state.reviewerSessionId);
+  return Response.json(await persistGithubObservation(state.id,state.publication,inspection.snapshot,inspection.decision));
+ })),
+ POST('/factory/delivery/:id/pr/ready',protectedRoute(async(request,ctx)=>{
+  const auth=await routeAuth(request,factoryAuth);if(auth instanceof Response)return auth;
+  const state=await existing(ctx.params.id);
+  if(state.principalId!==auth.principalId)return Response.json({error:{code:'forbidden',message:'Only the delivery owner can change its pull request lifecycle.'}},{status:403});
+  if(!state.publication)throw new WorkError('invalid_request','A pull request must be published before it can be marked ready.');
+  const token=await getToken(githubConnectorName,{subject:{type:'app'}});
+  const snapshot=await markPullRequestReady(token,state.publication);
+  const inspection=await inspectMergeCandidate(token,state.publication,mergeReviewFor(state),state.reviewerSessionId);
+  return Response.json(await persistGithubObservation(state.id,state.publication,inspection.snapshot,inspection.decision));
+ })),
+ POST('/factory/delivery/:id/pr/merge',protectedRoute(async(request,ctx)=>{
+  const auth=await routeAuth(request,factoryAuth);if(auth instanceof Response)return auth;
+  const state=await existing(ctx.params.id);
+  if(state.principalId!==auth.principalId)return Response.json({error:{code:'forbidden',message:'Only the delivery owner can merge its pull request.'}},{status:403});
+  if(!state.publication)throw new WorkError('invalid_request','A pull request must be published before it can be merged.');
+  if(!['human_review','ready','blocked','needs_revision','merging'].includes(state.phase))throw new WorkError('invalid_request',`Delivery phase ${state.phase} cannot be merged from Cockpit.`);
+  const token=await getToken(githubConnectorName,{subject:{type:'app'}});
+  const review=mergeReviewFor(state);
+  const inspection=await inspectMergeCandidate(token,state.publication,review,state.reviewerSessionId);
+  let saved=await persistGithubObservation(state.id,state.publication,inspection.snapshot,inspection.decision,{beginMerge:inspection.decision.status==='eligible',fallbackPhase:state.phase==='ready'?'ready':'human_review'});
+  if(inspection.decision.status==='merged')return Response.json(saved);
+  if(inspection.decision.status!=='eligible')return mergeFailureResponse(saved,inspection.decision);
+  const result=await mergeReviewed({publication:state.publication,review:review!,reviewerSessionId:state.reviewerSessionId!},token);
+  const confirmed=await readGithubPullSnapshot(token,state.publication);
+  const confirmedMerge=snapshotIsMergedCandidate(confirmed,state.publication);
+  const decision={...result,...(confirmedMerge?{status:'merged' as const,reason:`GitHub confirms PR #${state.publication.number} merged the recorded candidate.`,commitSha:confirmed.mergeCommitSha||result.commitSha}:{}),checkedHeadSha:confirmed.headSha,checkedAt:confirmed.checkedAt, blockers:confirmedMerge?[]:(result.blockers||[result.reason])};
+  saved=await persistGithubObservation(state.id,state.publication,confirmed,decision,{fallbackPhase:state.phase==='ready'?'ready':'human_review'});
+  if(confirmedMerge)return Response.json(saved);
+  return mergeFailureResponse(saved,decision);
  })),
  GET('/factory/delivery/:id/receipts',protectedRoute(async(_,ctx)=>{await existing(ctx.params.id);return Response.json(await listDeliveryReceipts(ctx.params.id));})),
  POST('/factory/delivery/:id/advance',protectedRoute(advance)),
