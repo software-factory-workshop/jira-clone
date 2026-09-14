@@ -29,10 +29,12 @@ export const githubConnectorName = "github/jira-clone";
 export const vercelMachineConnectorName = "factory/jira-clone-machine";
 export const vercelMachineCredentialExpiresAt = "2026-10-12";
 
+// AI Gateway model ids (15 Sep): the most recent fast models, same family as the
+// micro-factory. Reviewer stays on a different vendor than the worker.
 export const factoryModelIds = {
-  taskMiner: "meta/muse-spark-1.3-contributor",
-  worker: "meta/muse-spark-1.3-contributor",
-  reviewer: "google/gemini-3.8-flash",
+  taskMiner: "openai/gpt-5.6-luna-fast",
+  worker: "openai/gpt-5.6-sol-fast",
+  reviewer: "zai/glm-5.3-flash",
 } as const;
 
 export const factoryPorts = {
