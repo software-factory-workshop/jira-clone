@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from "vue";
+import { computed, nextTick, useTemplateRef } from "vue";
 import { ALL_STATUSES } from "~/utils/boardMove";
 
 const props = defineProps<{
@@ -9,13 +9,26 @@ const props = defineProps<{
   statuses: readonly string[];
   assignees: readonly string[];
   summary: string;
+  filtersActive: boolean;
 }>();
 
 const emit = defineEmits<{
   "update:search": [value: string];
   "update:status": [value: string];
   "update:assignee": [value: string];
+  clear: [];
 }>();
+
+const filtersRoot = useTemplateRef<HTMLElement>("filtersRoot");
+
+function clearFilters(): void {
+  // One keyboard-friendly step back to the full window; return focus to the
+  // search field so tab order stays predictable after the action unmounts.
+  emit("clear");
+  void nextTick(() => {
+    filtersRoot.value?.querySelector("input")?.focus();
+  });
+}
 
 const statusItems = computed(() => [ALL_STATUSES, ...props.statuses]);
 const assigneeItems = computed(() => [...props.assignees]);
@@ -34,7 +47,7 @@ function updateAssignee(value: unknown): void {
 </script>
 
 <template>
-  <div class="filters" aria-label="Issue filters">
+  <div ref="filtersRoot" class="filters" aria-label="Issue filters">
     <UInput
       :model-value="props.search"
       icon="i-lucide-search"
@@ -54,6 +67,17 @@ function updateAssignee(value: unknown): void {
       aria-label="Filter by assignee"
       @update:model-value="updateAssignee"
     />
+    <UButton
+      v-if="props.filtersActive"
+      icon="i-lucide-x"
+      variant="outline"
+      color="neutral"
+      size="sm"
+      aria-label="Clear filters"
+      @click="clearFilters"
+    >
+      Clear filters
+    </UButton>
     <span>{{ props.summary }}</span>
   </div>
 </template>
