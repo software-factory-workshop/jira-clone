@@ -72,7 +72,7 @@ export function allowedMoveHint(currentStatus: string): string {
 }
 
 export function columnIssues(
-  issues: BoardIssue[],
+  issues: readonly BoardIssue[],
   status: string,
 ): BoardIssue[] {
   return issues.filter((issue) => issue.status === status);

@@ -19,7 +19,7 @@ const dropColumn = ref<string | null>(null);
 const issuesByColumn = computed<Record<string, BoardIssue[]>>(() => {
   const grouped: Record<string, BoardIssue[]> = {};
   for (const column of props.columns) {
-    grouped[column] = columnIssues([...props.issues], column);
+    grouped[column] = columnIssues(props.issues, column);
   }
   return grouped;
 });
