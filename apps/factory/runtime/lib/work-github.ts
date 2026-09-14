@@ -9,6 +9,7 @@ const treeItem = z.object({ path: z.string(), mode: z.string(), type: z.string()
 export const MAX_WORK_CHANGES = 30;
 export const MAX_WORK_FILE_BYTES = 500_000;
 export const MAX_WORK_BYTES = 2_000_000;
+export const MAX_GITHUB_BLOB_CONCURRENCY = 4;
 export interface WorkEntry { file: string; content: Buffer; mode: "100644" | "100755" }
 export interface WorkSnapshot { revision: string; treeSha: string; entries: WorkEntry[]; excludedPaths: string[] }
 export interface WorkChange { path: string; content: string | null }
@@ -17,7 +18,64 @@ export interface WorkPublication {branch:string;number:number;url:string;headSha
 export class WorkError extends Error {readonly code:string;constructor(code:string,message:string){super(message);this.code=code;}}
 export function safeBranch(branch:string){if(!/^[A-Za-z0-9][A-Za-z0-9._/-]{0,199}$/.test(branch)||branch.includes("..")||branch.includes("//")||branch.endsWith("/")||branch.endsWith(".lock"))throw new WorkError("invalid_request","Unsupported branch name.");return branch;}
 
-export class GitHubError extends Error { readonly status: number; constructor(status: number) { super(`Factory GitHub request failed: HTTP ${status}.`); this.status = status; } }
+const githubUserAgent = "adeo-factory-cockpit";
+
+function normalizedGitHubDetail(value: string) {
+  return value.replace(/[\u0000-\u001f\u007f]/g, " ").replace(/\s+/g, " ").trim().slice(0, 300) || undefined;
+}
+
+async function responseErrorDetail(response: Response) {
+  try {
+    const raw = await response.text();
+    if (!raw.trim()) return undefined;
+    try {
+      const parsed = JSON.parse(raw) as { message?: unknown };
+      if (typeof parsed.message === "string") return normalizedGitHubDetail(parsed.message);
+    } catch {
+      // GitHub normally returns JSON, but preserve a bounded plain-text reason when it does not.
+    }
+    return normalizedGitHubDetail(raw);
+  } catch {
+    return undefined;
+  }
+}
+
+function isRateLimited(status: number, detail: string | undefined, headers: Headers) {
+  return status === 429 || (status === 403 && (
+    headers.get("retry-after") !== null
+    || headers.get("x-ratelimit-remaining") === "0"
+    || /rate limit|secondary rate|abuse detection|temporarily blocked/i.test(detail || "")
+  ));
+}
+
+export class GitHubError extends Error {
+  readonly status: number;
+  readonly path: string;
+  readonly code?: "provider_unavailable" | "provider_auth";
+  readonly detail?: string;
+  readonly retryAfter?: string;
+  readonly rateLimitRemaining?: string;
+  readonly rateLimitReset?: string;
+
+  constructor(status: number, path: string, detail: string | undefined, headers: Headers) {
+    const rateLimited = isRateLimited(status, detail, headers);
+    super(`Factory GitHub request failed: HTTP ${status} for ${path}${detail ? `: ${detail}` : "."}`);
+    this.name = "GitHubError";
+    this.status = status;
+    this.path = path;
+    this.detail = detail;
+    this.retryAfter = headers.get("retry-after") || undefined;
+    this.rateLimitRemaining = headers.get("x-ratelimit-remaining") || undefined;
+    this.rateLimitReset = headers.get("x-ratelimit-reset") || undefined;
+    this.code = rateLimited
+      ? "provider_unavailable"
+      : status === 401 || status === 403
+        ? "provider_auth"
+        : status === 408 || status === 429 || status >= 500
+          ? "provider_unavailable"
+          : undefined;
+  }
+}
 function safePath(path: string) { return path.length > 0 && path.length <= 300 && !path.startsWith("/") && !/[\\\x00-\x1f\x7f]/.test(path) && path.split("/").every(part => part !== "" && part !== "." && part !== ".."); }
 export function allowedWorkPath(path: string): boolean {
   if (!safePath(path) || !includeSource(path)) return false;
@@ -34,11 +92,11 @@ export function allowedWorkPath(path: string): boolean {
 export async function githubRequest(token: string, path: string, signal?: AbortSignal, body?: unknown, method?:"GET"|"POST"|"PATCH"|"PUT"|"DELETE") {
   const response = await fetch(`https://api.github.com/repos/${repository}/${path}`, {
     method: method || (body === undefined ? "GET" : "POST"), redirect: "error",
-    headers: { Authorization: `Bearer ${token}`, Accept: "application/vnd.github+json", "X-GitHub-Api-Version": "2022-11-28", ...(body === undefined ? {} : { "Content-Type": "application/json" }) },
+    headers: { Authorization: `Bearer ${token}`, Accept: "application/vnd.github+json", "X-GitHub-Api-Version": "2022-11-28", "User-Agent": githubUserAgent, ...(body === undefined ? {} : { "Content-Type": "application/json" }) },
     body: body === undefined ? undefined : JSON.stringify(body),
     signal: AbortSignal.any([signal || new AbortController().signal, AbortSignal.timeout(20000)]),
   });
-  if (!response.ok) throw new GitHubError(response.status);
+  if (!response.ok) throw new GitHubError(response.status, path, await responseErrorDetail(response), response.headers);
   return { data: await response.json(), next: response.headers.get("link")?.includes('rel="next"') || false };
 }
 const request = githubRequest;
@@ -55,7 +113,8 @@ export async function loadWorkSnapshot(token: string, revision: string = "main",
   const selected = source.tree.filter(item => item.type === "blob" && ["100644", "100755"].includes(item.mode) && safePath(item.path) && includeSource(item.path));
   if (selected.length > 1500 || selected.reduce((sum, item) => sum + (item.size || 0), 0) > 50_000_000) throw new Error("Source snapshot exceeds the station limit.");
   const entries: WorkEntry[] = [];
-  for (let offset = 0; offset < selected.length; offset += 8) entries.push(...await Promise.all(selected.slice(offset, offset + 8).map(async item => {
+  // Keep parallel blob reads bounded so a review cannot trip GitHub's secondary limits.
+  for (let offset = 0; offset < selected.length; offset += MAX_GITHUB_BLOB_CONCURRENCY) entries.push(...await Promise.all(selected.slice(offset, offset + MAX_GITHUB_BLOB_CONCURRENCY).map(async item => {
     const blob = z.object({ encoding: z.literal("base64"), content: z.string() }).parse((await request(token, `git/blobs/${item.sha}`, signal)).data);
     const content = Buffer.from(blob.content, "base64");
     if (content.length > 50_000_000) throw new Error("Source blob exceeds station limit.");

@@ -347,6 +347,10 @@ async function copyEvidence(value: string) {
 }
 
 watch(() => route.query.delivery, async (id) => {
+  // The /factory/* routes are rewritten to the Eve task-miner service only at
+  // the public edge. A relative SSR fetch stays inside Nuxt and returns 404;
+  // let hydration perform the same request through the edge instead.
+  if (import.meta.server) return;
   clearTimeout(timer);
   if (typeof id !== "string") return;
   try {

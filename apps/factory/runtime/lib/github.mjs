@@ -5,6 +5,7 @@ import { factoryModelIds, factoryRepository, passportProjectId, vercelTeamId, ve
 export const repository = factoryRepository;
 export const scope = { team: vercelTeamName, teamId: vercelTeamId, projectId: passportProjectId };
 export const model = factoryModelIds.taskMiner;
+const githubBlobConcurrency = 4;
 
 export function verifyGatewayScope(oidc, apiKey) {
   if (apiKey) throw new Error("Task mining uses project OIDC for AI Gateway. Unset AI_GATEWAY_API_KEY before running this agent.");
@@ -21,11 +22,30 @@ export function verifyScope(oidc) {
 
 async function github(path, token, signal) {
   const response = await fetch(`https://api.github.com/repos/${repository}/${path}`, {
-    headers: { Authorization: `Bearer ${token}`, Accept: 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28' },
+    headers: { Authorization: `Bearer ${token}`, Accept: 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28', 'User-Agent': 'adeo-factory-cockpit' },
     signal: AbortSignal.any([signal ?? new AbortController().signal, AbortSignal.timeout(20000)]),
     redirect: 'error',
   });
-  if (!response.ok) throw new Error(`GitHub read failed: HTTP ${response.status}`);
+  if (!response.ok) {
+    let detail;
+    try {
+      const raw = await response.text();
+      try {
+        const parsed = JSON.parse(raw);
+        detail = typeof parsed.message === 'string' ? parsed.message : raw;
+      } catch {
+        detail = raw;
+      }
+      detail = detail.replace(/[\u0000-\u001f\u007f]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 300) || undefined;
+    } catch {
+      detail = undefined;
+    }
+    const error = new Error(`GitHub read failed: HTTP ${response.status}${detail ? `: ${detail}` : ''}`);
+    error.status = response.status;
+    if (response.status === 429 || (response.status === 403 && (response.headers.get('retry-after') !== null || response.headers.get('x-ratelimit-remaining') === '0' || /rate limit|secondary rate|abuse detection|temporarily blocked/i.test(detail || '')))) error.code = 'provider_unavailable';
+    else if (response.status === 401 || response.status === 403) error.code = 'provider_auth';
+    throw error;
+  }
   return { data: await response.json(), next: response.headers.get('link')?.includes('rel="next"') };
 }
 
@@ -58,8 +78,8 @@ export async function loadRepository(token, signal) {
   const selected = tree.tree.filter(item => item.type === 'blob' && item.mode !== '120000' && includeSource(item.path));
   if (selected.length > 1500 || selected.reduce((sum, item) => sum + (item.size ?? 0), 0) > 50000000) throw new Error('Source snapshot exceeds the station limit.');
   const entries = [];
-  for (let offset = 0; offset < selected.length; offset += 6) {
-    entries.push(...await Promise.all(selected.slice(offset, offset + 6).map(async item => {
+  for (let offset = 0; offset < selected.length; offset += githubBlobConcurrency) {
+    entries.push(...await Promise.all(selected.slice(offset, offset + githubBlobConcurrency).map(async item => {
       if (!/^[a-f0-9]{40}$/.test(item.sha) || item.path.split('/').includes('..') || item.path.startsWith('/')) throw new Error('Invalid source path.');
       const { data: blob } = await github(`git/blobs/${item.sha}`, token, signal);
       if (blob.encoding !== 'base64') throw new Error('Unsupported source encoding.');

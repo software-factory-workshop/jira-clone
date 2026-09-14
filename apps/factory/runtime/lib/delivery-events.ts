@@ -212,8 +212,9 @@ export function classifyDeliveryError(error: unknown): ClassifiedDeliveryError {
   if (code === 'target_closed' || code === 'blocked' || /pull request (?:was )?closed|retargeted/i.test(message)) return { code: 'target_closed', kind: 'target', message, status: 409, retryable: false, preservePhase: false };
   if (code === 'needs_revision' || code === 'stale_head' || code === 'target_advanced') return { code, kind: 'conflict', message, status: 409, retryable: false, preservePhase: false };
   if (code === 'ready_unconfirmed' || code === 'merge_not_eligible' || code === 'merge_unconfirmed' || code === 'pr_not_ready') return { code, kind: 'conflict', message, status: 409, retryable: false, preservePhase: true };
+  if (code === 'provider_unavailable') return { code: 'provider_unavailable', kind: 'provider', message, status: status === 429 ? 429 : 502, retryable: true, preservePhase: true };
   if (code === 'provider_auth' || code === 'unauthorized' || code === 'forbidden' || status === 401 || status === 403) return { code: 'provider_auth', kind: 'auth', message, status: status === 403 ? 403 : 401, retryable: false, preservePhase: true };
-  if (code === 'provider_unavailable' || status === 408 || status === 429 || (status !== undefined && status >= 500) || error instanceof TypeError) return { code: 'provider_unavailable', kind: 'provider', message, status: status === 429 ? 429 : 502, retryable: true, preservePhase: true };
+  if (status === 408 || status === 429 || (status !== undefined && status >= 500) || error instanceof TypeError) return { code: 'provider_unavailable', kind: 'provider', message, status: status === 429 ? 429 : 502, retryable: true, preservePhase: true };
   return { code: code || 'delivery_failed', kind: 'unknown', message, status: 500, retryable: false, preservePhase: true };
 }
 
