@@ -100,6 +100,9 @@ export function isPriority(value: unknown): value is DemoPriority {
 
 const seeds: DemoIssue[] = demoIssues.map((issue) => ({ ...issue }));
 
+/** Demo-only keys deleted on this running server (seeds included). */
+const deletedKeys = new Set<string>();
+
 const statusOverrides = new Map<string, ObservedStatus>();
 const priorityOverrides = new Map<string, DemoPriority>();
 const titleOverrides = new Map<string, string>();
@@ -111,7 +114,7 @@ const createdIssues: DemoIssue[] = [];
 
 export function getIssues(): DemoIssue[] {
   return [
-    ...seeds.map((issue) => ({
+    ...seeds.filter((issue) => !deletedKeys.has(issue.key)).map((issue) => ({
       ...issue,
       status: statusOverrides.get(issue.key) ?? issue.status,
       priority: priorityOverrides.get(issue.key) ?? issue.priority,
@@ -119,7 +122,7 @@ export function getIssues(): DemoIssue[] {
       assignee: assigneeOverrides.get(issue.key) ?? issue.assignee,
       description: descriptionOverrides.get(issue.key) ?? issue.description,
     })),
-    ...createdIssues.map((issue) => ({ ...issue })),
+    ...createdIssues.filter((issue) => !deletedKeys.has(issue.key)).map((issue) => ({ ...issue })),
   ];
 }
 
@@ -129,6 +132,7 @@ export function getIssues(): DemoIssue[] {
  * an unknown key without writing.
  */
 export function getIssue(key: string): DemoIssue | undefined {
+  if (deletedKeys.has(key)) return undefined;
   const seed = seeds.find((issue) => issue.key === key);
   if (seed) {
     return {
@@ -452,6 +456,27 @@ export function createIssue(
   return { ok: true, issue: { ...issue } };
 }
 
+export type DeleteResult =
+  | { ok: true; key: string }
+  | { ok: false; error: string; statusCode: number };
+
+/**
+ * Demo-only issue deletion. Unknown keys are a 404 and write nothing; the
+ * deterministic `{fail:true}` path is a 500 that writes nothing. Deleting
+ * drops the issue's comments too. Seeds come back with `resetIssues`.
+ */
+export function deleteIssue(key: string, options?: { fail?: boolean }): DeleteResult {
+  if (options?.fail) {
+    return { ok: false, error: "Deterministic demo failure: nothing was deleted.", statusCode: 500 };
+  }
+  if (getIssue(key) === undefined) {
+    return { ok: false, error: `Unknown issue key: ${key}.`, statusCode: 404 };
+  }
+  deletedKeys.add(key);
+  commentStore.delete(key);
+  return { ok: true, key };
+}
+
 export const DEMO_COMMENT_AUTHOR = "Demo member (demo-only fixture)";
 
 export type DemoComment = {
@@ -595,6 +620,7 @@ export function resetIssues(): DemoIssue[] {
   assigneeOverrides.clear();
   descriptionOverrides.clear();
   createdIssues.length = 0;
+  deletedKeys.clear();
   commentStore.clear();
   commentSeq = 0;
   return getIssues();

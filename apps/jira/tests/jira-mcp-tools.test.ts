@@ -57,6 +57,7 @@ type CapturedTool = {
 const EXPECTED_FILES = [
   "add-comment.ts",
   "create-issue.ts",
+  "delete-issue.ts",
   "get-allowed-transitions.ts",
   "get-issue.ts",
   "get-project-statuses.ts",
@@ -78,7 +79,7 @@ const READ_NAMES = [
   "me",
 ];
 
-const WRITE_NAMES = ["addComment", "createIssue", "transitionIssue", "updateIssue"];
+const WRITE_NAMES = ["addComment", "createIssue", "deleteIssue", "transitionIssue", "updateIssue"];
 
 const EXPECTED_NAMES = [...READ_NAMES, ...WRITE_NAMES];
 
@@ -127,7 +128,7 @@ function sourceFor(name: string): string {
   return readFileSync(join(toolsDir, file!), "utf8");
 }
 
-test("mcp tool surface is the seven reads plus four bounded writes", async () => {
+test("mcp tool surface is the seven reads plus five bounded writes", async () => {
   const files = readdirSync(toolsDir)
     .filter((file) => file.endsWith(".ts"))
     .sort();
@@ -141,7 +142,7 @@ test("mcp tool surface is the seven reads plus four bounded writes", async () =>
     assert.match(String(tool.description), /Demo-only read/i);
     const source = sourceFor(name);
     assert.match(source, /from "zod"/);
-    assert.doesNotMatch(source, /restCreateIssue|restUpdateIssue|restAddComment|restTransitionIssue/);
+    assert.doesNotMatch(source, /restCreateIssue|restUpdateIssue|restAddComment|restTransitionIssue|restDeleteIssue/);
     assert.doesNotMatch(
       source,
       /defineMcpHandler|defineMcpResource|defineMcpPrompt/,
@@ -157,7 +158,7 @@ test("mcp tool surface is the seven reads plus four bounded writes", async () =>
     assert.match(source, /from "zod"/);
     // Write tools share the REST write helpers and the demoUser fallback;
     // they never touch the raw Passport header or claim Passport auth.
-    assert.match(source, /rest(CreateIssue|UpdateIssue|AddComment|TransitionIssue)/);
+    assert.match(source, /rest(CreateIssue|UpdateIssue|AddComment|TransitionIssue|DeleteIssue)/);
     assert.match(source, /mcpWriteIdentity/);
     assert.doesNotMatch(source, /passportToken|PASSPORT_TOKEN_HEADER/);
     assert.match(source, /without Passport auth/);

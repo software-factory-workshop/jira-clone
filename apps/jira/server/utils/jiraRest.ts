@@ -41,6 +41,7 @@ import {
 import {
   addPersistentComment,
   createPersistentIssue,
+  deletePersistentIssue,
   getIssuePersistenceInfo,
   getPersistentIssue,
   getPersistentIssuesPage,
@@ -891,6 +892,34 @@ export async function restCreateIssue(
  * hint to use the transitions route instead. The deterministic `{fail:true}`
  * path writes nothing. Actor checks run first via `authorizeRestWrite`.
  */
+/**
+ * Bounded Jira-shaped DELETE /api/rest/api/3/issue/:key over the configured
+ * persistence boundary. Authority runs first through the shared write gate
+ * (viewers stay 403, a present bearer needs the `write` scope); unknown
+ * keys are 404 and the deterministic `{fail:true}` path is a 500. Comments
+ * of the deleted issue go with it. Seeds return with the demo reset.
+ */
+export async function restDeleteIssue(
+  identity: AppRequestIdentity,
+  key: string,
+  body: { fail?: unknown } = {},
+  options?: { bearer?: ReturnType<typeof validateOAuthBearer> | null },
+): Promise<RestWriteResult<{ key: string; deleted: true; actor: ReturnType<typeof appActorLabel>; identitySource: AppIdentitySource }>> {
+  const authorized = authorizeRestWrite(identity, "delete", options?.bearer ?? null);
+  if (!authorized.ok) {
+    return authorized;
+  }
+  const account = authorized.data;
+  const deleted = await deletePersistentIssue(key, { fail: failFlag(body?.fail) });
+  if (!deleted.ok) {
+    return { ok: false, statusCode: deleted.statusCode, error: `${deleted.error} Nothing was deleted.` };
+  }
+  return {
+    ok: true,
+    data: { key, deleted: true, actor: appActorLabel(account), identitySource: account.identitySource },
+  };
+}
+
 export async function restUpdateIssue(
   identity: AppRequestIdentity,
   key: string,

@@ -123,12 +123,13 @@ export function resolveDemoActor(header: unknown): DemoActorResolution {
   return { ok: true, account, explicit: true };
 }
 
-export type DemoWriteAction = "create" | "update" | "comment" | "reset";
+export type DemoWriteAction = "create" | "update" | "comment" | "delete" | "reset";
 
 const ACTION_VERBS: Record<DemoWriteAction, string> = {
   create: "create issues",
   update: "update issues",
   comment: "add comments",
+  delete: "delete issues",
   reset: "reset the demo store",
 };
 
