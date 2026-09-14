@@ -30,6 +30,13 @@ function rememberObservation(state: Delivery, snapshot: EventSnapshot) {
  if(!snapshot.length)return;
  state.observation={lastEventIndex:snapshot.observation.lastEventIndex,lastEventAt:snapshot.observation.lastEventAt||state.observation.lastEventAt||new Date().toISOString()};
 }
+function executionRoot(state: Delivery) {
+ const station=state.execution?.station;
+ return station==='reviewer' ? 'reviewer' as const : station==='worker'||station==='revisions' ? 'worker' as const : undefined;
+}
+function deliverySession(state: Delivery, id: string, attachSession: RouteHandlerArgs['attachSession']) {
+ return factorySession(id,attachSession,executionRoot(state));
+}
 function protectedRoute(fn:(request:Request,args:RouteHandlerArgs)=>Promise<Response>){return async(request:Request,args:RouteHandlerArgs)=>{const auth=await routeAuth(request,factoryAuth);if(auth instanceof Response)return auth;try{return await fn(request,args);}catch(error){return classifiedResponse(classifyDeliveryError(error));}};}
 async function checkCurrent(p:NonNullable<Delivery['publication']>){
  const token=await getToken(githubConnectorName,{subject:{type:'app'}});const pr=await readPull(token,p.number);const targetHeadSha=await readBranch(token,pr.base.ref);
@@ -72,7 +79,7 @@ async function advance(request:Request,ctx:RouteHandlerArgs){
    if(!state.childSessionId||state.publication||!state.resumeOperationId)throw new Error('Recovery requires the original unpublished worker.');
    let deliveryId:string|undefined;
    if(state.resumeAttemptedAt){
-    const snapshot=await snapshotEvents((await factorySession(state.childSessionId,ctx.attachSession)),{startIndex:0});
+    const snapshot=await snapshotEvents((await deliverySession(state,state.childSessionId,ctx.attachSession)),{startIndex:0});
     rememberObservation(state,snapshot);
     deliveryId=resumeReceipt(snapshot,state.resumeOperationId,state.resumeMessage);
     // Send intent is recorded before the queued message. If the receipt is lost we
@@ -88,7 +95,7 @@ async function advance(request:Request,ctx:RouteHandlerArgs){
     if(!marked)return Response.json(await existing(id));
     state.resumeAttemptedAt=marked.resumeAttemptedAt;state.version=marked.version;claimedVersion=marked.version;
     const auth=await routeAuth(request,factoryAuth);if(auth instanceof Response)throw new Error('Recovery identity unavailable');
-    const accepted=await (await factorySession(state.childSessionId,ctx.attachSession)).send(state.resumeMessage||resumeMessage(state.resumeOperationId),{turnPolicy:'queue',auth:{...auth,attributes:{...auth.attributes,factoryResumeOperationId:state.resumeOperationId}}});
+    const accepted=await (await deliverySession(state,state.childSessionId,ctx.attachSession)).send(state.resumeMessage||resumeMessage(state.resumeOperationId),{turnPolicy:'queue',auth:{...auth,attributes:{...auth.attributes,factoryResumeOperationId:state.resumeOperationId}}});
     if(accepted.status!=='accepted'||!accepted.deliveryId)throw new Error('Original worker acceptance is unconfirmed; this owner will not be replaced.');
     deliveryId=accepted.deliveryId;
    }
@@ -104,11 +111,11 @@ async function advance(request:Request,ctx:RouteHandlerArgs){
   }else{
    if(!state.sessionId)throw new Error('Delivery session receipt missing');
    const startIndex=state.observation.lastEventIndex+1;
-   let snapshot=await snapshotEvents((await factorySession(state.sessionId,ctx.attachSession)),{startIndex});
+   let snapshot=await snapshotEvents((await deliverySession(state,state.sessionId,ctx.attachSession)),{startIndex});
    let events: unknown[]=snapshot;
    if(!state.childSessionId)state.childSessionId=childIn(events);
    if(state.childSessionId&&state.childSessionId!==state.sessionId){
-    snapshot=await snapshotEvents((await factorySession(state.childSessionId,ctx.attachSession)),{startIndex});
+    snapshot=await snapshotEvents((await deliverySession(state,state.childSessionId,ctx.attachSession)),{startIndex});
     events=snapshot;
    }
    rememberObservation(state,snapshot);
@@ -142,7 +149,7 @@ async function advance(request:Request,ctx:RouteHandlerArgs){
   }
  }
  const committed=await updateDelivery(id,current=>{if(!current)throw new Error('Delivery missing');const next=commitAdvance(current,state,claimedVersion);return{state:next,result:next};});
- if(committed.phase==='cancelled'&&state.sessionId)await (await factorySession(state.sessionId,ctx.attachSession)).cancel({tasks:true});
+ if(committed.phase==='cancelled'&&state.sessionId)await (await deliverySession(state,state.sessionId,ctx.attachSession)).cancel({tasks:true});
  if(failure)return classifiedResponse(failure,committed);
  return Response.json(committed);
 }
@@ -211,7 +218,7 @@ export default defineChannel({routes:[
  })),
  POST('/factory/delivery/:id/cancel',protectedRoute(async(request,ctx)=>{
   const state=await updateDelivery(ctx.params.id,current=>{if(!current)throw new Error('Delivery not found');transition(current,'cancelled',{actor:'operator',reason:'Operator cancelled the delivery.'});return{state:current,result:current};});
-  const cancellations=await Promise.allSettled([cancelDeliveryDriver(state.id,request),...Array.from(new Set([state.sessionId,state.childSessionId].filter((id):id is string=>!!id))).map(async id=>(await factorySession(id,ctx.attachSession)).cancel({tasks:true}))]);
+  const cancellations=await Promise.allSettled([cancelDeliveryDriver(state.id,request),...Array.from(new Set([state.sessionId,state.childSessionId].filter((id):id is string=>!!id))).map(async id=>(await deliverySession(state,id,ctx.attachSession)).cancel({tasks:true}))]);
   if(cancellations.some(result=>result.status==='rejected'))throw new Error('Cancellation was recorded; retry to confirm all sessions and the outer driver have stopped.');return Response.json(state);
  })),
  POST('/factory/delivery/:id/resume',protectedRoute(async(request,ctx)=>{
