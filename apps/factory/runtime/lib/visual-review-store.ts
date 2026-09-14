@@ -2,7 +2,7 @@ import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
 import { get, put } from "@vercel/blob";
 import type { BrowserFrame, BrowserObservation } from "./review-browser.ts";
 import type { VisualReviewApp, VisualReviewArtifact, VisualReviewFrame } from "./visual-review.ts";
-import { factoryBlobPaths, factoryPorts, visualReviewPublicBlobTokenEnv } from "./factory-config.ts";
+import { factoryBlobPaths, visualReviewPublicBlobTokenEnv } from "./factory-config.ts";
 
 const MAX_IMAGE_BYTES = 4 * 1024 * 1024;
 const artifactIdPattern = /^[a-f0-9]{32}$/;
@@ -29,15 +29,6 @@ function artifactId(input: { sessionId: string; headSha: string; app: VisualRevi
   return createHash("sha256").update(JSON.stringify([input.sessionId, input.headSha, input.app, input.route])).digest("hex").slice(0, 32);
 }
 
-// Frames live in private Blob (BLOB_READ_WRITE_TOKEN must be available to the
-// factory service). Set FACTORY_PUBLIC_URL when PR frame links need a stable
-// public origin instead of the per-deployment VERCEL_URL.
-function origin() {
-  const configured = process.env.FACTORY_PUBLIC_URL?.trim();
-  if (configured) return configured.replace(/\/+$/, "");
-  return process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : `http://localhost:${factoryPorts.cockpit}`;
-}
-
 function pathFor(id: string) {
   if (!artifactIdPattern.test(id)) throw new Error("Invalid visual artifact ID.");
   return `${factoryBlobPaths.reviewArtifactsPrefix}${id}`;
@@ -59,10 +50,6 @@ function parseImage(dataUrl: string) {
   const content = Buffer.from(match[2]!, "base64");
   if (!content.length || content.length > MAX_IMAGE_BYTES) throw new Error("Visual frame exceeds the 4 MB limit.");
   return { mediaType, content, sha256: createHash("sha256").update(content).digest("hex") };
-}
-
-function frameUrl(id: string, token: string, phase: "before" | "after") {
-  return `${origin()}/${factoryBlobPaths.reviewArtifactsPrefix}${id}/${token}?phase=${phase}`;
 }
 
 function publicFrameToken() {
@@ -105,6 +92,7 @@ export async function storeVisualArtifact(input: {
   const stored: Partial<Record<"before" | "after", StoredFrame>> = {};
   const output: Partial<Record<"before" | "after", VisualReviewFrame>> = {};
   const publicToken = publicFrameToken();
+  if (!publicToken) throw new Error(`Visual review publication requires ${visualReviewPublicBlobTokenEnv}.`);
   for (const phase of ["before", "after"] as const) {
     const frame = input.frames[phase];
     if (!frame) continue;
@@ -116,15 +104,16 @@ export async function storeVisualArtifact(input: {
     const image = parseImage(frame.dataUrl);
     const path = framePath(id, phase, image.mediaType);
     const blob = await put(path, image.content, {
-      access: publicToken ? "public" : "private",
-      ...(publicToken ? { token: publicToken } : {}),
+      access: "public",
+      token: publicToken,
       addRandomSuffix: false,
       allowOverwrite: true,
       contentType: image.mediaType,
     });
     const publicUrl = publicBlobUrl(blob.url);
-    stored[phase] = { path, ...(publicUrl ? { url: publicUrl } : {}), sha256: image.sha256, mediaType: image.mediaType };
-    output[phase] = { phase, source: frame.source || expectedSource, sourceSha: frame.sourceSha || expectedSourceSha, url: publicUrl || frameUrl(id, token, phase), sha256: image.sha256, mediaType: image.mediaType };
+    if (!publicUrl) throw new Error("Visual review frame was not stored in the public Blob store.");
+    stored[phase] = { path, url: publicUrl, sha256: image.sha256, mediaType: image.mediaType };
+    output[phase] = { phase, source: frame.source || expectedSource, sourceSha: frame.sourceSha || expectedSourceSha, url: publicUrl, sha256: image.sha256, mediaType: image.mediaType };
   }
   await put(manifestPath(id), JSON.stringify({ version: 1, artifactId: id, tokenHash: createHash("sha256").update(token).digest("hex"), frames: stored } satisfies VisualArtifactManifest), { access: "private", addRandomSuffix: false, allowOverwrite: true, contentType: "application/json" });
   return { id, app: input.app, origin: input.origin, route: input.route, baseSha: input.baseSha, headSha: input.headSha, targetBranch: input.targetBranch, capturedAt: input.capturedAt, ...output };

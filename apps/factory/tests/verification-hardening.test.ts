@@ -119,7 +119,9 @@ test("PR frame links use a separate public Blob store without weakening Cockpit 
 
   assert.match(config, /visualReviewPublicBlobTokenEnv/);
   assert.match(store, /visualReviewPublicBlobTokenEnv/);
-  assert.match(store, /access: publicToken \? "public" : "private"/);
+  assert.match(store, /if \(!publicToken\) throw new Error/);
+  assert.match(store, /access: "public"/);
+  assert.doesNotMatch(store, /access: publicToken \? "public" : "private"/);
   assert.match(store, /hostname\.endsWith\("\.public\.blob\.vercel-storage\.com"\)/);
-  assert.match(store, /BLOB_READ_WRITE_TOKEN/);
+  assert.match(config, /BLOB_READ_WRITE_TOKEN/);
 });
