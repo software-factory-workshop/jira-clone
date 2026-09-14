@@ -6,6 +6,7 @@ import { workerRequest } from './station-access.ts';
 import type { VisualReviewPacket } from './visual-review.ts';
 import { deliveryFailureKindValues, resumeMessage, type ClassifiedDeliveryError } from './delivery-events.ts';
 import { modelUsageSchema, type ModelUsage } from './delivery-usage.ts';
+import { githubPullSnapshotSchema, type GithubPullSnapshot } from './pr-lifecycle.ts';
 
 export const deliveryRequest = workerRequest.extend({
   // Bounds same-owner repair rounds after blocking review findings. It is not a
@@ -195,6 +196,7 @@ export interface Delivery {
     ownerSessionId: string;
     branch: string;
   };
+  github?: GithubPullSnapshot;
   review?: {
     verdict: string;
     summary: string;
@@ -240,14 +242,14 @@ const allowedTransitions: Record<Phase, readonly Phase[]> = {
   reviewing: ['ready', 'human_review', 'revision_starting', 'merging', 'blocked', 'needs_revision', 'cancelled'],
   revision_starting: ['revising', 'human_review', 'blocked', 'needs_revision', 'cancelled'],
   revising: ['review_starting', 'awaiting_input', 'human_review', 'blocked', 'needs_revision', 'cancelled'],
-  human_review: ['owner_resuming', 'revision_starting', 'merging', 'blocked', 'cancelled'],
-  ready: ['merging', 'revision_starting', 'human_review', 'cancelled'],
-  blocked: ['worker_starting', 'working', 'review_starting', 'reviewing', 'revision_starting', 'revising', 'human_review', 'ready', 'needs_revision', 'owner_resuming', 'merging', 'cancelled'],
+  human_review: ['owner_resuming', 'revision_starting', 'merging', 'merged', 'blocked', 'cancelled'],
+  ready: ['merging', 'merged', 'revision_starting', 'human_review', 'cancelled'],
+  blocked: ['worker_starting', 'working', 'review_starting', 'reviewing', 'revision_starting', 'revising', 'human_review', 'ready', 'merged', 'needs_revision', 'owner_resuming', 'merging', 'cancelled'],
   cancelled: [],
-  needs_revision: ['revision_starting', 'human_review', 'cancelled'],
+  needs_revision: ['revision_starting', 'human_review', 'merged', 'cancelled'],
   owner_resuming: ['working', 'human_review', 'blocked', 'cancelled'],
   awaiting_input: ['owner_resuming', 'cancelled'],
-  merging: ['merged', 'human_review', 'blocked', 'cancelled'],
+  merging: ['merged', 'ready', 'human_review', 'blocked', 'cancelled'],
   merged: [],
 };
 
@@ -327,6 +329,7 @@ export function normalizeDelivery(raw: LegacyDelivery): Delivery {
   if (!Number.isInteger(raw.cycle) || raw.cycle < 0) throw new Error('Invalid delivery cycle');
   const request = deliveryRequest.parse(raw.request);
   const usage = raw.usage ? modelUsageSchema.parse(raw.usage) : undefined;
+  const github = raw.github ? githubPullSnapshotSchema.parse(raw.github) : undefined;
   const observation = raw.observation ? deliveryObservationSchema.parse(raw.observation) : { lastEventIndex: -1, lastEventAt: new Date().toISOString() };
   const attempt = raw.attempt ?? raw.cycle + 1;
   if (!Number.isInteger(attempt) || attempt < 1) throw new Error('Invalid delivery attempt');
@@ -342,6 +345,7 @@ export function normalizeDelivery(raw: LegacyDelivery): Delivery {
     observation,
     questions,
     ...(usage ? { usage } : {}),
+    ...(github ? { github } : {}),
     ...(raw.changeId || raw.publication ? { changeId: raw.changeId ?? raw.id } : {}),
     history: history.slice(-MAX_DELIVERY_HISTORY),
   } as Delivery;

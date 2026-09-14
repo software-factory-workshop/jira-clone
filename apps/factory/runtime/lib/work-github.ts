@@ -17,7 +17,7 @@ export interface WorkPublication {branch:string;number:number;url:string;headSha
 export class WorkError extends Error {readonly code:string;constructor(code:string,message:string){super(message);this.code=code;}}
 export function safeBranch(branch:string){if(!/^[A-Za-z0-9][A-Za-z0-9._/-]{0,199}$/.test(branch)||branch.includes("..")||branch.includes("//")||branch.endsWith("/")||branch.endsWith(".lock"))throw new WorkError("invalid_request","Unsupported branch name.");return branch;}
 
-class GitHubError extends Error { readonly status: number; constructor(status: number) { super(`Factory GitHub request failed: HTTP ${status}.`); this.status = status; } }
+export class GitHubError extends Error { readonly status: number; constructor(status: number) { super(`Factory GitHub request failed: HTTP ${status}.`); this.status = status; } }
 function safePath(path: string) { return path.length > 0 && path.length <= 300 && !path.startsWith("/") && !/[\\\x00-\x1f\x7f]/.test(path) && path.split("/").every(part => part !== "" && part !== "." && part !== ".."); }
 export function allowedWorkPath(path: string): boolean {
   if (!safePath(path) || !includeSource(path)) return false;
@@ -31,7 +31,7 @@ export function allowedWorkPath(path: string): boolean {
   if (path.split("/").some(part => ["AGENTS.md", "CLAUDE.md", "SKILL.md", ".npmrc", ".output", ".nuxt", "dist", "coverage"].includes(part))) return false;
   return ![".agents/", ".github/", "factory/", "apps/factory/agents/", "apps/factory/shared/", "apps/factory/scripts/", "vendor/"].some(prefix => path.startsWith(prefix));
 }
-async function request(token: string, path: string, signal?: AbortSignal, body?: unknown, method?:"PATCH") {
+export async function githubRequest(token: string, path: string, signal?: AbortSignal, body?: unknown, method?:"GET"|"POST"|"PATCH"|"PUT"|"DELETE") {
   const response = await fetch(`https://api.github.com/repos/${repository}/${path}`, {
     method: method || (body === undefined ? "GET" : "POST"), redirect: "error",
     headers: { Authorization: `Bearer ${token}`, Accept: "application/vnd.github+json", "X-GitHub-Api-Version": "2022-11-28", ...(body === undefined ? {} : { "Content-Type": "application/json" }) },
@@ -41,6 +41,7 @@ async function request(token: string, path: string, signal?: AbortSignal, body?:
   if (!response.ok) throw new GitHubError(response.status);
   return { data: await response.json(), next: response.headers.get("link")?.includes('rel="next"') || false };
 }
+const request = githubRequest;
 export async function commitTree(token: string, revision: string, signal?: AbortSignal) {
   if (revision !== "main") sha.parse(revision);
   const commit = z.object({ sha, commit: z.object({ tree: z.object({ sha }) }) }).parse((await request(token, `commits/${revision}`, signal)).data);
@@ -62,12 +63,24 @@ export async function loadWorkSnapshot(token: string, revision: string = "main",
   })));
   return { revision: source.revision, treeSha: source.treeSha, entries, excludedPaths: source.tree.filter(item => item.type !== "tree" && !selected.includes(item)).map(item => item.path) };
 }
-const pullSchema = z.object({ number: z.number().int().positive(), html_url: z.string().url(), title: z.string(), body: z.string().nullable(), state: z.string(), merged: z.boolean().optional(), merge_commit_sha: sha.nullable().optional(), draft: z.boolean().optional(), head: z.object({ sha, ref: z.string(), repo: z.object({ full_name: z.literal(repository) }) }), base: z.object({ sha, ref: z.string(), repo: z.object({ full_name: z.literal(repository) }) }) });
+const pullSchema = z.object({ number: z.number().int().positive(), html_url: z.string().url(), title: z.string(), body: z.string().nullable(), state: z.string(), merged: z.boolean().optional(), merge_commit_sha: sha.nullable().optional(), draft: z.boolean().optional(), node_id: z.string().min(1).optional(), changed_files: z.number().int().nonnegative().optional(), mergeable: z.boolean().nullable().optional(), mergeable_state: z.string().nullable().optional(), head: z.object({ sha, ref: z.string(), repo: z.object({ full_name: z.literal(repository) }) }), base: z.object({ sha, ref: z.string(), repo: z.object({ full_name: z.literal(repository) }) }) });
 export async function readPull(token: string, number: number, signal?: AbortSignal) {
   z.number().int().positive().parse(number);
   const pr = pullSchema.parse((await request(token, `pulls/${number}`, signal)).data);
   if (pr.number !== number) throw new Error("GitHub returned a different pull request.");
   return pr;
+}
+export interface PullRequestFile { filename: string; status: string; patch?: string; previous_filename?: string }
+export async function readPullFiles(token: string, number: number, signal?: AbortSignal): Promise<PullRequestFile[]> {
+  z.number().int().positive().parse(number);
+  const files: PullRequestFile[] = [];
+  for (let page = 1; page <= 5; page++) {
+    const response = await request(token, `pulls/${number}/files?per_page=100&page=${page}`, signal);
+    files.push(...z.array(z.object({ filename: z.string(), status: z.string(), patch: z.string().optional(), previous_filename: z.string().optional() })).parse(response.data));
+    if (!response.next) break;
+    if (page === 5) throw new WorkError("provider_unavailable", "Pull request file inventory exceeds the bounded review limit.");
+  }
+  return files;
 }
 export async function verifyPullRequestHead(token: string, number: number, headSha: string, signal?: AbortSignal, baseSha?: string, targetBranch?:string) {
   sha.parse(headSha);
@@ -87,13 +100,7 @@ export async function updatePullRequestBody(token:string,number:number,headSha:s
 export async function loadPullRequest(token: string, number: number, signal?: AbortSignal) {
   const pr = await readPull(token, number, signal);
   if (pr.state !== "open") throw new Error("Review requires an open pull request.");
-  const files: Array<{ filename: string; status: string; patch?: string; previous_filename?: string }> = [];
-  for (let page = 1; page <= 5; page++) {
-    const response = await request(token, `pulls/${number}/files?per_page=100&page=${page}`, signal);
-    files.push(...z.array(z.object({ filename: z.string(), status: z.string(), patch: z.string().optional(), previous_filename: z.string().optional() })).parse(response.data));
-    if (!response.next) break;
-    if (page === 5) throw new Error("Pull request file inventory exceeds the bounded review limit.");
-  }
+  const files = await readPullFiles(token, number, signal);
   const targetHead=await readBranch(token,pr.base.ref,signal);
   const [snapshot, baseSnapshot] = await Promise.all([loadWorkSnapshot(token, pr.head.sha, signal), loadWorkSnapshot(token, targetHead, signal)]);
   await verifyPullRequestHead(token, number, pr.head.sha, signal, targetHead,pr.base.ref);

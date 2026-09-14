@@ -65,10 +65,14 @@ interaction and keyboard evidence captured by the host hook on the exact head.
 An `approve` verdict with an open blocker is rejected; wording cannot remove a
 requirement. Review policy comes from the PR base, so a candidate cannot change
 the rules judging it. A verdict is an assessment.
-Stations cannot merge PRs or activate factory policy.
+Stations cannot merge PRs or activate factory policy. Agent publication remains
+a Draft PR. Only an authenticated Cockpit operator can mark that exact PR ready
+for review, and that action is read back from GitHub before Cockpit reports it.
 The host delivery driver may perform only the documented narrow low-risk merge
-(a cosmetic CSS change with independent approval and green CI);
-broad or elevated merges remain human-controlled on GitHub.
+(a cosmetic CSS change with independent approval and green CI); broad or elevated merges remain human-controlled on GitHub. A Cockpit merge rechecks the
+exact candidate head, current target, checks, conflicts and host policy, then
+reports success only after GitHub confirms the merge. Refresh/reconciliation
+persists GitHub lifecycle state so an external merge is shown as Merged.
 
 ## Authorization
 

@@ -27,16 +27,17 @@ test('GitHub merge checks reject stale heads and pending checks, bind successful
  const {mergeReviewed}=await import('../runtime/lib/merge-reviewed.ts');
  const prior=globalThis.fetch;
  const publication={number:42,headSha:review.headSha,targetHeadSha:review.baseSha,targetBranch:'main',ownerSessionId:'worker'};
- let stale=false,pending=false,merges=0;let requiredConclusion='success';let optionalConclusion='neutral';let optionalStatus='completed';
+ let stale=false,pending=false,merges=0,mergeReadback=false;let requiredConclusion='success';let optionalConclusion='neutral';let optionalStatus='completed';
  globalThis.fetch=async(url,init)=>{
   const path=String(url);
   let data:unknown;
   if(path.endsWith('/merge')){
-   assert.equal(JSON.parse(String(init?.body)).sha,review.headSha);merges++;data={merged:true,sha:'d'.repeat(40)};
+   assert.equal(JSON.parse(String(init?.body)).sha,review.headSha);merges++;mergeReadback=true;data={merged:true,sha:'d'.repeat(40)};
   }else if(path.includes('/files?'))data=[doc];
   else if(path.includes('/check-runs?'))data={total_count:2,check_runs:[{name:requiredCheckName,app:{slug:'github-actions'},status:pending?'in_progress':'completed',conclusion:pending?null:requiredConclusion},{name:'Vercel Agent Review',app:{slug:'vercel'},status:optionalStatus,conclusion:optionalConclusion}]};
   else if(path.includes('/status?'))data={total_count:0,statuses:[]};
-  else data={state:'open',head:{sha:stale?'c'.repeat(40):review.headSha,repo:{full_name:factoryRepository}},base:{sha:review.baseSha,ref:'main',repo:{full_name:factoryRepository}},changed_files:1,draft:false,mergeable:true,mergeable_state:'clean'};
+  else if(path.includes('/git/ref/heads/'))data={object:{sha:review.baseSha}};
+  else {const confirmed=mergeReadback;mergeReadback=false;data={number:42,html_url:`https://github.com/${factoryRepository}/pull/42`,title:'Cosmetic change',body:null,state:confirmed?'closed':'open',merged:confirmed,merge_commit_sha:confirmed?'d'.repeat(40):null,head:{sha:stale?'c'.repeat(40):review.headSha,ref:'factory/work-test',repo:{full_name:factoryRepository}},base:{sha:review.baseSha,ref:'main',repo:{full_name:factoryRepository}},changed_files:1,draft:false,mergeable:true,mergeable_state:'clean'};}
   return Response.json(data);
  };
  try{

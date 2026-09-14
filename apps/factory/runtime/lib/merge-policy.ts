@@ -7,7 +7,7 @@ export interface MergeReview {
  findings:Array<{severity:string}>;limitations:string[];
  verification?:{prepared:boolean;repositoryChecksPassed:boolean;candidateUnchanged:boolean};
 }
-export type MergeDecision={status:'merged'|'manual'|'waiting';reason:string;commitSha?:string;authorization?:FactoryDecisionAudit};
+export type MergeDecision={status:'merged'|'manual'|'waiting'|'eligible';reason:string;commitSha?:string;authorization?:FactoryDecisionAudit;blockers?:string[];checkedHeadSha?:string;checkedAt?:string};
 const cosmeticProperty=/^(?:color|background-color|border(?:-(?:top|right|bottom|left))?-color|outline-color|text-decoration-color|font-weight)\s*:\s*[#\w\s(),.%/-]+;$/;
 function cosmetic(file:MergeFile){
  if(file.status!=='modified'||!/^apps\/(?:jira|factory)\/app\/.*\.css$/.test(file.filename)||!file.patch)return false;
