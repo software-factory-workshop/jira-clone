@@ -317,6 +317,27 @@ export function boardFilteredLabel(summary: BoardFilteredSummary): string {
   return `${summary.shown} of ${summary.windowSize} in this window (${noun})`;
 }
 
+/**
+ * Visible accessible count for the list and board views, e.g.
+ * "Showing 1 of 4 issues".
+ *
+ * Both views render the existing client-side `filtered` list, so `shown`
+ * is `filtered.length` and `total` is the loaded window size
+ * (`issues.length`): the count stays scoped to the loaded server window
+ * and never reuses the store total as the filtered result. Pure; never
+ * writes.
+ */
+export function filteredIssueCountLabel(shown: number, total: number): string {
+  const safeShown = Number.isFinite(shown)
+    ? Math.max(0, Math.floor(shown))
+    : 0;
+  const safeTotal = Number.isFinite(total)
+    ? Math.max(0, Math.floor(total))
+    : 0;
+  const noun = safeTotal === 1 ? "issue" : "issues";
+  return `Showing ${safeShown} of ${safeTotal} ${noun}`;
+}
+
 export function boardVisibleRange(
   startAt: number,
   pageSize: number,

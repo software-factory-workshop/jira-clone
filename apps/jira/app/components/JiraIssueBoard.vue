@@ -8,6 +8,7 @@ const props = defineProps<{
   canWrite: boolean;
   pendingKeys: readonly string[];
   filtersActive: boolean;
+  countLabel: string;
 }>();
 
 const emit = defineEmits<{
@@ -67,6 +68,7 @@ function updateStatus(issue: BoardIssue, value: unknown): void {
 </script>
 
 <template>
+  <p class="issue-count" role="status" data-testid="issue-count">{{ props.countLabel }}</p>
   <div class="board">
     <section
       v-for="column in props.columns"
