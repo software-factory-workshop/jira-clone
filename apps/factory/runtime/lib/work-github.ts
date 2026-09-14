@@ -6,6 +6,7 @@ import { includeSource, repository } from "./github.mjs";
 const sha = z.string().regex(/^[a-f0-9]{40}$/);
 const object = z.record(z.string(), z.unknown());
 const treeItem = z.object({ path: z.string(), mode: z.string(), type: z.string(), sha, size: z.number().optional() });
+const repositoryOwner = repository.split("/")[0]!;
 export const MAX_WORK_CHANGES = 30;
 export const MAX_WORK_FILE_BYTES = 500_000;
 export const MAX_WORK_BYTES = 2_000_000;
@@ -132,7 +133,7 @@ export async function readPull(token: string, number: number, signal?: AbortSign
 export async function readPullsByHead(token: string, branch: string, targetBranch?: string, signal?: AbortSignal) {
   safeBranch(branch);
   if (targetBranch) safeBranch(targetBranch);
-  const query = new URLSearchParams({ state: "all", head: `${repository}:${branch}`, per_page: "100" });
+  const query = new URLSearchParams({ state: "all", head: `${repositoryOwner}:${branch}`, per_page: "100" });
   if (targetBranch) query.set("base", targetBranch);
   const response = await request(token, `pulls?${query}`, signal);
   if (response.next) throw new WorkError("provider_unavailable", "GitHub returned more than the bounded pull-request recovery window.");
@@ -304,7 +305,7 @@ export async function publishWork(token: string, input: PublishWorkInput, signal
    }
    headSha=await currentHead();if(!headSha||!await samePublication(headSha))throw new WorkError("stale_head","Published head differs from this operation.");
   }
-  const query=new URLSearchParams({state:"all",head:`software-factory-workshop:${branch}`,base:targetBranch,per_page:"100"});
+  const query=new URLSearchParams({state:"all",head:`${repositoryOwner}:${branch}`,base:targetBranch,per_page:"100"});
   const response=await request(token,`pulls?${query}`,signal);if(response.next)throw new Error("Unexpected paginated owner PRs.");
   const candidates=z.array(pullSchema).parse(response.data);if(candidates.length>1)throw new Error("Ambiguous owner PRs.");
   let pr=candidates[0];
