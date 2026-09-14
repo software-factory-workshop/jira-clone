@@ -94,3 +94,7 @@ test('shared event parsing keeps child discovery and delivery metadata typed', (
   assert.deepEqual(eventsForDelivery([child, event], deliveryId), [child, event]);
   assert.equal(parseFactoryEvent({ ...event, meta: { deliveryIds: 'not-an-array' } }), undefined);
 });
+
+test('shared event parsing accepts Eve session completion without a data payload', () => {
+  assert.equal(parseFactoryEvent({ type: 'session.completed' })?.type, 'session.completed');
+});

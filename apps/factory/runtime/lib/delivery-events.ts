@@ -27,6 +27,70 @@ function eventPayload(event: unknown) {
   return recordValue(record?.data) ?? record;
 }
 
+const inputRequestForRecoverySchema = z.object({
+  requestId: z.string().min(1),
+  kind: z.string().min(1),
+  options: z.array(z.object({ id: z.string().min(1) }).passthrough()).optional(),
+}).passthrough();
+
+const inputRequestedForRecoverySchema = z.object({
+  type: z.literal('input.requested'),
+  data: z.object({ requests: z.array(inputRequestForRecoverySchema) }).passthrough(),
+}).passthrough();
+
+const inputResolutionForRecoverySchema = z.object({
+  type: z.literal('input.resolved'),
+  data: z.object({
+    resolutions: z.array(z.object({
+      requestId: z.string().min(1),
+      outcome: z.string().min(1),
+    }).passthrough()),
+  }).passthrough(),
+}).passthrough();
+
+export interface SessionLimitResponse {
+  requestId: string;
+  optionId: 'continue';
+}
+
+/**
+ * Finds only framework-owned session-limit prompts that are still pending.
+ * Recovery must answer Eve's request by ID; a normal text message is not an
+ * input response and leaves the session parked without starting a model turn.
+ */
+export function pendingSessionLimitResponses(events: readonly unknown[]): SessionLimitResponse[] {
+  const pending = new Map<string, { requestId: string; kind: string; options?: Array<{ id: string }> }>();
+  for (const event of events) {
+    const requested = inputRequestedForRecoverySchema.safeParse(event);
+    if (requested.success) {
+      for (const request of requested.data.data.requests) pending.set(request.requestId, request);
+      continue;
+    }
+    const resolved = inputResolutionForRecoverySchema.safeParse(event);
+    if (resolved.success) {
+      for (const resolution of resolved.data.data.resolutions) pending.delete(resolution.requestId);
+    }
+  }
+  return [...pending.values()]
+    .filter(request => request.kind === 'session-limit' && request.options?.some(option => option.id === 'continue'))
+    .map(request => ({ requestId: request.requestId, optionId: 'continue' }));
+}
+
+/** Confirms a structured recovery response was durably accepted by Eve. */
+export function resolvedSessionLimitRequests(events: readonly unknown[], requestIds: readonly string[]) {
+  if (!requestIds.length) return false;
+  const expected = new Set(requestIds);
+  const resolved = new Set<string>();
+  for (const event of events) {
+    const parsed = inputResolutionForRecoverySchema.safeParse(event);
+    if (!parsed.success) continue;
+    for (const resolution of parsed.data.data.resolutions) {
+      if (expected.has(resolution.requestId) && resolution.outcome === 'approved') resolved.add(resolution.requestId);
+    }
+  }
+  return resolved.size === expected.size;
+}
+
 function stringValue(value: unknown) {
   return typeof value === 'string' && value.trim() ? value.trim() : undefined;
 }
@@ -331,14 +395,21 @@ export function stoppedWithoutResult(events: unknown[]) {
   for (const event of [...events].reverse()) {
     const parsed = parseEventType(event);
     if (!parsed) continue;
-    if (['turn.cancelled', 'turn.failed', 'session.failed', 'turn.completed'].includes(parsed.type)) return parsed.type;
+    if (['turn.cancelled', 'turn.failed', 'session.failed', 'turn.completed', 'session.completed'].includes(parsed.type)) return parsed.type;
     if (['turn.started', 'message.received'].includes(parsed.type)) return null;
   }
   return null;
 }
 
 export function eventsForDelivery(events: unknown[], deliveryId: string) {
-  return events.filter(event => parseDeliveryIds(event)?.includes(deliveryId));
+  return events.filter(event => {
+    const deliveryIds = parseDeliveryIds(event);
+    if (deliveryIds?.includes(deliveryId)) return true;
+    // Eve's terminal session.completed event is stamped with an event ID but
+    // intentionally has no delivery IDs. Keep it so a timed-out owner cannot
+    // remain in working forever after its last delivery has ended.
+    return deliveryIds === undefined && parseEventType(event)?.type === 'session.completed';
+  });
 }
 
 export function resumeMessage(operationId: string, answer?: string) {

@@ -2,7 +2,7 @@ import { stationAddress } from "../runtime/lib/station-access.ts";
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { applyReview,newDelivery,operationFor,deliveryRequest,referenceState,claimAdvance,commitAdvance,transition,requestResume } from '../runtime/lib/delivery-state.ts';
-import { classifyDeliveryError,hostResult,eventsForDelivery,snapshotEvents,resumeMessage,resumeReceipt } from '../runtime/lib/delivery-events.ts';
+import { classifyDeliveryError,hostResult,eventsForDelivery,pendingSessionLimitResponses,resolvedSessionLimitRequests,snapshotEvents,stoppedWithoutResult,resumeMessage,resumeReceipt } from '../runtime/lib/delivery-events.ts';
 import { validateJiraLockfile, validateJiraManifest, validateJiraMcpChangeSet, validateJiraNuxtConfig,verificationCommands } from '../runtime/lib/jira-policy.ts';
 import { allowedWorkPath } from '../runtime/lib/work-github.ts';
 import { jiraTestCommand, mcpToolkitPackage, mcpToolkitVersion, mcpZodVersion } from '../runtime/lib/factory-config.ts';
@@ -38,7 +38,7 @@ test('lockfile policy preserves existing blocks and accepts only the MCP importe
  assert.throws(()=>validateJiraLockfile(base,candidate.replace('sha512-base','sha512-tampered'),baseManifest,candidateManifest));
 });
 
-test('revision events use live Eve meta.deliveryIds and exclude the previous turn',()=>{const current={type:'turn.started',meta:{deliveryIds:['delivery-current']},data:{}};assert.deepEqual(eventsForDelivery([{type:'turn.completed',meta:{deliveryIds:['delivery-old']}},current],'delivery-current'),[current]);assert.deepEqual(eventsForDelivery([{type:'turn.started',deliveryIds:['delivery-current']}],'delivery-current'),[]);});
+test('revision events use live Eve meta.deliveryIds and retain terminal session completion',()=>{const current={type:'turn.started',meta:{deliveryIds:['delivery-current']},data:{}};const terminal={type:'session.completed'};assert.deepEqual(eventsForDelivery([{type:'turn.completed',meta:{deliveryIds:['delivery-old']}},current,terminal],'delivery-current'),[current,terminal]);assert.deepEqual(eventsForDelivery([{type:'turn.started',deliveryIds:['delivery-current']}],'delivery-current'),[]);});
 test('observations read only the uncaptured suffix and retain the Eve event cursor',async()=>{
  const events=[
   {type:'turn.started',meta:{at:'2026-09-14T10:00:00.000Z'},data:{}},
@@ -60,6 +60,10 @@ test('partial stream observations are typed and cannot produce trusted terminal 
  await assert.rejects(snapshotEvents({getStreamTailIndex:async()=>2,getEventStream:async()=>new ReadableStream({start(c){c.enqueue({type:'turn.completed'});c.close();}})} as never),caught=>{error=caught;return true;});
  assert.equal(classifyDeliveryError(error).code,'observation_partial');
  assert.equal(classifyDeliveryError(error).retryable,true);
+});
+test('a lifetime timeout is a terminal no-result observation',()=>{
+ assert.equal(stoppedWithoutResult([{type:'session.completed'}]),'session.completed');
+ assert.equal(stoppedWithoutResult([{type:'turn.started'},{type:'session.completed'}]),'session.completed');
 });
 
 test('idle observation timeout is recoverable without accepting the partial prefix',async()=>{
@@ -112,3 +116,12 @@ test('prepublication recovery queues only the existing owner and retains publica
 test('stopped review and published worker cannot be mistaken for unpublished recovery',()=>{const s=state();s.childSessionId='wrun_reviewer';transition(s,'human_review');assert.throws(()=>requestResume(s,'resume-id'),/requires review/);});
 
 test('lost continuation receipt is recovered from original owner event without another send',()=>{const event={type:'message.received',data:{message:resumeMessage('resume-one')},meta:{deliveryIds:['accepted-receipt']}};assert.equal(resumeReceipt([event],'resume-one'),'accepted-receipt');assert.equal(resumeReceipt([event],'different'),undefined);assert.equal(resumeReceipt([{...event,type:'message.completed'}],'resume-one'),undefined);});
+
+test('session-limit recovery answers the durable request instead of sending a no-op message',()=>{
+ const requestId='wrun_owner:limit:input:519915';
+ const requested={type:'input.requested',data:{requests:[{requestId,kind:'session-limit',prompt:'Input limit reached',options:[{id:'continue',label:'Approve'},{id:'stop',label:'Stop'}]}]}};
+ assert.deepEqual(pendingSessionLimitResponses([requested]),[{requestId,optionId:'continue'}]);
+ assert.equal(resolvedSessionLimitRequests([{type:'input.resolved',data:{resolutions:[{requestId,kind:'session-limit',outcome:'approved',response:{requestId,optionId:'continue'}}]}}],[requestId]),true);
+ assert.equal(resolvedSessionLimitRequests([{type:'input.resolved',data:{resolutions:[{requestId,kind:'session-limit',outcome:'denied'}]}}],[requestId]),false);
+ assert.deepEqual(pendingSessionLimitResponses([requested,{type:'input.resolved',data:{resolutions:[{requestId,kind:'session-limit',outcome:'approved'}]}}]),[]);
+});

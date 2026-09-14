@@ -11,7 +11,7 @@ import { factoryAuth } from '../lib/route-auth';
 import { stationOperation } from './stations';
 import { answerOwnerQuestion, deliveryRequest,newDelivery,operationFor,transition,terminal,applyReview,referenceState,claimAdvance,commitAdvance,requestResume,beginRevision,admissionRecoveryAction,recordAdmissionFailure,retryAdmission,type Delivery } from '../lib/delivery-state';
 import { listDeliveryReceipts,readDelivery,updateDelivery } from '../lib/delivery-store';
-import { classifyDeliveryError,snapshotEvents,childIn,hostResult,stoppedWithoutResult,eventsForDelivery,modelUsageFromEvents,resumeMessage,resumeReceipt,type ClassifiedDeliveryError, type EventSnapshot } from '../lib/delivery-events';
+import { classifyDeliveryError,snapshotEvents,childIn,hostResult,stoppedWithoutResult,eventsForDelivery,modelUsageFromEvents,pendingSessionLimitResponses,resolvedSessionLimitRequests,resumeMessage,resumeReceipt,type ClassifiedDeliveryError, type EventSnapshot } from '../lib/delivery-events';
 import { readPull,readBranch,WorkError,workBranch } from '../lib/work-github';
 import { githubConnectorName } from '../lib/factory-config.ts';
 import { inspectMergeCandidate, markPullRequestReady, readGithubPullSnapshot, snapshotIsMergedCandidate } from '../lib/pr-lifecycle';
@@ -77,11 +77,14 @@ async function advance(request:Request,ctx:RouteHandlerArgs){
  try{
   if(state.phase==='owner_resuming'){
    if(!state.childSessionId||state.publication||!state.resumeOperationId)throw new Error('Recovery requires the original unpublished worker.');
+   const owner=await deliverySession(state,state.childSessionId,ctx.attachSession);
    let deliveryId:string|undefined;
+   let continuationAccepted=false;
    if(state.resumeAttemptedAt){
-    const snapshot=await snapshotEvents((await deliverySession(state,state.childSessionId,ctx.attachSession)),{startIndex:0});
+    const snapshot=await snapshotEvents(owner,{startIndex:0});
     rememberObservation(state,snapshot);
     deliveryId=resumeReceipt(snapshot,state.resumeOperationId,state.resumeMessage);
+    continuationAccepted=!!deliveryId||resolvedSessionLimitRequests(snapshot,state.resumeInputRequestIds||[]);
     // Send intent is recorded before the queued message. If the receipt is lost we
     // look for the exact message in the owner's durable stream; we never resend,
     // because a duplicate turn would make the owner do the work twice. The rare
@@ -91,15 +94,24 @@ async function advance(request:Request,ctx:RouteHandlerArgs){
     // /revise; stopped reviewer -> start a new review; this error -> inspect.
     if(!deliveryId&&Date.now()-state.resumeAttemptedAt>60000)throw new Error('Resume acceptance is unconfirmed. No message was resent. Inspect the original owner before manual recovery.');
    }else{
-    const marked=await updateDelivery(id,current=>{if(!current)throw new Error('Delivery missing');if(current.version!==claimedVersion)return{state:current,result:null};current.resumeAttemptedAt=Date.now();current.version++;return{state:current,result:structuredClone(current)};});
+    const snapshot=await snapshotEvents(owner,{startIndex:0});
+    rememberObservation(state,snapshot);
+    const inputResponses=pendingSessionLimitResponses(snapshot);
+    const marked=await updateDelivery(id,current=>{if(!current)throw new Error('Delivery missing');if(current.version!==claimedVersion)return{state:current,result:null};current.resumeAttemptedAt=Date.now();if(snapshot.length)current.observation={...state.observation};if(inputResponses.length)current.resumeInputRequestIds=inputResponses.map(response=>response.requestId);else delete current.resumeInputRequestIds;current.version++;return{state:current,result:structuredClone(current)};});
     if(!marked)return Response.json(await existing(id));
-    state.resumeAttemptedAt=marked.resumeAttemptedAt;state.version=marked.version;claimedVersion=marked.version;
+    state.resumeAttemptedAt=marked.resumeAttemptedAt;state.resumeInputRequestIds=marked.resumeInputRequestIds;state.observation=marked.observation;state.version=marked.version;claimedVersion=marked.version;
     const auth=await routeAuth(request,factoryAuth);if(auth instanceof Response)throw new Error('Recovery identity unavailable');
-    const accepted=await (await deliverySession(state,state.childSessionId,ctx.attachSession)).send(state.resumeMessage||resumeMessage(state.resumeOperationId),{turnPolicy:'queue',auth:{...auth,attributes:{...auth.attributes,factoryResumeOperationId:state.resumeOperationId}}});
-    if(accepted.status!=='accepted'||!accepted.deliveryId)throw new Error('Original worker acceptance is unconfirmed; this owner will not be replaced.');
+    const resumeAuth={...auth,attributes:{...auth.attributes,factoryResumeOperationId:state.resumeOperationId}};
+    const accepted=inputResponses.length
+      ? await owner.respond(inputResponses,{auth:resumeAuth})
+      : await owner.send(state.resumeMessage||resumeMessage(state.resumeOperationId),{turnPolicy:'queue',auth:resumeAuth});
+    if(accepted.status!=='accepted'||(!inputResponses.length&&!accepted.deliveryId))throw new Error('Original worker acceptance is unconfirmed; this owner will not be replaced.');
+    continuationAccepted=true;
     deliveryId=accepted.deliveryId;
    }
-   if(deliveryId){state.sessionId=state.childSessionId;state.deliveryId=deliveryId;state.execution={attempt:state.attempt,station:'worker',operationId:state.operationId,sessionId:state.childSessionId,deliveryId};transition(state,'working',{reason:'The original owner accepted the queued continuation.'});}
+   // A structured input response resumes the existing turn and normally has
+   // no new delivery ID. Keep the original binding for subsequent evidence.
+   if(continuationAccepted){const usedSessionLimitResponse=!!state.resumeInputRequestIds?.length;const acceptedDeliveryId=deliveryId||state.deliveryId;state.sessionId=state.childSessionId;if(acceptedDeliveryId)state.deliveryId=acceptedDeliveryId;delete state.resumeInputRequestIds;state.execution={attempt:state.attempt,station:'worker',operationId:state.operationId,sessionId:state.childSessionId,...(acceptedDeliveryId?{deliveryId:acceptedDeliveryId}: {})};transition(state,'working',{reason:usedSessionLimitResponse?'The original owner accepted the pending session-limit continuation.':'The original owner accepted the queued continuation.'});}
   }else if(state.phase.endsWith('_starting')){
    const station=state.phase==='worker_starting'?'worker':state.phase==='review_starting'?'reviewer':'revisions';
    if(station==='reviewer')await checkCurrent(state.publication!);

@@ -27,6 +27,8 @@ test("all three root agents use the shared model ceilings",()=>{
   assert.ok(definition.limits?.maxInputTokensPerSession);
   assert.ok(definition.limits?.maxOutputTokensPerSession);
   assert.ok(definition.limits?.maxTokenCostUsdPerSession);
+  assert.equal(definition.limits?.maxInputTokensPerSession,3_000_000);
+  assert.equal(definition.limits?.sessionTimeoutMs,20*60*1000);
  }
 });
 test("Worker and reviewer configure tool policy statically and deny wrong station before model selection",async()=>{

@@ -25,7 +25,7 @@ const authorizations = computed(() => data.value.messages.flatMap(message => mes
 const awaitingAuthorization = computed(() => !cancelled.value && !turnEnded.value && authorizations.value.some(part => part.state === "required"));
 const busy = computed(() => status.value === "submitted" || status.value === "streaming");
 const cancelled = computed(() => events.value.some(event => event.type === "turn.cancelled"));
-const turnEnded = computed(() => events.value.some(event => event.type === "turn.completed" || event.type === "turn.failed" || event.type === "session.failed"));
+const turnEnded = computed(() => events.value.some(event => event.type === "turn.completed" || event.type === "session.completed" || event.type === "turn.failed" || event.type === "session.failed"));
 const toolParts = computed(() => data.value.messages.flatMap(message => message.parts).filter(part => part.type === "dynamic-tool"));
 const output = computed(() => {
   const last = toolParts.value.filter(part => part.toolName === "investigate_repository" || part.toolName === "record_findings").at(-1);

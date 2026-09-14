@@ -7,7 +7,8 @@ const eventMetaSchema = z.object({
 export const factoryEventSchema = z.object({
   type: z.string(),
   meta: eventMetaSchema.optional(),
-  data: z.unknown(),
+  // Eve's terminal session.completed event intentionally has no data payload.
+  data: z.unknown().optional(),
 });
 
 export type FactoryEvent = z.infer<typeof factoryEventSchema>;

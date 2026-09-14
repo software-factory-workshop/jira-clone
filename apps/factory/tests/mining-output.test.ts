@@ -101,6 +101,7 @@ test("recoverable tool errors do not become terminal investigation failures", ()
   assert.equal(terminalMiningFailure(input), false);
   assert.equal(terminalMiningFailure({ ...input, status: "idle" }), false, "a disconnected stream with a historical step failure remains recoverable");
   assert.equal(terminalMiningFailure({ ...input, status: "idle", events: [...input.events, { type: "turn.failed" }] }), true);
+  assert.equal(terminalMiningFailure({ ...input, status: "idle", events: [{ type: "session.completed" }] }), true);
   assert.equal(terminalMiningFailure({ ...input, status: "idle", events: [{ type: "turn.completed" }], hasReport: true }), false, "recorded findings supersede earlier tool failures");
   assert.equal(terminalMiningFailure({ ...input, status: "idle", events: [{ type: "turn.cancelled" }] }), false);
 });
