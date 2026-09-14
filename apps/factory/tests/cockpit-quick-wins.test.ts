@@ -13,6 +13,7 @@ async function source(path: string) {
 test("cockpit quick wins keep delivery evidence and operator actions visible", async () => {
   const delivery = await source("apps/factory/app/components/DeliveryLoop.vue");
   const history = await source("apps/factory/app/components/WorkHistory.vue");
+  const newDraft = await source("apps/factory/app/components/NewDraftEditor.vue");
   const run = await source("apps/factory/app/components/WorkRun.vue");
   const app = await source("apps/factory/app/app.vue");
   const config = await source("apps/factory/nuxt.config.ts");
@@ -23,6 +24,7 @@ test("cockpit quick wins keep delivery evidence and operator actions visible", a
   assert.match(delivery, /entry\.reason/);
   assert.match(delivery, /entry\.receiptId/);
   assert.match(delivery, /Review evidence/);
+  assert.match(delivery, /DeliveryStatusSummary/);
   assert.match(delivery, /Limitations/);
   assert.match(delivery, /repositoryChecksPassed/);
   assert.match(delivery, /parentPrNumber/);
@@ -36,6 +38,12 @@ test("cockpit quick wins keep delivery evidence and operator actions visible", a
   assert.match(history, />Resume</);
   assert.match(history, />Revise</);
   assert.match(history, />Open</);
+  assert.match(history, /refreshes automatically/);
+
+  assert.match(newDraft, /title="Start with an idea"/);
+  assert.match(newDraft, /origin: origin\.value/);
+  assert.match(newDraft, /task mining is optional/);
+  assert.match(newDraft, /Retry shared drafts/);
 
   assert.match(run, /eventToolId/);
   assert.match(run, /Recent event tail/);

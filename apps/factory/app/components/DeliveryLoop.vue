@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { deliveryFlow } from "../utils/observability-flow";
-import { describeDeliveryPhase, formatDeliveryUpdatedAt } from "../utils/delivery-summary";
+import { describeDeliveryPhase, formatDeliveryUpdatedAt, summarizeDeliveryStatus } from "../utils/delivery-summary";
+import { cockpitActionMessage } from "../utils/cockpit-errors";
 import { MIN_WORK_REQUEST_LENGTH } from "../utils/work-station";
 import { copyText, shortIdentifier } from "../utils/technical-details";
 import { formatModelUsage } from "../utils/model-usage.ts";
@@ -93,6 +94,7 @@ const flowModel = computed(() => deliveryFlow({
 }));
 const phaseInfo = computed(() => run.value ? describeDeliveryPhase(run.value.phase) : { label: "Workflow blueprint", color: "neutral" as const });
 const phaseDetail = computed(() => pendingOwnerQuestion.value?.question || run.value?.error || run.value?.mergeDecision?.reason || run.value?.review?.summary || "The durable workflow is observing the next station.");
+const statusSummary = computed(() => run.value ? summarizeDeliveryStatus(run.value) : undefined);
 const updatedLabel = computed(() => formatDeliveryUpdatedAt(run.value?.updatedAt));
 const usageLabel = computed(() => formatModelUsage(run.value?.usage));
 const reviewFindings = computed(() => run.value?.review?.findings ?? []);
@@ -164,8 +166,8 @@ async function start() {
     await remember(run.value);
     operationId = undefined;
     schedule();
-  } catch {
-    error.value = "Could not confirm the loop start. Retry uses the same operation ID.";
+  } catch (cause) {
+    error.value = cockpitActionMessage(cause, "Could not confirm the loop start. Retry uses the same operation ID.");
   } finally {
     working.value = false;
   }
@@ -177,8 +179,8 @@ async function refresh() {
   try {
     run.value = await $fetch<Delivery>(`/factory/delivery/${encodeURIComponent(run.value.id)}`, { retry: 0 });
     error.value = "";
-  } catch {
-    error.value = "Could not refresh this delivery. Reconnect to the same run.";
+  } catch (cause) {
+    error.value = cockpitActionMessage(cause, "Could not refresh this delivery. Reconnect to the same run.");
   } finally {
     working.value = false;
     schedule();
@@ -200,8 +202,8 @@ async function submitOwnerAnswer(value = ownerAnswer.value) {
     });
     ownerAnswer.value = "";
     schedule();
-  } catch {
-    error.value = "Could not send the answer. The worker is still waiting for you.";
+  } catch (cause) {
+    error.value = cockpitActionMessage(cause, "Could not send the answer. The worker is still waiting for you.");
   } finally {
     answeringOwner.value = false;
   }
@@ -213,8 +215,8 @@ async function reconcile() {
   try {
     reconciliation.value = await $fetch<ReconciliationResult>(`/factory/delivery/${encodeURIComponent(run.value.id)}/reconcile`, { retry: 0 });
     error.value = "";
-  } catch {
-    error.value = "Could not verify GitHub merge evidence. No delivery state was changed.";
+  } catch (cause) {
+    error.value = cockpitActionMessage(cause, "Could not verify GitHub merge evidence. No delivery state was changed.");
   } finally {
     reconciling.value = false;
   }
@@ -228,8 +230,8 @@ async function resume() {
     operationId = undefined;
     error.value = "";
     schedule();
-  } catch {
-    error.value = "Could not resume this delivery. The existing operation is retained.";
+  } catch (cause) {
+    error.value = cockpitActionMessage(cause, "Could not resume this delivery. The existing operation is retained.");
   } finally {
     working.value = false;
   }
@@ -246,8 +248,8 @@ async function cancel() {
   clearTimeout(timer);
   try {
     run.value = await $fetch<Delivery>(`/factory/delivery/${encodeURIComponent(run.value.id)}/cancel`, { method: "POST", retry: 0 });
-  } catch {
-    error.value = "Cancellation is unconfirmed. Reconnect to check the same run.";
+  } catch (cause) {
+    error.value = cockpitActionMessage(cause, "Cancellation is unconfirmed. Reconnect to check the same run.");
   } finally {
     stopping.value = false;
   }
@@ -263,8 +265,8 @@ async function revise() {
     revision.value = "";
     error.value = "";
     schedule();
-  } catch {
-    error.value = "Could not confirm the revision. Your request is retained.";
+  } catch (cause) {
+    error.value = cockpitActionMessage(cause, "Could not confirm the revision. Your request is retained.");
   } finally {
     working.value = false;
   }
@@ -290,8 +292,8 @@ watch(() => route.query.delivery, async (id) => {
   try {
     run.value = await $fetch<Delivery>(`/factory/delivery/${encodeURIComponent(id)}`);
     schedule();
-  } catch {
-    error.value = "Could not load this delivery. Keep its URL to retry.";
+  } catch (cause) {
+    error.value = cockpitActionMessage(cause, "Could not load this delivery. Keep its URL to retry.");
   }
 }, { immediate: true });
 
@@ -322,6 +324,7 @@ onBeforeUnmount(() => {
       <p class="delivery-brief-label">Agent brief</p>
       <p class="delivery-brief-text">{{ run.request.brief }}</p>
     </div>
+    <DeliveryStatusSummary v-if="statusSummary" :summary="statusSummary" />
 
     <ClientOnly>
       <CockpitFlow

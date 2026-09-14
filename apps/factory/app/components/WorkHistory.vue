@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref } from "vue";
+import { computed, onMounted, ref } from "vue";
 import type { CockpitRecord } from "../../shared/cockpit";
 import { attentionPhases, summarizeDelivery, type DeliverySummary } from "../utils/delivery-summary";
 import { cockpitFailureMessage } from "../utils/cockpit-errors";
@@ -160,8 +160,8 @@ async function resumeDelivery(run: HistoryRun): Promise<void> {
   try {
     await $fetch(`/factory/delivery/${encodeURIComponent(run.id)}/resume`, { method: "POST", body: { operationId: crypto.randomUUID() }, retry: 0 });
     await refresh();
-  } catch {
-    error.value = "Could not resume this delivery. Open it to inspect the saved recovery state.";
+  } catch (cause) {
+    error.value = cockpitFailureMessage(cause, "This delivery");
   } finally {
     actionLoading.value = undefined;
   }
@@ -184,17 +184,18 @@ function link(run: HistoryRun) {
 function isSelected(run: HistoryRun): boolean {
   return run.value.station === "loop" ? route.query.delivery === run.id : route.query.run === run.id;
 }
-let refreshTimer: ReturnType<typeof setInterval> | undefined;
-let disposed = false;
-onMounted(() => {
-  void refresh().then(() => {
-    if (!disposed) refreshTimer = setInterval(() => void refresh(), 10000);
-  });
+cockpit.watchCollection("runs", {
+  intervalMs: 10_000,
+  onRefresh() {
+    historyLoaded.value = true;
+    error.value = "";
+    void loadDeliveries().then(() => { lastRefreshed.value = new Date(); });
+  },
+  onError(cause) {
+    error.value = cockpitFailureMessage(cause, "Shared work history");
+  },
 });
-onBeforeUnmount(() => {
-  disposed = true;
-  clearInterval(refreshTimer);
-});
+onMounted(() => void refresh());
 </script>
 <template>
   <section class="panel history-panel">

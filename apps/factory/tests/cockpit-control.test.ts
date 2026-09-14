@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { emptyDocument,changeRecord,importRecords,CockpitConflict,draftInput,workOrderAdmissionSchema } from '../shared/cockpit.ts';
+import { emptyDocument,changeRecord,importRecords,CockpitConflict,deliveryEntryPoint,draftInput,workOrderAdmissionSchema } from '../shared/cockpit.ts';
 const draft={title:'Issue priority',request:'Build a fake save API'};
 const admissions=[
  {kind:'work_order' as const,outcome:'Build the bounded issue flow.',scope:['apps/jira/server/api/issues.get.ts'],evidence:['The route returns the current issue list.'],verification:['pnpm --filter @jira-clone/jira test']},
@@ -15,6 +15,13 @@ test('draft admission is a strict three-way host decision and survives shared st
  }
  assert.throws(()=>workOrderAdmissionSchema.parse({kind:'work_order',outcome:'x',scope:['x'],evidence:['x'],verification:['x'],extra:'no'}));
  assert.throws(()=>workOrderAdmissionSchema.parse({kind:'work_order',outcome:'x',scope:[],evidence:['x'],verification:['x']}));
+});
+test('delivery entry points distinguish explicit ideas from admitted task-mining work',()=>{
+ assert.equal(deliveryEntryPoint({...draft,origin:'operator'}),'operator');
+ assert.equal(deliveryEntryPoint({...draft,origin:'task-mining',admission:admissions[0]}),'task-mining');
+ assert.equal(deliveryEntryPoint({...draft,origin:'task-mining'}),undefined);
+ assert.equal(deliveryEntryPoint({...draft,origin:'operator',admission:admissions[1]}),undefined);
+ assert.equal(deliveryEntryPoint({...draft,origin:'operator',admission:admissions[0]}),'task-mining');
 });
 test('stale writers cannot replace another user edit',()=>{
  const doc=emptyDocument();changeRecord(doc,'drafts','one',draft,0);

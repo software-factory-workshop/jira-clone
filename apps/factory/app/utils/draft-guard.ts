@@ -1,5 +1,5 @@
 import type { Draft } from "@jira-clone/context";
-import type { WorkOrderAdmission } from "../../shared/cockpit";
+import type { DraftOrigin, WorkOrderAdmission } from "../../shared/cockpit";
 
 export interface EditorText {
   title: string;
@@ -30,12 +30,13 @@ export interface ProposalPayload {
   body: string;
   id?: string;
   version?: number;
+  origin?: DraftOrigin;
   admission?: WorkOrderAdmission;
 }
 
 export type DraftDestination =
   | { kind: "new" }
-  | { kind: "draft"; draft: Pick<Draft, "id" | "title" | "request"> & { admission?: WorkOrderAdmission } }
+  | { kind: "draft"; draft: Pick<Draft, "id" | "title" | "request"> & { origin?: DraftOrigin; admission?: WorkOrderAdmission } }
   | { kind: "proposal"; value: ProposalPayload };
 
 export function destinationLabel(destination: DraftDestination): string {

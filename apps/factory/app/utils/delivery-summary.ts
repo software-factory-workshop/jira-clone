@@ -19,6 +19,7 @@ const deliverySnapshotSchema = z.object({
     url: z.string(),
     targetBranch: z.string().optional(),
   }).passthrough().optional(),
+  history: z.array(z.object({ to: z.string().optional(), phase: z.string().optional() }).passthrough()).optional(),
 }).passthrough();
 export type DeliverySnapshot = z.infer<typeof deliverySnapshotSchema>;
 
@@ -37,6 +38,14 @@ export interface DeliverySummary {
   failureKind?: string;
   failureRetryable?: boolean;
   usageLabel?: string;
+}
+
+export interface DeliveryStatusSummary {
+  phaseLabel: string;
+  phaseColor: DeliveryBadgeColor;
+  latestResult: string;
+  blocker?: string;
+  nextAction: string;
 }
 
 const phaseLabels: Record<string, { label: string; color: DeliveryBadgeColor }> = {
@@ -96,6 +105,85 @@ export function deriveAttentionReason(value: {
 
 export function describeDeliveryPhase(phase: string): { label: string; color: DeliveryBadgeColor } {
   return phaseLabels[phase] ?? { label: phase, color: "neutral" };
+}
+
+type DeliveryStatusInput = {
+  phase: string;
+  error?: string;
+  failure?: { retryable?: boolean };
+  publication?: { number?: number };
+  review?: { verdict?: string; summary?: string; limitations?: string[] };
+  mergeDecision?: { status?: string; reason?: string };
+  questions?: Array<{ question: string; answer?: string }>;
+  history?: Array<{ to?: string; phase?: string }>;
+};
+
+function latestOwnerQuestion(value: DeliveryStatusInput): string | undefined {
+  return [...(value.questions ?? [])].reverse().find(question => !question.answer)?.question;
+}
+
+function latestResultFor(value: DeliveryStatusInput, phaseLabel: string): string {
+  if (value.review?.summary) {
+    const verdict = value.review.verdict ? ` · ${value.review.verdict}` : "";
+    return `Independent review${verdict}: ${value.review.summary}`;
+  }
+  if (value.publication?.number) return `Draft PR #${value.publication.number} is published for review.`;
+  if (value.mergeDecision?.status) return `Merge decision: ${value.mergeDecision.status}.`;
+  const last = value.history?.at(-1);
+  if (last) return `Latest handoff: ${describeDeliveryPhase(last.to || last.phase || value.phase).label}.`;
+  return `Delivery is ${phaseLabel.toLowerCase()}.`;
+}
+
+function blockerFor(value: DeliveryStatusInput, question?: string): string | undefined {
+  if (question) return question;
+  if (value.error) return value.error;
+  if (value.phase === "blocked") return "The delivery is blocked and needs a recovery decision.";
+  if (value.phase === "human_review") {
+    return value.mergeDecision?.reason || (value.review?.limitations?.length
+      ? "The review has limitations, so the host keeps merge gated."
+      : "A human decision is required before this delivery can merge.");
+  }
+  if (value.phase === "needs_revision") return "The current PR needs a response from its existing branch owner.";
+  return undefined;
+}
+
+function nextActionFor(value: DeliveryStatusInput, question?: string): string {
+  switch (value.phase) {
+    case "awaiting_input":
+      return question ? "Answer the worker's question to continue." : "Check the worker run for the pending owner question.";
+    case "blocked":
+      return value.failure?.retryable === false ? "Inspect the saved run and decide how to recover it." : "Retry the blocked phase, then inspect the same run if it remains blocked.";
+    case "human_review":
+      return value.publication?.number ? "Review the exact PR, then merge it or request a revision." : "Inspect the station run, then resume the owner or start a new attempt.";
+    case "needs_revision":
+      return "Add guidance below and request the next owner revision.";
+    case "ready":
+      return "Check the exact PR and complete the host merge decision.";
+    case "merged":
+      return "No action needed; this delivery is complete.";
+    case "cancelled":
+      return "Start a new delivery if this work is still needed.";
+    case "merging":
+      return "Wait for the host merge check to settle.";
+    default:
+      return "Follow the next worker or reviewer handoff.";
+  }
+}
+
+export function summarizeDeliveryStatus(value: unknown): DeliveryStatusSummary | undefined {
+  const parsed = deliverySnapshotSchema.safeParse(value);
+  if (!parsed.success) return undefined;
+  const snapshot = parsed.data as DeliveryStatusInput;
+  const phase = describeDeliveryPhase(snapshot.phase);
+  const question = latestOwnerQuestion(snapshot);
+  const blocker = blockerFor(snapshot, question);
+  return {
+    phaseLabel: phase.label,
+    phaseColor: phase.color,
+    latestResult: latestResultFor(snapshot, phase.label),
+    ...(blocker ? { blocker } : {}),
+    nextAction: nextActionFor(snapshot, question),
+  };
 }
 
 export function formatDeliveryUpdatedAt(value: unknown, now: Date = new Date()): string {

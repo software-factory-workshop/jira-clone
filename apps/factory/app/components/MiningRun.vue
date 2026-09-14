@@ -2,6 +2,7 @@
 import { useEveAgent } from "eve/vue";
 import { authorizationLink, miningProgress, parseMiningOutput, terminalMiningFailure, type MiningProposal } from "../utils/mining-output";
 import { renderReport } from "../utils/report";
+import { cockpitActionMessage } from "../utils/cockpit-errors";
 import { copyText, shortIdentifier } from "../utils/technical-details";
 import { factoryRepository, vercelTeamName } from "../../runtime/lib/factory-config.ts";
 import type { WorkOrderAdmission } from "../../shared/cockpit";
@@ -51,10 +52,10 @@ async function start() {
   if (busy.value || status.value === "resuming" || session.value) return;
   actionError.value = "";
   try { await send(focus.value.trim() || "Find the next useful task for our factory."); }
-  catch { actionError.value = "Could not start the investigation. Reconnect or start a new one."; }
+  catch (cause) { actionError.value = cockpitActionMessage(cause, "Could not start the investigation. Reconnect or start a new one."); }
 }
 async function stop() { try { await cancel(); } catch { actionError.value = "Cancellation could not be confirmed. Reconnect to check the run."; } }
-async function reconnect() { try { await resume(); actionError.value = ""; } catch { actionError.value = "Could not reconnect to this investigation."; } }
+async function reconnect() { try { await resume(); actionError.value = ""; } catch (cause) { actionError.value = cockpitActionMessage(cause, "Could not reconnect to this investigation. The session link remains available to retry."); } }
 function proposalKey(proposal: MiningProposal, index: number) {
   return `proposal-${proposal.id || index}`;
 }
@@ -92,8 +93,8 @@ async function startDelivery(proposal: MiningProposal, index: number) {
     if (!response.id) throw new Error("Durable delivery was not identified");
     await router.replace({ path: "/work/run", query: { delivery: response.id } });
     pendingDelivery = undefined;
-  } catch {
-    actionError.value = "Could not start the durable delivery. Retry; the same request will be reused.";
+  } catch (cause) {
+    actionError.value = cockpitActionMessage(cause, "Could not start the durable delivery. Retry; the same request will be reused.");
   } finally {
     startingDelivery.value = undefined;
   }
@@ -103,7 +104,7 @@ async function activate(proposalId?:string, key = "findings") {
  activatingKey.value = key;
  actionError.value = "";
  try {const item=await activateDraft(proposalId);emit("draft",{id:item.id,version:item.version,title:item.value.title,body:item.value.request,admission:item.value.admission});}
- catch {actionError.value="Could not activate this proposal. Retry; no work agent was started.";}
+ catch (cause) {actionError.value=cockpitActionMessage(cause,"Could not activate this proposal. Retry; no work agent was started.");}
  finally { activatingKey.value = undefined; }
 }
 async function draft() {await activate(undefined, "findings");}
@@ -203,13 +204,24 @@ async function copySession(sessionId: string) {
       <p v-else-if="cancelled" class="report">Investigation stopped before findings were ready.</p>
       <p v-else-if="disconnected" class="report">The live connection ended before a final result arrived. The investigation may still be running. Reconnect to check its state.</p>
       <p v-else-if="!busy && summary" class="report">{{ summary }}</p>
-      <div class="mining-actions"><UButton v-if="busy || awaitingAuthorization" variant="outline" color="neutral" @click="stop">Stop investigation</UButton><UButton v-if="error || actionError || disconnected" variant="outline" @click="reconnect">Reconnect</UButton><UButton v-if="!busy && !awaitingAuthorization && !output?.report && status !== 'resuming'" @click="emit('new')">New investigation</UButton></div>
+      <div class="mining-actions"><UButton v-if="busy || awaitingAuthorization" variant="outline" color="neutral" @click="stop">Stop investigation</UButton><UButton v-if="actionError" variant="outline" @click="reconnect">Reconnect</UButton><UButton v-if="!busy && !awaitingAuthorization && !output?.report && status !== 'resuming'" @click="emit('new')">New investigation</UButton></div>
       <fieldset v-for="request in pendingRequests" :key="request.requestId"><legend>{{ request.prompt }}</legend><UButton v-for="option in request.options || []" :key="option.id" :disabled="status === 'resuming'" @click="respond([{ requestId: request.requestId, optionId: option.id }])">{{ option.label }}</UButton></fieldset>
       <p class="small muted session-id"><a :href="`?investigation=${currentSessionId}`" :aria-label="`Open investigation session ${currentSessionId}`">Open session <code>{{ shortIdentifier(currentSessionId) }}</code></a></p>
       <details class="session-details"><summary>Session identity</summary><p><code>{{ currentSessionId }}</code><UButton size="xs" variant="ghost" @click="copySession(currentSessionId)">{{ copiedSession ? "Copied" : "Copy" }}</UButton></p></details>
     </div>
-    <UAlert v-if="terminalFailure" color="error" variant="soft" title="Investigation incomplete" :description="output?.error || 'The run ended without recorded findings. Start a new investigation to try again.'" />
-    <UAlert v-else-if="error && !output?.report" color="warning" variant="soft" title="Connection interrupted" description="Reconnect to check the investigation. A connection error does not establish that the run stopped." />
+    <UAlert v-if="terminalFailure" color="error" variant="soft" title="Investigation incomplete" :description="output?.error || 'The run ended without recorded findings. No work agent was started.'">
+      <template #actions>
+        <UButton size="xs" variant="outline" @click="emit('new')">Start new investigation</UButton>
+        <UButton size="xs" color="neutral" variant="ghost" to="/work/new">Use New draft</UButton>
+      </template>
+    </UAlert>
+    <UAlert v-else-if="(error || disconnected) && !output?.report" color="warning" variant="soft" :title="disconnected ? 'Investigation connection interrupted' : 'Investigation needs to reconnect'" :description="disconnected ? 'The saved session may still be running. Reconnect to recover it. You can also start a new investigation or use New draft; no work agent has started.' : 'Reconnect to restore this session. The investigation and any findings remain separate from delivery.'">
+      <template #actions>
+        <UButton size="xs" variant="outline" @click="reconnect">Reconnect</UButton>
+        <UButton size="xs" color="neutral" variant="ghost" @click="emit('new')">Start new investigation</UButton>
+        <UButton size="xs" color="neutral" variant="ghost" to="/work/new">Use New draft</UButton>
+      </template>
+    </UAlert>
     <UAlert v-if="actionError" color="warning" variant="soft" title="Action not completed" :description="actionError" />
   </div>
 </template>

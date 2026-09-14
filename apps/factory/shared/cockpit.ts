@@ -8,7 +8,19 @@ export const workOrderAdmissionSchema = z.discriminatedUnion('kind', [
  z.object({kind:z.literal('unsupported'),reason:admissionText,evidence:admissionList}).strict(),
 ]);
 export type WorkOrderAdmission = z.infer<typeof workOrderAdmissionSchema>;
-export const draftInput = z.object({ title: z.string().trim().min(1).max(200), request: z.string().trim().min(1).max(40000), admission: workOrderAdmissionSchema.optional() }).strict();
+export const draftOriginSchema = z.enum(['operator', 'task-mining']);
+export type DraftOrigin = z.infer<typeof draftOriginSchema>;
+export const draftInput = z.object({ title: z.string().trim().min(1).max(200), request: z.string().trim().min(1).max(40000), origin: draftOriginSchema.optional(), admission: workOrderAdmissionSchema.optional() }).strict();
+
+// Delivery may start from either an evidence-backed task-mining work order or
+// an explicit operator idea. An unmarked draft is never treated as executable,
+// which keeps legacy and malformed records from silently bypassing admission.
+export function deliveryEntryPoint(value: Record<string, unknown>): 'task-mining' | 'operator' | undefined {
+ const admission = workOrderAdmissionSchema.safeParse(value.admission);
+ if (admission.success && admission.data.kind === 'work_order') return 'task-mining';
+ if (value.origin === 'operator' && value.admission === undefined) return 'operator';
+ return undefined;
+}
 export const feedbackInput = z.object({ verdict: z.enum(['useful','not-useful']), reason: z.string().max(500) }).strict();
 export const runInput = z.object({ label: z.string().max(200), station: z.enum(['mining','worker','reviewer','loop']), operationId: z.string().max(240).optional(), execution: z.enum(['owner','dispatcher','direct']).optional(), rootAgent:z.enum(['task-miner','worker','reviewer']).optional(), deliveryId: z.string().optional() }).strict();
 export const recordSchema = z.object({ id: idSchema, version: z.number().int().positive(), updatedAt: z.string(), createdAt: z.string(), value: z.record(z.string(), z.unknown()) });
