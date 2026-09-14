@@ -19,7 +19,14 @@ import {
 } from "../server/utils/jiraRest.ts";
 import {
   boardSearchUrl,
+  boardPageForStartAt,
+  boardStartAtForPage,
+  boardTotalPages,
+  boardVisibleRange,
+  clampBoardStartAt,
   fetchBoardIssues,
+  hasNextBoardPage,
+  hasPrevBoardPage,
   restCommentToDemoComment,
   restCommentsToDemoComments,
   restCommentsUrl,
@@ -220,6 +227,119 @@ test("comment read stays honest for unknown keys", async () => {
   await assert.rejects(
     fetchIssueComments("ADEO-9999", liveCommentsFetch([])),
     /Unknown issue key: ADEO-9999\./,
+  );
+  resetIssues();
+});
+
+/**
+ * Bounded board paging math: fixed startAt/maxResults=50 windows over the
+ * reported store total. Out-of-range offsets surface an empty range with
+ * the intact total instead of fixture fallback.
+ */
+test("board paging math stays inside bounded startAt/maxResults windows", () => {
+  assert.equal(boardStartAtForPage(1), REST_BOARD_START_AT);
+  assert.equal(boardStartAtForPage(2), REST_BOARD_PAGE_SIZE);
+  assert.equal(boardStartAtForPage(0), REST_BOARD_START_AT);
+  assert.equal(boardPageForStartAt(0), 1);
+  assert.equal(boardPageForStartAt(REST_BOARD_PAGE_SIZE), 2);
+  assert.equal(boardTotalPages(0), 1);
+  assert.equal(boardTotalPages(REST_BOARD_PAGE_SIZE), 1);
+  assert.equal(boardTotalPages(REST_BOARD_PAGE_SIZE + 1), 2);
+  assert.equal(hasPrevBoardPage(REST_BOARD_START_AT), false);
+  assert.equal(hasPrevBoardPage(REST_BOARD_PAGE_SIZE), true);
+  assert.equal(
+    hasNextBoardPage(
+      REST_BOARD_START_AT,
+      REST_BOARD_PAGE_SIZE,
+      REST_BOARD_PAGE_SIZE + 1,
+    ),
+    true,
+  );
+  assert.equal(
+    hasNextBoardPage(
+      REST_BOARD_PAGE_SIZE,
+      REST_BOARD_PAGE_SIZE,
+      REST_BOARD_PAGE_SIZE + 1,
+    ),
+    false,
+  );
+  assert.deepEqual(
+    boardVisibleRange(0, REST_BOARD_PAGE_SIZE, 4, 4),
+    { start: 1, end: 4 },
+  );
+  assert.deepEqual(
+    boardVisibleRange(REST_BOARD_PAGE_SIZE, REST_BOARD_PAGE_SIZE, 59, 9),
+    { start: 51, end: 59 },
+  );
+  assert.deepEqual(
+    boardVisibleRange(500, REST_BOARD_PAGE_SIZE, 59, 0),
+    { start: 0, end: 0 },
+  );
+  assert.equal(
+    clampBoardStartAt(500, REST_BOARD_PAGE_SIZE + 1),
+    REST_BOARD_PAGE_SIZE,
+  );
+  assert.equal(clampBoardStartAt(-5, 10), REST_BOARD_START_AT);
+  assert.equal(clampBoardStartAt(0, 0), REST_BOARD_START_AT);
+});
+
+/** Second bounded page reads keys the single-page board used to truncate. */
+test("board list pages past 50 through bounded startAt windows", async () => {
+  resetIssues();
+  const created: string[] = [];
+  try {
+    for (let bulk = 0; bulk < 55; bulk += 1) {
+      const made = createIssue({ title: `Bulk paging issue ${bulk}` });
+      assert.equal(made.ok, true);
+      if (made.ok) created.push(made.issue.key);
+    }
+    const calls: string[] = [];
+    const first = await fetchBoardIssues(liveSearchFetch(calls));
+    assert.equal(first.total, getIssues().length);
+    assert.ok(first.total > REST_BOARD_PAGE_SIZE);
+    assert.equal(first.issues.length, REST_BOARD_PAGE_SIZE);
+    const second = await fetchBoardIssues(
+      liveSearchFetch(calls),
+      REST_BOARD_PAGE_SIZE,
+      REST_BOARD_PAGE_SIZE,
+    );
+    assert.equal(second.total, first.total);
+    assert.deepEqual(calls, [
+      boardSearchUrl(),
+      boardSearchUrl(REST_BOARD_PAGE_SIZE, REST_BOARD_PAGE_SIZE),
+    ]);
+    assert.deepEqual(
+      second.issues.map((issue) => issue.key),
+      getIssues()
+        .slice(REST_BOARD_PAGE_SIZE, REST_BOARD_PAGE_SIZE * 2)
+        .map((issue) => issue.key),
+    );
+    // No overlap and no fixture fallback: every key beyond 50 is a stored key.
+    const firstKeys = new Set(first.issues.map((issue) => issue.key));
+    for (const issue of second.issues) {
+      assert.equal(firstKeys.has(issue.key), false);
+      assert.ok(getIssue(issue.key) !== undefined);
+    }
+  } finally {
+    resetIssues();
+  }
+});
+
+/** An out-of-range page fails honestly with an empty window, not fixtures. */
+test("board list stays honest on an out-of-range startAt page", async () => {
+  resetIssues();
+  const calls: string[] = [];
+  const result = await fetchBoardIssues(
+    liveSearchFetch(calls),
+    10_000,
+    REST_BOARD_PAGE_SIZE,
+  );
+  assert.deepEqual(calls, [boardSearchUrl(10_000, REST_BOARD_PAGE_SIZE)]);
+  assert.equal(result.total, getIssues().length);
+  assert.deepEqual(result.issues, []);
+  assert.deepEqual(
+    boardVisibleRange(10_000, REST_BOARD_PAGE_SIZE, result.total, 0),
+    { start: 0, end: 0 },
   );
   resetIssues();
 });

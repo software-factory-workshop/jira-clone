@@ -147,6 +147,16 @@ nav button.active {
   font-size: 12px;
   color: #7a8b93;
 }
+.board-paging {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  margin: -8px 0 20px;
+}
+.board-paging-label {
+  font-size: 12px;
+  color: #7a8b93;
+}
 .table-wrap {
   overflow: auto;
   border: 1px solid #e0e6e9;
