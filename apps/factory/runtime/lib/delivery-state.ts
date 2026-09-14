@@ -35,7 +35,6 @@ export type Phase = (typeof phaseValues)[number];
 export const workStateValues = [
   'queued',
   'running',
-  'stalled',
   'needs_human',
   'succeeded',
   'failed',
