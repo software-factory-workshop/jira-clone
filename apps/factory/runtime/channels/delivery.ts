@@ -6,8 +6,8 @@ import { defineChannel,GET,POST,type RouteHandlerArgs } from 'eve/channels';
 import { routeAuth } from 'eve/channels/auth';
 import { z } from 'zod';
 import { getToken } from '@vercel/connect';
-import { updateCockpit } from '../lib/cockpit-store';
-import { changeRecord } from '../../shared/cockpit';
+import { readCockpit,updateCockpit } from '../lib/cockpit-store';
+import { changeRecord,workOrderAdmissionSchema } from '../../shared/cockpit';
 import { factoryAuth } from '../lib/route-auth';
 import { stationOperation } from './stations';
 import { deliveryRequest,newDelivery,operationFor,transition,terminal,applyReview,referenceState,claimAdvance,commitAdvance,requestResume,beginRevision,admissionRecoveryAction,recordAdmissionFailure,retryAdmission,type Delivery } from '../lib/delivery-state';
@@ -130,7 +130,13 @@ async function advance(request:Request,ctx:RouteHandlerArgs){
 export default defineChannel({routes:[
  POST('/factory/delivery',protectedRoute(async(request)=>{
   const auth=await routeAuth(request,factoryAuth);if(auth instanceof Response)return auth;
-  const input=deliveryRequest.parse(await request.json());const fresh=newDelivery(auth.principalId,input);
+  const input=deliveryRequest.parse(await request.json());
+  if(!input.draftId)throw new WorkError('invalid_request','Start delivery from a persisted task-mining draft admitted as a work order.');
+  const draft=(await readCockpit()).document.drafts[input.draftId];
+  const admission=workOrderAdmissionSchema.safeParse(draft?.value.admission);
+  if(!draft||!admission.success||admission.data.kind!=='work_order')throw new WorkError('invalid_request','Only a task-mining draft admitted as a work order can start delivery.');
+  if(draft.value.title!==input.title||draft.value.request!==input.brief)throw new WorkError('invalid_request','Delivery content must match the admitted draft.');
+  const fresh=newDelivery(auth.principalId,input);
   const state=await updateDelivery(fresh.id,current=>{if(current&&JSON.stringify(current.request)!==JSON.stringify(input))throw new Error('Operation ID reused with a different task');if(current)retryAdmission(current);return{state:current||fresh,result:current||fresh};});await updateCockpit(doc=>doc.runs[state.id]||changeRecord(doc,'runs',state.id,{label:state.request.title,station:'loop',operationId:state.request.operationId},0));
   try{await ensureDeliveryDriver(state.id,request);}catch(error){
    try{const blocked=await updateDelivery(state.id,current=>{if(!current)throw new Error('Delivery disappeared during outer workflow admission.');if(current.phase==='worker_starting')recordAdmissionFailure(current,error);return{state:current,result:current};});return admissionFailureResponse(blocked);}catch{ return Response.json({deliveryId:state.id,phase:state.phase,state:state.state,error:'Outer workflow admission failed and recovery could not be confirmed. Retry the original POST with the same operationId, then inspect this delivery ID.',recovery:admissionRecoveryAction(state.id,input)},{status:503});}

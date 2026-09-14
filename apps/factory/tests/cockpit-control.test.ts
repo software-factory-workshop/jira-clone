@@ -1,7 +1,21 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { emptyDocument,changeRecord,importRecords,CockpitConflict } from '../shared/cockpit.ts';
+import { emptyDocument,changeRecord,importRecords,CockpitConflict,draftInput,workOrderAdmissionSchema } from '../shared/cockpit.ts';
 const draft={title:'Issue priority',request:'Build a fake save API'};
+const admissions=[
+ {kind:'work_order' as const,outcome:'Build the bounded issue flow.',scope:['apps/jira/server/api/issues.get.ts'],evidence:['The route returns the current issue list.'],verification:['pnpm --filter @jira-clone/jira test']},
+ {kind:'clarification' as const,questions:['Which transition should be supported first?'],blockingDecision:'The owner must choose the first transition.'},
+ {kind:'unsupported' as const,reason:'The required provider evidence is unavailable.',evidence:['The provider read was denied.']},
+];
+test('draft admission is a strict three-way host decision and survives shared storage',()=>{
+ for(const admission of admissions){
+  assert.deepEqual(workOrderAdmissionSchema.parse(admission),admission);
+  const doc=emptyDocument();changeRecord(doc,'drafts',admission.kind,{...draft,admission},0);
+  assert.deepEqual(draftInput.parse(doc.drafts[admission.kind]!.value).admission,admission);
+ }
+ assert.throws(()=>workOrderAdmissionSchema.parse({kind:'work_order',outcome:'x',scope:['x'],evidence:['x'],verification:['x'],extra:'no'}));
+ assert.throws(()=>workOrderAdmissionSchema.parse({kind:'work_order',outcome:'x',scope:[],evidence:['x'],verification:['x']}));
+});
 test('stale writers cannot replace another user edit',()=>{
  const doc=emptyDocument();changeRecord(doc,'drafts','one',draft,0);
  changeRecord(doc,'drafts','one',{...draft,title:'Updated'},1);

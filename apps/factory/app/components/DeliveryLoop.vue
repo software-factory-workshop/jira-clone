@@ -41,10 +41,12 @@ interface ReconciliationResult { eligible: boolean; reason: string; commitSha?: 
 const props = withDefaults(defineProps<{
   title?: string;
   brief?: string;
+  draftId?: string;
   mode?: "compose" | "run";
 }>(), {
   title: "",
   brief: "",
+  draftId: "",
   mode: "compose",
 });
 const emit = defineEmits<{ started: [value: Delivery] }>();
@@ -89,7 +91,7 @@ const reviewFindings = computed(() => run.value?.review?.findings ?? []);
 const reviewLimitations = computed(() => run.value?.review?.limitations ?? []);
 const briefLength = computed(() => props.brief.trim().length);
 const briefReady = computed(() => briefLength.value >= MIN_WORK_REQUEST_LENGTH);
-const canCompose = computed(() => props.mode === "compose");
+const canCompose = computed(() => props.mode === "compose" && !!props.draftId);
 const visualReviewBinding = computed<VisualReviewBinding | undefined>(() => {
   const delivery = run.value;
   const review = delivery?.review;
@@ -148,7 +150,7 @@ async function start() {
   error.value = "";
   operationId ??= crypto.randomUUID();
   try {
-    run.value = await $fetch<Delivery>("/factory/delivery", { method: "POST", body: { operationId, title: props.title, brief: props.brief }, retry: 0 });
+    run.value = await $fetch<Delivery>("/factory/delivery", { method: "POST", body: { operationId, draftId: props.draftId, title: props.title, brief: props.brief }, retry: 0 });
     emit("started", run.value);
     await router.replace({ path: "/work/run", query: { delivery: run.value.id } });
     await remember(run.value);
@@ -368,7 +370,7 @@ onBeforeUnmount(() => {
     </section>
 
     <div class="delivery-actions">
-      <UButton v-if="mode === 'compose' && !run" :disabled="!title.trim() || !briefReady || working || stopping" :loading="working" icon="i-lucide-play" @click="start">Start durable delivery</UButton>
+      <UButton v-if="canCompose && !run" :disabled="!title.trim() || !briefReady || working || stopping" :loading="working" icon="i-lucide-play" @click="start">Start durable delivery</UButton>
       <UButton v-if="run?.publication" :to="run.publication.url" target="_blank" rel="noopener noreferrer" variant="outline" icon="i-lucide-git-pull-request">Open PR #{{ run.publication.number }}</UButton>
       <UButton v-if="run?.publication && reconcilable.has(run.phase)" variant="outline" :loading="reconciling" :disabled="working || reconciling" icon="i-lucide-shield-check" @click="reconcile">Check manual merge</UButton>
       <UButton v-if="run && (run.phase === 'blocked' || (run.phase === 'human_review' && !run.publication))" color="warning" variant="outline" :disabled="working" icon="i-lucide-rotate-ccw" @click="resume">Resume observation</UButton>
