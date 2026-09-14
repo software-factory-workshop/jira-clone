@@ -51,7 +51,8 @@ at [`apps/jira/server/db/neon-schema.sql`](apps/jira/server/db/neon-schema.sql).
 | `packages/project-context` | Shared stage definitions, references and labelled fixtures |
 | `factory` | Factory contract, policies and evidence |
 | `packages/fx-sandbox-experiment` | Developer fx experiment for context calibration in Vercel Sandbox |
-| `.agents/skills/adeo-nuxt-ui` | Versioned design-system instructions |
+| `.agents/skills` | Universal project skills, including ADEO UI and review guidance |
+| `apps/factory/agents/*/agent/skills` | Native Eve skills for task-miner, worker and reviewer |
 | `vendor` | Private ADEO v0.1.1 package artifact |
 
 The factory lives with the product so a change to its instructions, tools or checks can be reviewed against the code and the evidence that motivated it. A reusable factory engine can remain an external dependency; project policy and learning belong here.
