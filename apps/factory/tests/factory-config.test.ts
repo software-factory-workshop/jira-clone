@@ -41,7 +41,7 @@ test("factory delivery configuration keeps host bindings in one plain module", (
   assert.deepEqual(factoryModelIds, {
     taskMiner: "meta/muse-spark-1.3-contributor",
     worker: "meta/muse-spark-1.3-contributor",
-    reviewer: "meta/muse-spark-1.3-contributor",
+    reviewer: "google/gemini-3.8-flash",
   });
   assert.deepEqual(factoryPorts, { cockpit: 3000, jira: 3001, browserFactoryBase: 3100, browserJiraBase: 3101, taskMiner: 4274, worker: 4275, reviewer: 4276 });
   assert.equal(jiraTestCommand, "node --test tests/*.test.ts");
