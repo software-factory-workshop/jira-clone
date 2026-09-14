@@ -22,6 +22,7 @@ import {
   vercelProjects,
   vercelTeamId,
   vercelTeamName,
+  visualReviewPublicBlobTokenEnv,
 } from "../runtime/lib/factory-config.ts";
 
 test("factory delivery configuration keeps host bindings in one plain module", () => {
@@ -58,4 +59,5 @@ test("factory delivery configuration keeps host bindings in one plain module", (
     reviewArtifactsPrefix: "factory/review-artifacts/",
   });
   assert.equal(requiredCheckName, "check");
+  assert.equal(visualReviewPublicBlobTokenEnv, "VISUAL_REVIEW_READ_WRITE_TOKEN");
 });

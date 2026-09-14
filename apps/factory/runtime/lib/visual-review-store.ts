@@ -2,7 +2,7 @@ import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
 import { get, put } from "@vercel/blob";
 import type { BrowserFrame, BrowserObservation } from "./review-browser.ts";
 import type { VisualReviewApp, VisualReviewArtifact, VisualReviewFrame } from "./visual-review.ts";
-import { factoryBlobPaths, factoryPorts } from "./factory-config.ts";
+import { factoryBlobPaths, factoryPorts, visualReviewPublicBlobTokenEnv } from "./factory-config.ts";
 
 const MAX_IMAGE_BYTES = 4 * 1024 * 1024;
 const artifactIdPattern = /^[a-f0-9]{32}$/;
@@ -10,6 +10,10 @@ const phasePattern = /^(before|after)$/;
 
 interface StoredFrame {
   path: string;
+  // New reviews use the dedicated public Blob store so GitHub can fetch the
+  // image without an authenticated request to the protected Cockpit app.
+  // Keep the path for the private-store fallback and for legacy manifests.
+  url?: string;
   sha256: string;
   mediaType: VisualReviewFrame["mediaType"];
 }
@@ -61,6 +65,22 @@ function frameUrl(id: string, token: string, phase: "before" | "after") {
   return `${origin()}/${factoryBlobPaths.reviewArtifactsPrefix}${id}/${token}?phase=${phase}`;
 }
 
+function publicFrameToken() {
+  const token = process.env[visualReviewPublicBlobTokenEnv]?.trim();
+  return token || undefined;
+}
+
+function publicBlobUrl(value: string | undefined) {
+  if (!value) return undefined;
+  try {
+    const url = new URL(value);
+    if (url.protocol !== "https:" || !url.hostname.endsWith(".public.blob.vercel-storage.com")) return undefined;
+    return url.toString();
+  } catch {
+    return undefined;
+  }
+}
+
 async function readManifest(id: string): Promise<VisualArtifactManifest | undefined> {
   const response = await get(manifestPath(id), { access: "private", useCache: false, headers: { "accept-encoding": "identity" } });
   if (!response?.stream || response.statusCode !== 200) return undefined;
@@ -84,6 +104,7 @@ export async function storeVisualArtifact(input: {
   const token = randomBytes(32).toString("base64url");
   const stored: Partial<Record<"before" | "after", StoredFrame>> = {};
   const output: Partial<Record<"before" | "after", VisualReviewFrame>> = {};
+  const publicToken = publicFrameToken();
   for (const phase of ["before", "after"] as const) {
     const frame = input.frames[phase];
     if (!frame) continue;
@@ -94,9 +115,16 @@ export async function storeVisualArtifact(input: {
     if (frame.sourceSha && frame.sourceSha !== expectedSourceSha) throw new Error(`The ${phase} visual frame is bound to the wrong revision.`);
     const image = parseImage(frame.dataUrl);
     const path = framePath(id, phase, image.mediaType);
-    await put(path, image.content, { access: "private", addRandomSuffix: false, allowOverwrite: true, contentType: image.mediaType });
-    stored[phase] = { path, sha256: image.sha256, mediaType: image.mediaType };
-    output[phase] = { phase, source: frame.source || expectedSource, sourceSha: frame.sourceSha || expectedSourceSha, url: frameUrl(id, token, phase), sha256: image.sha256, mediaType: image.mediaType };
+    const blob = await put(path, image.content, {
+      access: publicToken ? "public" : "private",
+      ...(publicToken ? { token: publicToken } : {}),
+      addRandomSuffix: false,
+      allowOverwrite: true,
+      contentType: image.mediaType,
+    });
+    const publicUrl = publicBlobUrl(blob.url);
+    stored[phase] = { path, ...(publicUrl ? { url: publicUrl } : {}), sha256: image.sha256, mediaType: image.mediaType };
+    output[phase] = { phase, source: frame.source || expectedSource, sourceSha: frame.sourceSha || expectedSourceSha, url: publicUrl || frameUrl(id, token, phase), sha256: image.sha256, mediaType: image.mediaType };
   }
   await put(manifestPath(id), JSON.stringify({ version: 1, artifactId: id, tokenHash: createHash("sha256").update(token).digest("hex"), frames: stored } satisfies VisualArtifactManifest), { access: "private", addRandomSuffix: false, allowOverwrite: true, contentType: "application/json" });
   return { id, app: input.app, origin: input.origin, route: input.route, baseSha: input.baseSha, headSha: input.headSha, targetBranch: input.targetBranch, capturedAt: input.capturedAt, ...output };
@@ -140,6 +168,12 @@ export async function readVisualFrame(id: string, token: string, phase: string) 
   if (expected.length !== actual.length || !timingSafeEqual(expected, actual)) return undefined;
   const frame = manifest.frames[phase as "before" | "after"];
   if (!frame) return undefined;
+  const publicUrl = publicBlobUrl(frame.url);
+  if (publicUrl) {
+    const response = await fetch(publicUrl);
+    if (!response.ok || !response.body) return undefined;
+    return { stream: response.body, mediaType: frame.mediaType, sha256: frame.sha256 };
+  }
   const response = await get(frame.path, { access: "private", useCache: false, headers: { "accept-encoding": "identity" } });
   if (!response?.stream || response.statusCode !== 200) return undefined;
   return { stream: response.stream, mediaType: frame.mediaType, sha256: frame.sha256 };

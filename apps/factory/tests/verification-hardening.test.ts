@@ -112,3 +112,14 @@ test("reviewer webhook is restricted to factory-owned pull requests and review a
   assert.match(channel, /Factory-Owner:/);
   assert.match(channel, /factory\/work-/);
 });
+
+test("PR frame links use a separate public Blob store without weakening Cockpit protection", async () => {
+  const store = await source("runtime/lib/visual-review-store.ts");
+  const config = await source("runtime/lib/factory-config.ts");
+
+  assert.match(config, /visualReviewPublicBlobTokenEnv/);
+  assert.match(store, /visualReviewPublicBlobTokenEnv/);
+  assert.match(store, /access: publicToken \? "public" : "private"/);
+  assert.match(store, /hostname\.endsWith\("\.public\.blob\.vercel-storage\.com"\)/);
+  assert.match(store, /BLOB_READ_WRITE_TOKEN/);
+});
