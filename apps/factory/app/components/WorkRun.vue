@@ -57,7 +57,7 @@ async function followChild() {
     deliveryStarted.value = false;
     // A background task may emit subagent.called after the dispatcher's turn ends.
     // The chat composable stops at that boundary; follow the durable tail directly.
-    for await (const event of readStationStream(props.sessionId, controller.signal)) {
+    for await (const event of readStationStream(props.sessionId, controller.signal, props.rootAgent)) {
       if (props.deliveryId) {
         if (!matchesStationDelivery(event, props.deliveryId, deliveryStarted.value)) continue;
         deliveryStarted.value = true;
@@ -74,7 +74,7 @@ async function followChild() {
   } catch { if (!controller.signal.aborted && !result.value && !stopped.value) discoveryError.value = true; }
   finally { controller.abort(); discovery = undefined; }
 }
-onMounted(() => { void followChild(); });
+onMounted(() => { if (props.execution !== "direct" || props.child) void followChild(); });
 onBeforeUnmount(() => { discovery?.abort(); clearTimeout(copyTimer); });
 const result = computed(() => {
   for (const part of [...parts.value].reverse()) {
@@ -150,7 +150,8 @@ async function stop() {
   stopping.value = true;
   actionError.value = "";
   try {
-    await $fetch(`/eve/v1/session/${props.sessionId}/cancel`, { method: "POST", body: { tasks: true } });
+    const rootPrefix = props.rootAgent ? `/${props.rootAgent}` : "";
+    await $fetch(`${rootPrefix}/eve/v1/session/${props.sessionId}/cancel`, { method: "POST", body: { tasks: true } });
     cancellationRequested.value = true;
   } catch { actionError.value = "Cancellation could not be confirmed. Reconnect to check the run."; }
   finally { stopping.value = false; }
@@ -208,7 +209,7 @@ async function copyEvidence(value: string) {
       <UButton v-if="!result && (error || discoveryError || (!active && !ended && !stopped))" variant="outline" @click="reconnect">Reconnect</UButton>
     </template>
     <fieldset v-for="request in pendingRequests" :key="request.requestId" class="decision"><legend>Awaiting decision</legend><p>{{ request.prompt }}</p><UButton v-for="option in request.options || []" :key="option.id" :color="option.style === 'danger' ? 'error' : 'primary'" :disabled="!!answering" @click="answer(request.requestId, option.id)">{{ option.label }}</UButton><UTextarea v-if="request.allowFreeform || request.display === 'text'" v-model="freeformAnswers[request.requestId]" :rows="3" :maxlength="10000" aria-label="Answer the pending request" placeholder="Type an answer…" :disabled="!!answering" /><UButton v-if="request.allowFreeform || request.display === 'text'" :disabled="!freeformAnswers[request.requestId]?.trim() || !!answering" :loading="answering === request.requestId" @click="answerFreeform(request.requestId)">Send answer</UButton><p class="small muted">This decision applies to the existing station run. No option is selected automatically.</p></fieldset>
-    <WorkRun v-if="childId" :session-id="childId" :station="station" :awaiting-decision="needsDecision" child @settled="childSettled = $event" @recorded="childRecorded = $event" />
+    <WorkRun v-if="childId" :session-id="childId" :station="station" :root-agent="rootAgent" :awaiting-decision="needsDecision" child @settled="childSettled = $event" @recorded="childRecorded = $event" />
     <div v-if="!child" class="run-actions"><UButton v-if="childId && discoveryError && !childRecorded" variant="outline" @click="reconnect">Reconnect decisions</UButton><UButton v-if="canStop || stopping" color="error" variant="outline" :loading="stopping" :disabled="stopping" @click="requestStop">Stop {{ station === 'worker' ? 'worker' : 'review' }}</UButton><a :href="runLink" :aria-label="`Open run ${sessionId}`">Open run <code>{{ shortIdentifier(sessionId) }}</code></a></div>
     <UModal
       :open="confirmStop"

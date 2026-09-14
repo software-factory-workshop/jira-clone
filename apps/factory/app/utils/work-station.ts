@@ -145,8 +145,13 @@ export function boundStationProjection(data: EveMessageData, station: StationKin
 // Eve's Vue entry is browser-bundled; its generic client entry contains Node
 // package aliases that conflict with Nuxt's #shared alias. Follow the public
 // same-origin NDJSON route and keep Eve's Vue reducer for message projection.
-export async function* readStationStream(sessionId: string, signal: AbortSignal): AsyncGenerator<MessageStreamEvent> {
-  const response = await fetch(`/eve/v1/session/${encodeURIComponent(sessionId)}/stream?startIndex=0`, { cache: "no-store", signal });
+export function stationStreamPath(sessionId: string, rootAgent?: StationKind) {
+  const prefix = rootAgent ? `/${rootAgent}` : "";
+  return `${prefix}/eve/v1/session/${encodeURIComponent(sessionId)}/stream?startIndex=0`;
+}
+
+export async function* readStationStream(sessionId: string, signal: AbortSignal, rootAgent?: StationKind): AsyncGenerator<MessageStreamEvent> {
+  const response = await fetch(stationStreamPath(sessionId, rootAgent), { cache: "no-store", signal });
   if (!response.ok || !response.body) throw new Error("Station stream is unavailable");
   const reader = response.body.getReader();
   const decoder = new TextDecoder();
