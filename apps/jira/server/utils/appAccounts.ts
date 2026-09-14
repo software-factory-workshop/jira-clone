@@ -350,6 +350,7 @@ const ACTION_VERBS: Record<DemoWriteAction, string> = {
   create: "create issues",
   update: "update issues",
   comment: "add comments",
+  delete: "delete issues",
   reset: "reset the demo store",
 };
 

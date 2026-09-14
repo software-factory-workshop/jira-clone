@@ -16,6 +16,7 @@ import { demoIssues } from "@jira-clone/context";
 import {
   addComment as addMemoryComment,
   createIssue as createMemoryIssue,
+  deleteIssue as deleteMemoryIssue,
   DEMO_COMMENT_AUTHOR,
   getIssue as getMemoryIssue,
   getIssues as getMemoryIssues,
@@ -30,6 +31,7 @@ import {
   type CommentCreateInput,
   type CommentResult,
   type DemoComment,
+  type DeleteResult,
   type DemoIssue,
   type IssueCreateInput,
   type IssuePatch,
@@ -81,6 +83,7 @@ export type IssuePersistence = {
     input: CommentCreateInput,
     options?: { fail?: boolean },
   ): Promise<CommentResult>;
+  deleteIssue(key: string, options?: { fail?: boolean }): Promise<DeleteResult>;
   resetIssues(): Promise<DemoIssue[]>;
 };
 
@@ -156,6 +159,9 @@ const memoryPersistence: IssuePersistence = {
   },
   async addComment(key, input, options) {
     return addMemoryComment(key, input, options);
+  },
+  async deleteIssue(key, options) {
+    return deleteMemoryIssue(key, options);
   },
   async resetIssues() {
     return resetMemoryIssues();
@@ -471,6 +477,19 @@ export function createNeonIssuePersistence(
       }
       return { ok: true, comment: rowToComment(row) };
     },
+    async deleteIssue(key, options) {
+      if (options?.fail) {
+        return { ok: false, error: "Deterministic demo failure: nothing was deleted.", statusCode: 500 };
+      }
+      await ensureReady();
+      const rows = await sql`
+        DELETE FROM jira_demo_issues WHERE key = ${key} RETURNING key
+      `;
+      if (rows.length === 0) {
+        return { ok: false, error: `Unknown issue key: ${key}.`, statusCode: 404 };
+      }
+      return { ok: true, key };
+    },
     async resetIssues() {
       await ensureReady();
       await sql.transaction((tx) => [
@@ -521,6 +540,13 @@ export async function getPersistentIssue(
   key: string,
 ): Promise<DemoIssue | undefined> {
   return getIssuePersistence().getIssue(key);
+}
+
+export async function deletePersistentIssue(
+  key: string,
+  options?: { fail?: boolean },
+): Promise<DeleteResult> {
+  return getIssuePersistence().deleteIssue(key, options);
 }
 
 export async function updatePersistentIssue(
