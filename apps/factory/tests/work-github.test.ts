@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { allowedWorkPath, publishWork, workBranch, verifyPullRequestHead, loadPullRequest } from "../runtime/lib/work-github.ts";
+import { allowedWorkPath, publishWork, workBranch, verifyPullRequestHead, loadPullRequest, githubRequest, GitHubError } from "../runtime/lib/work-github.ts";
 import { factoryRepository } from "../runtime/lib/factory-config.ts";
 const base="a".repeat(40),baseTree="b".repeat(40),newTree="c".repeat(40),head="d".repeat(40);
 const repo=factoryRepository;
@@ -41,6 +41,21 @@ test("worker policy excludes rules, credentials, archives, traversal and generat
  assert.equal(allowedWorkPath("apps/jira/server/mcp/tools/list-issues.ts"),true);
  assert.equal(allowedWorkPath("apps/jira/server/mcp/index.ts"),false);
  assert.equal(allowedWorkPath("apps/jira/app/app.vue"),true);assert.equal(allowedWorkPath("docs/jira-demo.md"),false);
+});
+test("GitHub failures preserve a bounded provider reason and classify rate limits as retryable",async t=>{
+ t.mock.method(globalThis,"fetch",async(_url:unknown,init:any)=>{
+  assert.equal(init.headers["User-Agent"],"adeo-factory-cockpit");
+  return new Response(JSON.stringify({message:"You have exceeded a secondary rate limit."}),{status:403,headers:{"content-type":"application/json","retry-after":"60","x-ratelimit-remaining":"0","x-ratelimit-reset":"9999999999"}});
+ });
+ await assert.rejects(githubRequest("test-token","git/ref/heads/main"),error=>{
+  assert(error instanceof GitHubError);
+  assert.equal(error.status,403);
+  assert.equal(error.path,"git/ref/heads/main");
+  assert.equal(error.code,"provider_unavailable");
+  assert.equal(error.retryAfter,"60");
+  assert.match(error.message,/secondary rate limit/);
+  return true;
+ });
 });
 test("publication creates only one immutable feature branch and draft PR across retries",async t=>{
  const writes=mockGitHub(t);

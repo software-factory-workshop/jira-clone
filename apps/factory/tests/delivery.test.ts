@@ -81,10 +81,12 @@ test('event limits stay typed and provider failures stay outside observation rec
 
 test('provider, auth, input and closed-target errors have distinct contracts',()=>{
  const provider=classifyDeliveryError(Object.assign(new Error('Eve service unavailable'),{code:'provider_unavailable'}));
+ const rateLimited=classifyDeliveryError(Object.assign(new Error('GitHub secondary rate limit'),{code:'provider_unavailable',status:403}));
  const auth=classifyDeliveryError(Object.assign(new Error('Eve rejected the credentials'),{status:401}));
  const input=classifyDeliveryError(Object.assign(new Error('Malformed delivery request'),{code:'invalid_request'}));
  const target=classifyDeliveryError(Object.assign(new Error('PR was closed or retargeted'),{code:'target_closed'}));
  assert.deepEqual([provider.code,provider.kind,provider.status,provider.retryable],[ 'provider_unavailable','provider',502,true ]);
+ assert.deepEqual([rateLimited.code,rateLimited.kind,rateLimited.status,rateLimited.retryable],[ 'provider_unavailable','provider',502,true ]);
  assert.deepEqual([auth.code,auth.kind,auth.status,auth.retryable],[ 'provider_auth','auth',401,false ]);
  assert.deepEqual([input.code,input.kind,input.status,input.retryable],[ 'invalid_request','input',400,false ]);
  assert.deepEqual([target.code,target.kind,target.status,target.retryable],[ 'target_closed','target',409,false ]);
