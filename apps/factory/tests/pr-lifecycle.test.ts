@@ -203,8 +203,10 @@ test("recovery binds an unrecorded publication to the exact owner operation", as
   const ownerMarker = createHash("sha256").update(owner).digest("hex");
   const body = `Model text must not be enough.\n\n<!-- Factory-Owner: ${owner}\nFactory-Operation: ${recoveryOperation}\nFactory-Target: main\nFactory-Target-Head: ${recoveryBase}\nFactory-Session: ${ownerMarker}\nFactory-Base: ${recoveryBase} -->`;
   const prior = globalThis.fetch;
+  const requestedPaths: string[] = [];
   globalThis.fetch = async (url) => {
     const path = String(url);
+    requestedPaths.push(path);
     if (path.includes("/pulls?")) return Response.json([{
       number: 49,
       html_url: `https://github.com/${factoryRepository}/pull/49`,
@@ -229,6 +231,8 @@ test("recovery binds an unrecorded publication to the exact owner operation", as
       branch,
       operationId: recoveryOperation,
     });
+    assert.match(requestedPaths[0] || "", /head=software-factory-workshop%3Afactory%2Fwork-/);
+    assert.doesNotMatch(requestedPaths[0] || "", /head=software-factory-workshop%2Fjira-clone%3A/);
   } finally {
     globalThis.fetch = prior;
   }
