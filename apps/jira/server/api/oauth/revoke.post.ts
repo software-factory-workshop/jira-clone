@@ -1,3 +1,4 @@
+import { defineOAuthHandler } from "../../utils/oauthPersistence";
 import { OAUTH_BOUNDARY, oauthRevokeToken } from "../../utils/jiraOAuth";
 
 /**
@@ -6,7 +7,7 @@ import { OAUTH_BOUNDARY, oauthRevokeToken } from "../../utils/jiraOAuth";
  * A known token revokes its whole grant family; unknown tokens still
  * return success (per spec, so callers cannot probe the store).
  */
-export default defineEventHandler(async (event) => {
+export default defineOAuthHandler(async (event) => {
   const contentType = getHeader(event, "content-type") ?? "";
   if (!contentType.toLowerCase().includes("application/x-www-form-urlencoded")) {
     throw createError({

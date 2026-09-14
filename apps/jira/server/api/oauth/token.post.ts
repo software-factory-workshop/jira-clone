@@ -1,3 +1,4 @@
+import { defineOAuthHandler } from "../../utils/oauthPersistence";
 import { OAUTH_BOUNDARY, oauthExchangeCode, oauthRefreshToken, oauthTokenClientById, resolveOAuthIssuer, type OAuthClientAuth } from "../../utils/jiraOAuth";
 
 /**
@@ -31,7 +32,7 @@ function readClientAuth(authorizationHeader: string | undefined): OAuthClientAut
   return { clientId: null, secret: null, method: "client_secret_post" };
 }
 
-export default defineEventHandler(async (event) => {
+export default defineOAuthHandler(async (event) => {
   const issuer = resolveOAuthIssuer({
     envIssuer: process.env.JIRA_OAUTH_ISSUER,
     proto: getHeader(event, "x-forwarded-proto") ?? undefined,

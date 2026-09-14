@@ -1,3 +1,4 @@
+import { defineOAuthHandler } from "../../utils/oauthPersistence";
 import {
   OAUTH_BOUNDARY,
   OAUTH_ERRORS,
@@ -18,7 +19,7 @@ import {
  * `client_secret` and a `registration_access_token` credential for the
  * management URI.
  */
-export default defineEventHandler(async (event) => {
+export default defineOAuthHandler(async (event) => {
   const issuer = resolveOAuthIssuer({
     envIssuer: process.env.JIRA_OAUTH_ISSUER,
     proto: getHeader(event, "x-forwarded-proto") ?? undefined,

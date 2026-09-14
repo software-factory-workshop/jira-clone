@@ -1,3 +1,4 @@
+import { defineOAuthHandler } from "../../utils/oauthPersistence";
 import { DEMO_ROLE_MATRIX_LABEL } from "../../utils/demoAccounts";
 import { OAUTH_BOUNDARY, oauthApproveGrant } from "../../utils/jiraOAuth";
 
@@ -9,7 +10,7 @@ import { OAUTH_BOUNDARY, oauthApproveGrant } from "../../utils/jiraOAuth";
  * and returns access_denied with no code. Replay of a decided ticket fails
  * closed.
  */
-export default defineEventHandler(async (event) => {
+export default defineOAuthHandler(async (event) => {
   const body = await readBody<{ grant_ticket?: unknown; approved?: unknown }>(event).catch(
     () => undefined,
   );

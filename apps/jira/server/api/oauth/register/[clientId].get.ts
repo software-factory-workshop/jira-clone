@@ -1,3 +1,4 @@
+import { defineOAuthHandler } from "../../../utils/oauthPersistence";
 import { OAUTH_BOUNDARY, oauthClientManagementBody, oauthReadClient, resolveOAuthIssuer } from "../../../utils/jiraOAuth";
 
 /**
@@ -5,7 +6,7 @@ import { OAUTH_BOUNDARY, oauthClientManagementBody, oauthReadClient, resolveOAut
  * with `Authorization: Bearer <registration_access_token>`. Only the
  * registration credential is accepted; client secrets never work here.
  */
-export default defineEventHandler((event) => {
+export default defineOAuthHandler((event) => {
   const issuer = resolveOAuthIssuer({
     envIssuer: process.env.JIRA_OAUTH_ISSUER,
     proto: getHeader(event, "x-forwarded-proto") ?? undefined,
