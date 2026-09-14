@@ -24,4 +24,9 @@ export function currentRevision(ctx:SessionContext & {session:{auth:{current?:{a
  return typeof raw==="string"?revisionRequest.parse(JSON.parse(raw)):null;
 }
 
+export function stationDeliveryId(ctx:SessionContext) {
+ const value=ctx.session.auth.initiator?.attributes.factoryDeliveryId;
+ return typeof value==="string"&&/^[a-f0-9]{64}$/.test(value)?value:null;
+}
+
 export function stationAddress(principalId:string,station:string,operationId:string,addressPrefix?:string){return createHash("sha256").update(JSON.stringify([addressPrefix||principalId,station,operationId])).digest("hex");}

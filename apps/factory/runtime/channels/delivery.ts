@@ -10,7 +10,7 @@ import { readCockpit,updateCockpit } from '../lib/cockpit-store';
 import { changeRecord,workOrderAdmissionSchema } from '../../shared/cockpit';
 import { factoryAuth } from '../lib/route-auth';
 import { stationOperation } from './stations';
-import { deliveryRequest,newDelivery,operationFor,transition,terminal,applyReview,referenceState,claimAdvance,commitAdvance,requestResume,beginRevision,admissionRecoveryAction,recordAdmissionFailure,retryAdmission,type Delivery } from '../lib/delivery-state';
+import { answerOwnerQuestion, deliveryRequest,newDelivery,operationFor,transition,terminal,applyReview,referenceState,claimAdvance,commitAdvance,requestResume,beginRevision,admissionRecoveryAction,recordAdmissionFailure,retryAdmission,type Delivery } from '../lib/delivery-state';
 import { listDeliveryReceipts,readDelivery,updateDelivery } from '../lib/delivery-store';
 import { classifyDeliveryError,snapshotEvents,childIn,hostResult,stoppedWithoutResult,eventsForDelivery,modelUsageFromEvents,resumeMessage,resumeReceipt,type ClassifiedDeliveryError, type EventSnapshot } from '../lib/delivery-events';
 import { readPull,readBranch,WorkError,workBranch } from '../lib/work-github';
@@ -38,7 +38,7 @@ async function checkCurrent(p:NonNullable<Delivery['publication']>){
  if(status==='blocked')throw new WorkError('target_closed','PR closed or retargeted; an explicit target decision is required. No branch was adopted.');
 }
 async function advance(request:Request,ctx:RouteHandlerArgs){
- const id=ctx.params.id;let state=await existing(id);if(terminal(state.phase))return Response.json(state);
+ const id=ctx.params.id;let state=await existing(id);if(terminal(state.phase)||state.phase==='awaiting_input')return Response.json(state);
  const driverGeneration=request.headers.get('x-factory-driver-generation');
  if(driverGeneration&&!ownsDriver(state,driverGeneration,request.headers.get('x-factory-driver-run')||''))return Response.json(state);
  const claim=await updateDelivery(id,current=>{if(!current)throw new Error('Delivery not found');const result=claimAdvance(current);return{state:current,result};});
@@ -55,7 +55,7 @@ async function advance(request:Request,ctx:RouteHandlerArgs){
    if(state.resumeAttemptedAt){
     const snapshot=await snapshotEvents((await factorySession(state.childSessionId,ctx.attachSession)),{startIndex:0});
     rememberObservation(state,snapshot);
-    deliveryId=resumeReceipt(snapshot,state.resumeOperationId);
+    deliveryId=resumeReceipt(snapshot,state.resumeOperationId,state.resumeMessage);
     // Send intent is recorded before the queued message. If the receipt is lost we
     // look for the exact message in the owner's durable stream; we never resend,
     // because a duplicate turn would make the owner do the work twice. The rare
@@ -69,7 +69,7 @@ async function advance(request:Request,ctx:RouteHandlerArgs){
     if(!marked)return Response.json(await existing(id));
     state.resumeAttemptedAt=marked.resumeAttemptedAt;state.version=marked.version;claimedVersion=marked.version;
     const auth=await routeAuth(request,factoryAuth);if(auth instanceof Response)throw new Error('Recovery identity unavailable');
-    const accepted=await (await factorySession(state.childSessionId,ctx.attachSession)).send(resumeMessage(state.resumeOperationId),{turnPolicy:'queue',auth:{...auth,attributes:{...auth.attributes,factoryResumeOperationId:state.resumeOperationId}}});
+    const accepted=await (await factorySession(state.childSessionId,ctx.attachSession)).send(state.resumeMessage||resumeMessage(state.resumeOperationId),{turnPolicy:'queue',auth:{...auth,attributes:{...auth.attributes,factoryResumeOperationId:state.resumeOperationId}}});
     if(accepted.status!=='accepted'||!accepted.deliveryId)throw new Error('Original worker acceptance is unconfirmed; this owner will not be replaced.');
     deliveryId=accepted.deliveryId;
    }
@@ -153,6 +153,13 @@ export default defineChannel({routes:[
  })),
  GET('/factory/delivery/:id/receipts',protectedRoute(async(_,ctx)=>{await existing(ctx.params.id);return Response.json(await listDeliveryReceipts(ctx.params.id));})),
  POST('/factory/delivery/:id/advance',protectedRoute(advance)),
+ POST('/factory/delivery/:id/answer',protectedRoute(async(request,ctx)=>{
+  const auth=await routeAuth(request,factoryAuth);if(auth instanceof Response)return auth;
+  const input=z.object({operationId:z.string().min(1).max(240),answer:z.string().trim().min(1).max(10000)}).strict().parse(await request.json());
+  const state=await updateDelivery(ctx.params.id,current=>{if(!current)throw new Error('Delivery not found');if(current.principalId!==auth.principalId)throw Object.assign(new WorkError('forbidden','Only the delivery owner can answer its worker question.'),{status:403});try{answerOwnerQuestion(current,input.operationId,input.answer,auth.principalId);}catch(error){throw new WorkError('invalid_request',error instanceof Error?error.message:'Invalid owner answer.');}return{state:current,result:current};});
+  await ensureDeliveryDriver(state.id,request);
+  return Response.json(await existing(state.id),{status:202});
+ })),
  POST('/factory/delivery/:id/cancel',protectedRoute(async(request,ctx)=>{
   const state=await updateDelivery(ctx.params.id,current=>{if(!current)throw new Error('Delivery not found');transition(current,'cancelled',{actor:'operator',reason:'Operator cancelled the delivery.'});return{state:current,result:current};});
   const cancellations=await Promise.allSettled([cancelDeliveryDriver(state.id,request),...Array.from(new Set([state.sessionId,state.childSessionId].filter((id):id is string=>!!id))).map(async id=>(await factorySession(id,ctx.attachSession)).cancel({tasks:true}))]);

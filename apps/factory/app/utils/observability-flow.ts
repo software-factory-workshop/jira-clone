@@ -85,6 +85,7 @@ const stageForPhase: Record<string, DeliveryStage> = {
   reviewing: "review",
   revision_starting: "revision",
   revising: "revision",
+  awaiting_input: "worker",
   owner_resuming: "revision",
   merging: "merge",
   ready: "outcome",
@@ -102,6 +103,7 @@ const deliveryPhaseLabels: Record<string, string> = {
   reviewing: "Reviewer is inspecting",
   revision_starting: "Preparing revision",
   revising: "Worker is revising",
+  awaiting_input: "Waiting for owner input",
   owner_resuming: "Resuming branch owner",
   merging: "Checking merge readiness",
   ready: "Ready for merge",
@@ -112,7 +114,7 @@ const deliveryPhaseLabels: Record<string, string> = {
   needs_revision: "Revision requested",
 };
 
-const isAttentionPhase = (phase: string) => ["human_review", "needs_revision", "blocked", "cancelled"].includes(phase);
+const isAttentionPhase = (phase: string) => ["human_review", "needs_revision", "awaiting_input", "blocked", "cancelled"].includes(phase);
 
 export interface DeliveryFlowInput {
   phase?: string;
@@ -125,6 +127,7 @@ export interface DeliveryFlowInput {
   publication?: { number?: number; targetBranch?: string };
   review?: { verdict?: string; summary?: string };
   mergeDecision?: { status?: string; reason?: string };
+  question?: string;
   error?: string;
 }
 
@@ -166,7 +169,7 @@ export function deliveryFlow(input: DeliveryFlowInput): FlowModel {
 
   const currentLabel = deliveryPhaseLabels[phase] || "Waiting to start";
   const workerSession = input.childSessionId || input.sessionId;
-  const outcomeDetail = compact(input.error || input.mergeDecision?.reason || input.review?.summary || currentLabel);
+  const outcomeDetail = compact(input.error || input.question || input.mergeDecision?.reason || input.review?.summary || currentLabel);
   const nodes: FlowNodeSpec[] = [
     {
       id: "request",

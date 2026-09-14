@@ -3,6 +3,8 @@ import assert from 'node:assert/strict';
 import {
   MAX_DELIVERY_HISTORY,
   admissionRecoveryAction,
+  answerOwnerQuestion,
+  askOwnerQuestion,
   beginRevision,
   canTransition,
   claimAdvance,
@@ -15,6 +17,7 @@ import {
   recordAdmissionFailure,
   retryAdmission,
   transition,
+  terminal,
   workStateValues,
   workStateForPhase,
 } from '../runtime/lib/delivery-state.ts';
@@ -173,8 +176,54 @@ test('phase-specific state remains a derived, compact work status', () => {
   assert.equal(workStateForPhase('worker_starting'), 'queued');
   assert.equal(workStateForPhase('reviewing'), 'running');
   assert.equal(workStateForPhase('human_review'), 'needs_human');
+  assert.equal(workStateForPhase('awaiting_input'), 'needs_human');
   assert.equal(workStateForPhase('blocked'), 'failed');
   assert.equal(workStateForPhase('merged'), 'succeeded');
+  assert.equal(terminal('awaiting_input'), false);
+});
+
+test('worker questions pause a delivery without making it terminal', () => {
+  const state = delivery();
+  transition(state, 'working');
+  const question = askOwnerQuestion(state, {
+    question: 'Which Jira project should receive this issue?',
+    options: ['ADEO', 'Jira demo'],
+    operationId: state.operationId,
+    sessionId: 'wrun_owner',
+  }, '2026-09-14T10:00:00.000Z');
+
+  assert.equal(state.phase, 'awaiting_input');
+  assert.equal(state.state, 'needs_human');
+  assert.equal(question.question, 'Which Jira project should receive this issue?');
+  assert.deepEqual(question.options, ['ADEO', 'Jira demo']);
+  assert.equal(state.history.at(-1)?.to, 'awaiting_input');
+  assert.equal(state.pendingReceipts?.at(-1)?.state, 'needs_human');
+  assert.equal(askOwnerQuestion(state, { ...question, options: question.options }, '2026-09-14T10:00:01.000Z'), question);
+});
+
+test('owner answers are attributed and resume the same owner with the exact answer', () => {
+  const state = delivery();
+  transition(state, 'working');
+  const question = askOwnerQuestion(state, {
+    question: 'Should the issue be marked urgent?',
+    operationId: state.operationId,
+    sessionId: 'wrun_owner',
+  }, '2026-09-14T10:00:00.000Z');
+  const version = state.version;
+
+  answerOwnerQuestion(state, question.operationId, 'Yes, mark it urgent.', 'owner-42', '2026-09-14T10:01:00.000Z');
+
+  assert.equal(state.phase, 'owner_resuming');
+  assert.equal(state.questions[0]?.answer, 'Yes, mark it urgent.');
+  assert.equal(state.questions[0]?.answeredBy, 'owner-42');
+  assert.equal(state.questions[0]?.answeredAt, '2026-09-14T10:01:00.000Z');
+  assert.equal(state.resumeOperationId, question.operationId);
+  assert.match(state.resumeMessage || '', /Yes, mark it urgent\./);
+  assert.equal(state.version, version + 1);
+
+  answerOwnerQuestion(state, question.operationId, 'Yes, mark it urgent.', 'owner-retry', '2026-09-14T10:02:00.000Z');
+  assert.equal(state.version, version + 1);
+  assert.throws(() => answerOwnerQuestion(state, question.operationId, 'No', 'owner-42'), /different answer/);
 });
 
 test('a multi-transition advance preserves every version increment', () => {
