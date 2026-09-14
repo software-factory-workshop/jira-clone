@@ -49,7 +49,6 @@ import {
   detailDraftFromIssue,
   isDetailDraftDirty,
   saveDetailFields,
-  toDetailPatch,
   validateDetailDraft,
   type DetailFieldDraft,
 } from "~/utils/issueFields";
