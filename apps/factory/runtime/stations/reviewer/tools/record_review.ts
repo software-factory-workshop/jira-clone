@@ -19,7 +19,8 @@ export default defineTool({description:"Record an independent structured review 
   requireStation(ctx,"reviewer");const log=useLogger(ctx);const state=workState.get();if(state.recorded)throw new Error("This exact-head review is already recorded.");if(!state.pull)throw new Error("Prepare the exact PR first.");const targetBranch=state.pull.targetBranch||'main';
   const browser=reviewBrowser.get();const browserEvidenceComplete=browserRequirements(state.pull.files).every(app=>browserComplete(browser.observations[browserOrigin(app,'head')],state.pull!.headSha,ctx.session.id));
   const hostLimitations=hostReviewLimitations(state.pull.files,browserEvidenceComplete);
-  const blockers=approvalBlockers({prepared:state.prepared,repositoryChecksPassed:state.reviewVerified,hasBlockingFinding:input.findings.some(f=>f.severity==="blocking"),contextGaps:state.contextGaps,modelLimitations:input.limitations,files:state.pull.files,browserEvidenceComplete});
+  const findings=[...(state.verificationFindings??[]),...input.findings];
+  const blockers=approvalBlockers({prepared:state.prepared,repositoryChecksPassed:state.reviewVerified,hasBlockingFinding:findings.some(f=>f.severity==="blocking"),contextGaps:state.contextGaps,modelLimitations:input.limitations,files:state.pull.files,browserEvidenceComplete});
   if(input.verdict==="approve"&&blockers.length)throw new Error(`Approval refused by host policy: ${blockers.join(" ")}`);
  const candidateUnchanged=!(await collectChanges(await ctx.getSandbox(),state.baseline,true,state.jiraManifest,state.jiraNuxtConfig,state.jiraLockfile)).length;
  if(input.verdict==="approve"&&!candidateUnchanged)throw new Error("Candidate changed after verification; approval refused.");
@@ -58,6 +59,6 @@ export default defineTool({description:"Record an independent structured review 
    isSuccess:result=>result.recorded,
   });
   const {visualReview,observations}=authorized.output;
-  log.set({factory:{station:"reviewer",stage:"record_review",outcome:"recorded",verdict:input.verdict,prNumber:state.pull.number,headSha:state.pull.headSha,blockingFindingCount:input.findings.filter(f=>f.severity==="blocking").length,limitationCount:input.limitations.length,browserEvidenceComplete,visualStatus:visualReview.status,visualArtifactCount:visualReview.artifacts.length}});
-  return{station:"reviewer" as const,sessionId:ctx.session.id,prNumber:state.pull.number,url:state.pull.url,baseSha:state.pull.baseSha,targetBranch,headSha:state.pull.headSha,...input,limitations:[...state.contextGaps,...hostLimitations,...input.limitations],browserEvidence:{complete:browserEvidenceComplete,observations},visualReview,verification:{prepared:state.prepared,repositoryChecksPassed:state.reviewVerified,candidateUnchanged},commands:state.commands,authorization:authorized.audit,capturedAt:new Date().toISOString()};
+  log.set({factory:{station:"reviewer",stage:"record_review",outcome:"recorded",verdict:input.verdict,prNumber:state.pull.number,headSha:state.pull.headSha,blockingFindingCount:findings.filter(f=>f.severity==="blocking").length,limitationCount:input.limitations.length,browserEvidenceComplete,visualStatus:visualReview.status,visualArtifactCount:visualReview.artifacts.length}});
+  return{station:"reviewer" as const,sessionId:ctx.session.id,prNumber:state.pull.number,url:state.pull.url,baseSha:state.pull.baseSha,targetBranch,headSha:state.pull.headSha,...input,findings,limitations:[...state.contextGaps,...hostLimitations,...input.limitations],browserEvidence:{complete:browserEvidenceComplete,observations},visualReview,verification:{prepared:state.prepared,repositoryChecksPassed:state.reviewVerified,candidateUnchanged},commands:state.commands,authorization:authorized.audit,capturedAt:new Date().toISOString()};
  }});
