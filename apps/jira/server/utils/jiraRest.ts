@@ -1,10 +1,12 @@
 /**
  * Demo-only Jira-style REST adapter over the Jira persistence boundary (bounded reads plus
- * the four explicit demo-only write contracts).
+ * the five explicit demo-only write contracts).
  *
  * Shared formatter plus asynchronous helpers for the Jira-shaped surface
  * under `/api/rest/api/3/**`. Every helper reuses the shared issue persistence
- * adapter, application accounts (`./appAccounts`), demo accounts
+ * adapter (comment edits write through `editPersistentComment`, covered on
+ * both the in-memory and Neon adapters), application accounts
+ * (`./appAccounts`), demo accounts
  * (`./demoAccounts`) and the observed reference metadata in
  * `packages/project-context/src/jira-reference.json` (project KAN id 10000,
  * "My Kanban Space", simplified next-gen software project; the six observed
@@ -12,7 +14,7 @@
  * use the configured persistence adapter.
  *
  * Demo boundaries, repeated on every envelope via `demoOnly`, `roleMatrix`,
- * `boundary` and `persistence`: reads plus the four explicit write contracts
+ * `boundary` and `persistence`: reads plus the five explicit write contracts
  * over the configured Jira demo persistence layer, no JQL engine, no production auth. Reads
  * stay open to the demo viewer (no write authorization gate); writes run
  * the shared `authorizeAppWrite` authority first and change nothing on
@@ -41,6 +43,7 @@ import {
 import {
   addPersistentComment,
   createPersistentIssue,
+  editPersistentComment,
   getIssuePersistenceInfo,
   getPersistentIssue,
   getPersistentIssuesPage,
@@ -70,7 +73,8 @@ import {
 /** Explicit boundary note attached to every adapter response. */
 export const REST_BOUNDARY =
   "Demo-only Jira-style REST subset: reads plus the bounded writes POST /api/rest/api/3/issue, " +
-  "PUT /api/rest/api/3/issue/:key, POST /api/rest/api/3/issue/:key/comment and " +
+  "PUT /api/rest/api/3/issue/:key, POST /api/rest/api/3/issue/:key/comment, " +
+  "PUT /api/rest/api/3/issue/:key/comment/:commentId and " +
   "POST /api/rest/api/3/issue/:key/transitions over the configured Jira demo persistence layer " +
   "(Neon Postgres when DATABASE_URL is configured, with an explicit in-memory fallback); " +
   "no JQL engine, no production auth. Unknown keys stay 404 and write nothing. " +
@@ -578,6 +582,12 @@ export type RestAddCommentInput = {
   fail?: unknown;
 };
 
+/** Bounded Jira-shaped request for PUT /api/rest/api/3/issue/:key/comment/:commentId. */
+export type RestEditCommentInput = {
+  body?: unknown;
+  fail?: unknown;
+};
+
 /** Bounded Jira-shaped request for POST /api/rest/api/3/issue/:key/transitions. */
 export type RestTransitionIssueInput = {
   transition?: unknown;
@@ -597,7 +607,7 @@ export type RestWriteResult<T> =
 
 
 /**
- * Shared demo-only write gate for the four Jira-shaped write contracts.
+ * Shared demo-only write gate for the five Jira-shaped write contracts.
  * Calls `authorizeAppWrite` through one path so HTTP routes and MCP tools
  * share the exact admin/member/viewer and malformed/unknown identity
  * semantics as the native routes. When an OAuth bearer validation is
@@ -1186,6 +1196,63 @@ export async function restAddComment(
         body: created.comment.body,
         author: { displayName: created.comment.author },
         created: created.comment.createdAt,
+        demoOnly: true as const,
+      },
+      actor: appActorLabel(account),
+      identitySource: account.identitySource,
+    },
+  };
+}
+
+/**
+ * Demo-only Jira-shaped comment edit: PUT /api/rest/api/3/issue/:key/comment/:commentId.
+ *
+ * Accepts a nonblank, changed `body` string and writes through the shared
+ * comment persistence boundary. Unknown keys, unknown comment ids, blank
+ * bodies, unchanged (replay) bodies and the deterministic `{fail:true}`
+ * path fail closed with labelled demoOnly errors that write nothing. Actor
+ * checks run first via `authorizeRestWrite`.
+ */
+export async function restEditComment(
+  identity: AppRequestIdentity,
+  key: string,
+  commentId: string,
+  body: RestEditCommentInput = {},
+  options?: { bearer?: ReturnType<typeof validateOAuthBearer> | null },
+): Promise<RestWriteResult<{ comment: { id: string; body: string; author: { displayName: string }; created: string; demoOnly: true }; actor: ReturnType<typeof appActorLabel>; identitySource: AppIdentitySource }>> {
+  const authorized = authorizeRestWrite(identity, "comment", options?.bearer ?? null);
+  if (!authorized.ok) {
+    return authorized;
+  }
+  const account = authorized.data;
+  const text =
+    typeof body?.body === "string"
+      ? body.body
+      : (extractDescriptionText(body?.body) ?? null);
+  if (text === null || text.trim() === "") {
+    return {
+      ok: false,
+      statusCode: 400,
+      error:
+        "Invalid demoOnly request: a nonblank comment `body` string is required. Nothing was written.",
+    };
+  }
+  const edited = await editPersistentComment(
+    key,
+    { commentId, body: text.trim() },
+    { fail: failFlag(body?.fail) },
+  );
+  if (!edited.ok) {
+    return { ok: false, statusCode: edited.statusCode, error: edited.error };
+  }
+  return {
+    ok: true,
+    data: {
+      comment: {
+        id: edited.comment.id,
+        body: edited.comment.body,
+        author: { displayName: edited.comment.author },
+        created: edited.comment.createdAt,
         demoOnly: true as const,
       },
       actor: appActorLabel(account),

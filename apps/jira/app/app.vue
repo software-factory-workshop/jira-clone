@@ -4,11 +4,14 @@ import {
   fetchIssueComments,
   isCommentDraftStorageAvailable,
   postIssueComment,
+  putIssueComment,
   readCommentDraft,
   submitIssueComment,
+  submitIssueCommentEdit,
   writeCommentDraft,
   type DemoComment,
   type IssueCommentsResponse,
+  type RestCommentEditRequest,
   type RestCommentWriteResponse,
 } from "~/utils/issueComments";
 import {
@@ -191,6 +194,10 @@ const commentDraftLocal = ref(false);
 const commentDraftReloadable = ref(true);
 const commentSaving = ref(false);
 const commentError = ref<string | null>(null);
+const editingCommentId = ref<string | null>(null);
+const editDraft = ref("");
+const editSaving = ref(false);
+const editError = ref<string | null>(null);
 function refreshCommentDraftStorage(): void {
   commentDraftReloadable.value = isCommentDraftStorageAvailable();
 }
@@ -361,6 +368,72 @@ async function postComment() {
   }
 }
 
+function startCommentEdit(comment: DemoComment) {
+  if (!canInvokeMutation("comment", workspaceCapabilities.value)) return;
+  editingCommentId.value = comment.id;
+  editDraft.value = comment.body;
+  editError.value = null;
+}
+
+function cancelCommentEdit() {
+  if (editSaving.value) return;
+  editingCommentId.value = null;
+  editDraft.value = "";
+  editError.value = null;
+}
+
+async function saveCommentEdit(commentId: string) {
+  if (!selectedKey.value || editSaving.value) return;
+  if (!canInvokeMutation("comment", workspaceCapabilities.value)) return;
+  const key = selectedKey.value;
+  const submittedDraft = editDraft.value;
+  editError.value = null;
+  editSaving.value = true;
+  try {
+    const result = await submitIssueCommentEdit(
+      comments.value,
+      commentId,
+      submittedDraft,
+      (body) =>
+        putIssueComment(
+          key,
+          commentId,
+          body,
+          (url, request: RestCommentEditRequest) =>
+            $fetch<RestCommentWriteResponse>(url, {
+              method: "PUT",
+              body: request,
+              headers: demoHeaders(),
+            }),
+        ),
+    );
+    if (!result.ok) {
+      if (selectedKey.value === key && editingCommentId.value === commentId) {
+        editDraft.value = result.draft;
+        editError.value = result.error;
+      }
+      return;
+    }
+    // A deferred REST PUT can resolve after dialog close or after the user
+    // switched issues: dialog state is touched only when the originating
+    // issue and comment are still selected, so late responses never
+    // overwrite the newly selected issue.
+    if (selectedKey.value === key) {
+      comments.value = result.comments;
+      if (editingCommentId.value === commentId) {
+        editingCommentId.value = null;
+        editDraft.value = "";
+        editError.value = null;
+      }
+      // Refresh through the canonical comment-list read so the dialog
+      // renders exactly what the REST GET returns after the REST PUT.
+      void loadComments(key);
+    }
+  } finally {
+    editSaving.value = false;
+  }
+}
+
 watch(commentDraft, (next) => {
   // Per-issue draft retention: every keystroke is kept locally under the
   // open issue key so the draft survives dialog close and reload. Blank
@@ -386,6 +459,10 @@ watch(selectedKey, (key, previous) => {
   commentsDemoOnly.value = false;
   commentsError.value = null;
   commentsLoading.value = false;
+  editingCommentId.value = null;
+  editDraft.value = "";
+  editError.value = null;
+  editSaving.value = false;
   const restored = key ? readCommentDraft(key) : "";
   commentDraft.value = restored;
   commentDraftLocal.value = restored !== "";
@@ -824,7 +901,7 @@ await refresh();
           <p v-if="readOnly" id="workspace-access-hint" class="save-note" role="status">
             <UIcon name="i-lucide-eye" /> Read-only workspace: reading, search,
             filters and issue detail stay available, while priority edits,
-            status moves, create, reset and comment submission are unavailable.
+            status moves, create, reset and comment submission and edits are unavailable.
             The API remains the permission authority.
           </p>
           <p v-if="loading" class="empty" role="status">Loading demo board…</p>
@@ -1294,7 +1371,54 @@ await refresh();
                         >Demo-only</UBadge
                       >
                     </p>
-                    <p class="comment-body">{{ comment.body }}</p>
+                    <p v-if="editingCommentId !== comment.id" class="comment-body">{{ comment.body }}</p>
+                    <div v-else class="comment-edit">
+                      <UTextarea
+                        v-model="editDraft"
+                        placeholder="Edit this demo-only comment"
+                        :aria-label="`Edit comment ${comment.id}`"
+                        :disabled="!canWrite || editSaving"
+                      />
+                      <p v-if="editError" class="save-error" role="alert">
+                        <UIcon name="i-lucide-triangle-alert" /> Demo comment
+                        edit failed: {{ editError }} Your draft is kept for retry.
+                      </p>
+                      <div class="comment-edit-actions">
+                        <UButton
+                          icon="i-lucide-save"
+                          size="sm"
+                          :loading="editSaving"
+                          :disabled="!canWrite || editSaving || !editDraft.trim() || editDraft.trim() === comment.body"
+                          @click="void saveCommentEdit(comment.id)"
+                        >
+                          Save edit
+                        </UButton>
+                        <UButton
+                          variant="outline"
+                          color="neutral"
+                          size="sm"
+                          :disabled="editSaving"
+                          @click="cancelCommentEdit()"
+                        >
+                          Cancel
+                        </UButton>
+                      </div>
+                      <p class="demo-save-hint">
+                        Demo-only edit: blank or unchanged bodies never save. Saving reloads the canonical list.
+                      </p>
+                    </div>
+                    <UButton
+                      v-if="editingCommentId !== comment.id"
+                      variant="ghost"
+                      color="neutral"
+                      size="sm"
+                      icon="i-lucide-pencil"
+                      :disabled="!canWrite"
+                      :aria-label="`Edit comment ${comment.id}`"
+                      @click="startCommentEdit(comment)"
+                    >
+                      Edit
+                    </UButton>
                   </li>
                 </ul>
               </div>

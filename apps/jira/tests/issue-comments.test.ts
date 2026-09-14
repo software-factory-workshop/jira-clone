@@ -4,6 +4,7 @@ import {
   addComment,
   createIssue,
   DEMO_COMMENT_AUTHOR,
+  editComment,
   getIssue,
   listComments,
   resetIssues,
@@ -15,8 +16,11 @@ import {
   fetchIssueComments,
   isCommentDraftStorageAvailable,
   postIssueComment,
+  putIssueComment,
   readCommentDraft,
+  restCommentEditUrl,
   submitIssueComment,
+  submitIssueCommentEdit,
   writeCommentDraft,
   type DemoComment,
   type IssueCommentsResponse,
@@ -118,6 +122,200 @@ test("deterministic failure writes nothing", () => {
   assert.equal(failed.ok ? 0 : failed.statusCode, 500);
   assert.deepEqual(listComments("ADEO-1"), before);
   resetIssues();
+});
+
+test("edit updates the body and trims, preserving id/author", () => {
+  resetIssues();
+  const added = addComment("ADEO-1", { body: "Original body" });
+  assert.equal(added.ok, true);
+  const id = added.ok ? added.comment.id : "";
+  const edited = editComment("ADEO-1", { commentId: id, body: "  Edited body  " });
+  assert.equal(edited.ok, true);
+  if (edited.ok) {
+    assert.equal(edited.comment.id, id);
+    assert.equal(edited.comment.body, "Edited body");
+    assert.equal(edited.comment.author, DEMO_COMMENT_AUTHOR);
+    assert.equal(edited.comment.demoOnly, true);
+  }
+  assert.deepEqual(
+    (listComments("ADEO-1") ?? []).map((comment) => comment.body),
+    ["Edited body"],
+  );
+  resetIssues();
+});
+
+test("edit fails closed on unknown keys, ids, blank and replay bodies", () => {
+  resetIssues();
+  assert.equal(listComments("ADEO-9999"), undefined);
+  const unknownKey = editComment("ADEO-9999", { commentId: "ADEO-9999-comment-1", body: "x" });
+  assert.equal(unknownKey.ok, false);
+  assert.equal(unknownKey.ok ? 0 : unknownKey.statusCode, 404);
+
+  const added = addComment("ADEO-1", { body: "Keep me" });
+  assert.equal(added.ok, true);
+  const id = added.ok ? added.comment.id : "";
+  const before = listComments("ADEO-1");
+
+  const unknownId = editComment("ADEO-1", { commentId: "ADEO-1-comment-9999", body: "Never" });
+  assert.equal(unknownId.ok, false);
+  assert.equal(unknownId.ok ? 0 : unknownId.statusCode, 404);
+
+  for (const body of ["", "   ", undefined]) {
+    const rejected = editComment("ADEO-1", { commentId: id, body });
+    assert.equal(rejected.ok, false, JSON.stringify(body));
+    assert.equal(rejected.ok ? 0 : rejected.statusCode, 400);
+  }
+
+  const missingId = editComment("ADEO-1", { body: "Never" });
+  assert.equal(missingId.ok, false);
+  assert.equal(missingId.ok ? 0 : missingId.statusCode, 400);
+
+  const replay = editComment("ADEO-1", { commentId: id, body: "  Keep me  " });
+  assert.equal(replay.ok, false);
+  assert.equal(replay.ok ? 0 : replay.statusCode, 409);
+  assert.match(replay.ok ? "" : replay.error, /replay/);
+
+  const failed = editComment("ADEO-1", { commentId: id, body: "Never saved" }, { fail: true });
+  assert.equal(failed.ok, false);
+  assert.equal(failed.ok ? 0 : failed.statusCode, 500);
+
+  assert.deepEqual(listComments("ADEO-1"), before);
+  resetIssues();
+});
+
+test("edit agrees across list reads and reset clears edits", () => {
+  resetIssues();
+  const first = addComment("ADEO-1", { body: "First" });
+  const second = addComment("ADEO-1", { body: "Second" });
+  assert.equal(first.ok && second.ok, true);
+  const id = first.ok ? first.comment.id : "";
+  const edited = editComment("ADEO-1", { commentId: id, body: "First edited" });
+  assert.equal(edited.ok, true);
+  assert.deepEqual(
+    (listComments("ADEO-1") ?? []).map((comment) => comment.body),
+    ["First edited", "Second"],
+  );
+  resetIssues();
+  assert.deepEqual(listComments("ADEO-1"), []);
+});
+
+test("canonical edit URL targets PUT /api/rest/api/3/issue/:key/comment/:commentId", () => {
+  assert.equal(
+    restCommentEditUrl("ADEO-1", "ADEO-1-comment-3"),
+    "/api/rest/api/3/issue/ADEO-1/comment/ADEO-1-comment-3",
+  );
+  assert.equal(
+    restCommentEditUrl("ADEO 1", "ADEO 1-comment-3"),
+    "/api/rest/api/3/issue/ADEO%201/comment/ADEO%201-comment-3",
+  );
+});
+
+test("canonical edit puts through the REST route and maps the bean", async () => {
+  const bean = {
+    id: "ADEO-1-comment-3",
+    body: "Edited via REST",
+    author: { displayName: "Demo Member (member) · demo-only" },
+    created: "2026-09-12T00:00:04.000Z",
+    demoOnly: true as const,
+  };
+  const calls: { url: string; body: unknown }[] = [];
+  const mapped = await putIssueComment("ADEO-1", bean.id, "  Edited via REST  ", async (url, request) => {
+    calls.push({ url, body: request });
+    assert.deepEqual(request, { body: "  Edited via REST  " });
+    const response: RestCommentWriteResponse = { comment: bean, demoOnly: true };
+    return response;
+  });
+  assert.deepEqual(calls.map((call) => call.url), [
+    "/api/rest/api/3/issue/ADEO-1/comment/ADEO-1-comment-3",
+  ]);
+  assert.deepEqual(mapped, {
+    id: bean.id,
+    body: bean.body,
+    author: bean.author.displayName,
+    createdAt: bean.created,
+    demoOnly: true,
+  });
+});
+
+test("canonical edit never reports false success on a missing bean", async () => {
+  await assert.rejects(
+    putIssueComment("ADEO-1", "ADEO-1-comment-3", "kept", async () => ({})),
+    /returned no comment.*draft is kept/,
+  );
+  await assert.rejects(
+    putIssueComment("ADEO-1", "", "kept", async () => ({})),
+    /comment id is required/,
+  );
+  await assert.rejects(
+    putIssueComment("ADEO-1", "ADEO-1-comment-3", "   ", async () => ({})),
+    /nonblank/,
+  );
+});
+
+test("edit submit helper replaces the entry, keeps drafts on failure, rejects replay", async () => {
+  const seed: DemoComment[] = [
+    {
+      id: "ADEO-1-comment-1",
+      body: "Existing",
+      author: DEMO_COMMENT_AUTHOR,
+      createdAt: "2026-09-12T00:00:00.000Z",
+      demoOnly: true,
+    },
+    {
+      id: "ADEO-1-comment-2",
+      body: "Other",
+      author: DEMO_COMMENT_AUTHOR,
+      createdAt: "2026-09-12T00:00:01.000Z",
+      demoOnly: true,
+    },
+  ];
+  const unknown = await submitIssueCommentEdit(seed, "ADEO-1-comment-9", "x", async (body) => ({
+    ...seed[0]!,
+    body,
+  }));
+  assert.equal(unknown.ok, false);
+  assert.deepEqual(unknown.comments, seed);
+
+  const blank = await submitIssueCommentEdit(seed, "ADEO-1-comment-1", "   ", async (body) => ({
+    ...seed[0]!,
+    body,
+  }));
+  assert.equal(blank.ok, false);
+  assert.deepEqual(blank.comments, seed);
+
+  const replay = await submitIssueCommentEdit(seed, "ADEO-1-comment-1", "  Existing  ", async (body) => ({
+    ...seed[0]!,
+    body,
+  }));
+  assert.equal(replay.ok, false);
+  assert.deepEqual(replay.comments, seed);
+
+  const failed = await submitIssueCommentEdit(seed, "ADEO-1-comment-1", "kept draft", async () => {
+    throw new Error("Demo-only comment edit failure (deterministic test path).");
+  });
+  assert.equal(failed.ok, false);
+  assert.deepEqual(failed.comments, seed);
+  assert.equal(failed.draft, "kept draft");
+
+  const saved: DemoComment = {
+    id: "ADEO-1-comment-1",
+    body: "Edited",
+    author: DEMO_COMMENT_AUTHOR,
+    createdAt: "2026-09-12T00:00:00.000Z",
+    demoOnly: true,
+  };
+  const succeeded = await submitIssueCommentEdit(
+    seed,
+    "ADEO-1-comment-1",
+    "  Edited  ",
+    async (body) => {
+      assert.equal(body, "Edited");
+      return saved;
+    },
+  );
+  assert.equal(succeeded.ok, true);
+  assert.deepEqual(succeeded.comments, [saved, seed[1]]);
+  assert.equal(succeeded.draft, "");
 });
 
 test("reset clears comments", () => {
