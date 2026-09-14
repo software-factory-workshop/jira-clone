@@ -523,7 +523,12 @@ export function requestResume(state: Delivery, operationId?: string) {
     delete state.resumeMessage;
     transition(state, 'owner_resuming', { actor: 'operator', operationId, reason: 'Operator requested continuation by the existing worker owner.' });
   } else if (state.phase === 'blocked' && state.failedPhase) {
-    transition(state, state.failedPhase, { actor: 'operator', operationId, reason: 'Operator requested recovery of the failed delivery phase.' });
+    const failedPhase = state.failedPhase;
+    transition(state, failedPhase, { actor: 'operator', operationId, reason: 'Operator requested recovery of the failed delivery phase.' });
+    // A prior owner-resuming advance may have recorded its send intent before
+    // the host lost the response. A blocked recovery is a new explicit retry;
+    // let the same owner receive one fresh, deduplicated queue request.
+    if (failedPhase === 'owner_resuming') delete state.resumeAttemptedAt;
     if (operationId) state.resumeRequests = { ...state.resumeRequests, [operationId]: true };
   } else {
     throw new Error('This delivery requires review or a published-owner revision, not worker recovery.');

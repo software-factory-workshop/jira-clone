@@ -164,11 +164,13 @@ test('revisions create a new attempt but owner continuation does not', () => {
 test('blocked owner recovery returns to the preserved phase', () => {
   const state = delivery();
   state.failedPhase = 'owner_resuming';
+  state.resumeAttemptedAt = Date.now() - 120_000;
   transition(state, 'blocked');
   requestResume(state, 'recover-owner');
 
   assert.equal(state.phase, 'owner_resuming');
   assert.equal(state.attempt, 1);
+  assert.equal(state.resumeAttemptedAt, undefined);
 });
 
 test('phase-specific state remains a derived, compact work status', () => {

@@ -44,4 +44,4 @@ export function rootSession(root:RootAgent,id:string) {
  };
 }
 
-export async function factorySession<T>(id:string,fallback:(id:string)=>T){const root=await recordedRoot(id);return root?rootSession(root,id):fallback(id);}
+export async function factorySession<T>(id:string,fallback:(id:string)=>T,preferredRoot?:RootAgent){const root=preferredRoot??await recordedRoot(id);return root?rootSession(root,id):fallback(id);}
