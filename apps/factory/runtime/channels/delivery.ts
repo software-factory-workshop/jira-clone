@@ -7,7 +7,7 @@ import { routeAuth } from 'eve/channels/auth';
 import { z } from 'zod';
 import { getToken } from '@vercel/connect';
 import { readCockpit,updateCockpit } from '../lib/cockpit-store';
-import { changeRecord,workOrderAdmissionSchema } from '../../shared/cockpit';
+import { changeRecord,deliveryEntryPoint } from '../../shared/cockpit';
 import { factoryAuth } from '../lib/route-auth';
 import { stationOperation } from './stations';
 import { answerOwnerQuestion, deliveryRequest,newDelivery,operationFor,transition,terminal,applyReview,referenceState,claimAdvance,commitAdvance,requestResume,beginRevision,admissionRecoveryAction,recordAdmissionFailure,retryAdmission,type Delivery } from '../lib/delivery-state';
@@ -131,10 +131,10 @@ export default defineChannel({routes:[
  POST('/factory/delivery',protectedRoute(async(request)=>{
   const auth=await routeAuth(request,factoryAuth);if(auth instanceof Response)return auth;
   const input=deliveryRequest.parse(await request.json());
-  if(!input.draftId)throw new WorkError('invalid_request','Start delivery from a persisted task-mining draft admitted as a work order.');
+  if(!input.draftId)throw new WorkError('invalid_request','Start delivery from a saved operator idea or a task-mining draft admitted as a work order.');
   const draft=(await readCockpit()).document.drafts[input.draftId];
-  const admission=workOrderAdmissionSchema.safeParse(draft?.value.admission);
-  if(!draft||!admission.success||admission.data.kind!=='work_order')throw new WorkError('invalid_request','Only a task-mining draft admitted as a work order can start delivery.');
+  const entryPoint=draft ? deliveryEntryPoint(draft.value) : undefined;
+  if(!draft||!entryPoint)throw new WorkError('invalid_request','Start from an operator idea or a task-mining draft admitted as a work order.');
   if(draft.value.title!==input.title||draft.value.request!==input.brief)throw new WorkError('invalid_request','Delivery content must match the admitted draft.');
   const fresh=newDelivery(auth.principalId,input);
   const state=await updateDelivery(fresh.id,current=>{if(current&&JSON.stringify(current.request)!==JSON.stringify(input))throw new Error('Operation ID reused with a different task');if(current)retryAdmission(current);return{state:current||fresh,result:current||fresh};});await updateCockpit(doc=>doc.runs[state.id]||changeRecord(doc,'runs',state.id,{label:state.request.title,station:'loop',operationId:state.request.operationId},0));

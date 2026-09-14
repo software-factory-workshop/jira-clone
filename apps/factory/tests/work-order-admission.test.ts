@@ -17,12 +17,12 @@ test("miner records admission before findings and exposes the host tool at the b
   assert.match(reexport, /runtime\/tools\/record_work_order/);
 });
 
-test("delivery requires the persisted draft admission and MiningRun renders all outcomes", async () => {
+test("delivery accepts explicit ideas while preserving mined admission and all outcomes", async () => {
   const delivery = await source("runtime/channels/delivery.ts");
   const miningRun = await source("app/components/MiningRun.vue");
   assert.match(delivery, /if\(!input\.draftId\)/);
-  assert.match(delivery, /workOrderAdmissionSchema\.safeParse/);
-  assert.match(delivery, /admission\.data\.kind!==['"]work_order['"]/);
+  assert.match(delivery, /deliveryEntryPoint/);
+  assert.match(delivery, /saved operator idea/);
   assert.match(delivery, /draft\.value\.title!==input\.title\|\|draft\.value\.request!==input\.brief/);
   for (const kind of ["work_order", "clarification", "unsupported"]) {
     assert.match(miningRun, new RegExp(`output\\.admission\\.kind === ['"]${kind}['"]`));

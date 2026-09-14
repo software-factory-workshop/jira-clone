@@ -203,6 +203,12 @@ nav a span:last-child:not(:first-child) {
   color: #5d7379;
   margin-top: 4px;
 }
+.stage-note .inline-link {
+  color: #007680;
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
 .save-notice {
   font-size: 12px;
   color: #007680;

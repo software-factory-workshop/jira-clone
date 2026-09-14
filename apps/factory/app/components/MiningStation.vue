@@ -17,6 +17,8 @@ const history = shallowRef<SavedInvestigation[]>([]);
 const selected = ref<string>();
 const generation = ref(0);
 const storageNotice = ref("");
+const historyLoading = ref(false);
+const historyLastRefreshed = ref<Date>();
 const storageKey = "adeo-factory-mining-v1";
 const latestInvestigation = computed(() => history.value[0]);
 const route = useRoute();
@@ -42,7 +44,24 @@ function historyFromCockpit(): SavedInvestigation[] {
     }));
 }
 
+function syncHistory(): void {
+  history.value = historyFromCockpit();
+  const linkedSession = z
+    .string()
+    .regex(/^wrun_[A-Za-z0-9_-]+$/)
+    .safeParse(route.query.investigation);
+  if (linkedSession.success) {
+    selected.value = linkedSession.data;
+  } else if (!selected.value || !history.value.some(item => item.id === selected.value)) {
+    selected.value = history.value[0]?.id;
+  }
+  historyLastRefreshed.value = new Date();
+}
+
 async function loadHistory(): Promise<void> {
+  if (historyLoading.value) return;
+  historyLoading.value = true;
+  storageNotice.value = "";
   try {
     const legacy = readLegacyHistory();
     await cockpit.migrate(
@@ -52,19 +71,25 @@ async function loadHistory(): Promise<void> {
         value: { label: run.label, station: "mining" },
       })),
     );
-    history.value = historyFromCockpit();
-    const linkedSession = z
-      .string()
-      .regex(/^wrun_[A-Za-z0-9_-]+$/)
-      .safeParse(route.query.investigation);
-    selected.value = linkedSession.success
-      ? linkedSession.data
-      : history.value[0]?.id;
+    syncHistory();
   } catch {
     storageNotice.value =
-      "Shared investigations could not be loaded. Browser history remains untouched.";
+      "Shared investigations could not be loaded. You can still start a new investigation or use New draft; browser history remains untouched.";
+  } finally {
+    historyLoading.value = false;
   }
 }
+
+cockpit.watchCollection("runs", {
+  intervalMs: 10_000,
+  onRefresh() {
+    syncHistory();
+  },
+  onError() {
+    storageNotice.value =
+      "Shared investigations could not be refreshed. You can still start a new investigation or use New draft.";
+  },
+});
 
 onMounted(() => void loadHistory());
 
@@ -102,7 +127,11 @@ function choose(id: string) {
 </script>
 
 <template>
-  <AdeoPageHeader eyebrow="STATION 01 · TASK MINING" title="Find the next useful task" description="Understand the goal, the code and the work already in motion. Review proposals before deciding what the factory should do." />
+  <AdeoPageHeader eyebrow="STATION 01 · TASK MINING" title="Find the next useful task" description="Understand the goal, the code and the work already in motion. Review proposals before deciding what the factory should do.">
+    <template #actions>
+      <UButton to="/work/new" icon="i-lucide-lightbulb">I have an idea</UButton>
+    </template>
+  </AdeoPageHeader>
   <div class="mining-layout">
     <section>
       <ClientOnly>
@@ -114,14 +143,21 @@ function choose(id: string) {
           @new="fresh"
         />
       </ClientOnly>
-      <p v-if="storageNotice" role="status" class="muted small">{{ storageNotice }}</p>
+      <UAlert v-if="storageNotice" color="warning" variant="soft" title="Shared investigation history is unavailable" :description="storageNotice">
+        <template #actions>
+          <UButton size="xs" variant="outline" :loading="historyLoading" :disabled="historyLoading" @click="loadHistory">Retry history</UButton>
+          <UButton size="xs" color="neutral" variant="ghost" @click="fresh">Start new investigation</UButton>
+          <UButton size="xs" color="neutral" variant="ghost" to="/work/new">Use New draft</UButton>
+        </template>
+      </UAlert>
     </section>
     <aside class="panel mining-history">
       <div class="panel-heading">
         <h2>Latest investigation</h2>
-        <UButton icon="i-lucide-plus" variant="ghost" aria-label="New investigation" @click="fresh" />
+        <UButton icon="i-lucide-plus" variant="ghost" aria-label="New investigation" :loading="historyLoading" @click="fresh" />
       </div>
       <p class="small muted">Only the latest session is shown here. Eve keeps the run and its findings.</p>
+      <p v-if="historyLastRefreshed" class="small muted" role="status">History updated {{ historyLastRefreshed.toLocaleTimeString() }} · refreshes when this tab returns</p>
       <p v-if="!latestInvestigation" class="muted">Your first investigation will appear here.</p>
       <button
         v-else

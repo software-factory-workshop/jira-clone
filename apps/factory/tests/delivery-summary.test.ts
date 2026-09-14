@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { attentionPhases, deriveAttentionReason, describeDeliveryPhase, formatDeliveryUpdatedAt, isLoopRun, summarizeDelivery } from "../app/utils/delivery-summary.ts";
+import { attentionPhases, deriveAttentionReason, describeDeliveryPhase, formatDeliveryUpdatedAt, isLoopRun, summarizeDelivery, summarizeDeliveryStatus } from "../app/utils/delivery-summary.ts";
 import { factoryRepositoryUrl } from "../runtime/lib/factory-config.ts";
 
 const now = new Date("2026-09-12T12:00:00.000Z");
@@ -126,4 +126,42 @@ test("delivery summaries retain positive model usage without rendering zeroes", 
   const summary = summarizeDelivery({ id: "delivery-usage", phase: "reviewing", usage: { inputTokens: 1200, outputTokens: 300, usd: 0.125 } });
   assert.equal(summary?.usageLabel, "1,200 in · 300 out · $0.125");
   assert.equal(summarizeDelivery({ id: "delivery-zero", phase: "reviewing", usage: { inputTokens: 0, outputTokens: 0, usd: 0 } })?.usageLabel, undefined);
+});
+
+test("delivery status summary surfaces the latest result, blocker and next action", () => {
+  const summary = summarizeDeliveryStatus({
+    id: "delivery-summary",
+    phase: "human_review",
+    publication: { number: 7, url: "https://github.com/software-factory-workshop/jira-clone/pull/7" },
+    review: { verdict: "incomplete", summary: "Hosted browser evidence is missing.", limitations: ["Preview was access protected."] },
+    history: [{ phase: "reviewing", to: "human_review" }],
+  });
+  assert.deepEqual(summary, {
+    phaseLabel: "Needs human review",
+    phaseColor: "warning",
+    latestResult: "Independent review · incomplete: Hosted browser evidence is missing.",
+    blocker: "The review has limitations, so the host keeps merge gated.",
+    nextAction: "Review the exact PR, then merge it or request a revision.",
+  });
+});
+
+test("blocked status directs retryable failures back to the same delivery", () => {
+  const summary = summarizeDeliveryStatus({
+    id: "delivery-blocked",
+    phase: "blocked",
+    error: "Observation timed out.",
+    failure: { kind: "observation", retryable: true },
+  });
+  assert.equal(summary?.blocker, "Observation timed out.");
+  assert.equal(summary?.nextAction, "Retry the blocked phase, then inspect the same run if it remains blocked.");
+});
+
+test("owner questions take priority over generic waiting copy", () => {
+  const summary = summarizeDeliveryStatus({
+    id: "delivery-question",
+    phase: "awaiting_input",
+    questions: [{ question: "Which target should receive this change?" }],
+  });
+  assert.equal(summary?.blocker, "Which target should receive this change?");
+  assert.equal(summary?.nextAction, "Answer the worker's question to continue.");
 });

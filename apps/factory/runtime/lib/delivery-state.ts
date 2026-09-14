@@ -11,8 +11,9 @@ export const deliveryRequest = workerRequest.extend({
   // Bounds same-owner repair rounds after blocking review findings. It is not a
   // token or cost budget; model limits are configured in factory-config.ts.
   maxRevisions: z.number().int().min(0).max(10).default(3),
-  // A delivery must be started from a persisted cockpit draft so host admission
-  // remains bound to the exact title and brief sent to the worker.
+  // A delivery must be bound to a persisted cockpit draft so host admission
+  // remains tied to the exact title and brief sent to the worker. The draft
+  // origin may be an explicit operator idea or an admitted task-mining order.
   draftId: z.string().min(1).max(240).regex(/^[\w:.-]+$/).optional(),
 });
 export type DeliveryRequest = z.infer<typeof deliveryRequest>;

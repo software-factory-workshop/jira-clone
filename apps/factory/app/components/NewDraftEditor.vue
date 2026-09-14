@@ -6,15 +6,15 @@ import {
 } from "@jira-clone/context";
 import { MIN_WORK_REQUEST_LENGTH } from "../utils/work-station";
 import { applySaveReceipt, cleanSnapshot, destinationLabel, isDraftDirty, type DraftDestination, type ProposalPayload } from "../utils/draft-guard";
-import { cockpitFailureKind, cockpitFailureMessage, type CockpitFailureKind } from "../utils/cockpit-errors";
-import { type WorkOrderAdmission } from "../../shared/cockpit";
+import { cockpitActionMessage, cockpitFailureKind, cockpitFailureMessage, type CockpitFailureKind } from "../utils/cockpit-errors";
+import { type CockpitRecord, type DraftOrigin, type WorkOrderAdmission } from "../../shared/cockpit";
 import { miningAdmissionSchema } from "../utils/mining-output";
 
 // Draft editor implementation; route pages compose this focused surface.
 const { consume } = useWorkRequest();
 const router = useRouter();
 const editor = ref<HTMLElement | null>(null);
-type EditorDraft = Draft & { admission?: WorkOrderAdmission };
+type EditorDraft = Draft & { origin?: DraftOrigin; admission?: WorkOrderAdmission; version: number };
 const drafts = ref<EditorDraft[]>([]);
 const activeId = ref<string | null>(null);
 const activeVersion = ref(0);
@@ -22,6 +22,7 @@ const saving = ref(false);
 const confirmSaving = ref(false);
 const title = ref("");
 const request = ref("");
+const origin = ref<DraftOrigin>("operator");
 const admission = ref<WorkOrderAdmission>();
 const admissionText = ref<{ title: string; request: string }>();
 const notice = ref("");
@@ -46,7 +47,23 @@ const currentAdmission = computed(() => {
   const value = admission.value;
   return value && text && text.title === title.value.trim() && text.request === request.value.trim() ? value : undefined;
 });
-const deliveryReady = computed(() => requestLength.value >= MIN_WORK_REQUEST_LENGTH && currentAdmission.value?.kind === "work_order");
+const titleReady = computed(() => title.value.trim().length > 0 && title.value.trim().length <= 160);
+const operatorIdea = computed(() => origin.value === "operator" && !admission.value);
+const deliveryReady = computed(() => titleReady.value && requestLength.value >= MIN_WORK_REQUEST_LENGTH && (operatorIdea.value || currentAdmission.value?.kind === "work_order"));
+
+function applyDraftRows(rows: CockpitRecord[]) {
+  drafts.value = rows.map(row => {
+    const parsedAdmission = miningAdmissionSchema.safeParse(row.value.admission);
+    const parsedOrigin = row.value.origin === "operator" || row.value.origin === "task-mining" ? row.value.origin : undefined;
+    return { id: row.id, version: row.version, title: String(row.value.title), request: String(row.value.request), updatedAt: row.updatedAt, ...(parsedOrigin ? { origin: parsedOrigin } : {}), ...(parsedAdmission.success ? { admission: parsedAdmission.data } : {}) };
+  });
+  draftVersions.value = Object.fromEntries(rows.map(row => [row.id, row.version]));
+  syncActiveDraftFromShared();
+  if (activeId.value && unsaved.value) {
+    const latest = drafts.value.find(draft => draft.id === activeId.value);
+    if (latest && latest.version > activeVersion.value) draftConflict.value = { latest, local: editorText() };
+  }
+}
 
 async function refreshDrafts() {
   if (draftsLoading.value) return false;
@@ -55,11 +72,7 @@ async function refreshDrafts() {
   draftsErrorKind.value = undefined;
   try {
     const rows = await cockpit.refresh("drafts");
-    drafts.value = rows.map(row => {
-      const parsedAdmission = miningAdmissionSchema.safeParse(row.value.admission);
-      return { id: row.id, title: String(row.value.title), request: String(row.value.request), updatedAt: row.updatedAt, ...(parsedAdmission.success ? { admission: parsedAdmission.data } : {}) };
-    });
-    draftVersions.value = Object.fromEntries(rows.map(row => [row.id, row.version]));
+    applyDraftRows(rows);
     draftsLoaded.value = true;
     return true;
   } catch (cause) {
@@ -70,6 +83,20 @@ async function refreshDrafts() {
     draftsLoading.value = false;
   }
 }
+
+cockpit.watchCollection("drafts", {
+  intervalMs: 10_000,
+  onRefresh(rows) {
+    applyDraftRows(rows);
+    draftsLoaded.value = true;
+    draftsError.value = "";
+    draftsErrorKind.value = undefined;
+  },
+  onError(cause) {
+    draftsErrorKind.value = cockpitFailureKind(cause);
+    draftsError.value = cockpitFailureMessage(cause, "Shared drafts");
+  },
+});
 
 async function captureDraftConflict(cause: unknown) {
   if (cockpitFailureKind(cause) !== "conflict" || !activeId.value) return;
@@ -86,6 +113,7 @@ async function reloadLatestDraft() {
   activeVersion.value = draftVersions.value[conflict.latest.id] ?? 0;
   title.value = conflict.latest.title;
   request.value = conflict.latest.request;
+  origin.value = conflict.latest.origin ?? (conflict.latest.admission ? "task-mining" : "operator");
   admission.value = conflict.latest.admission;
   admissionText.value = conflict.latest.admission ? { title: conflict.latest.title.trim(), request: conflict.latest.request.trim() } : undefined;
   savedSnapshot.value = cleanSnapshot(activeId.value, activeVersion.value, editorText());
@@ -99,7 +127,7 @@ async function reloadLatestDraft() {
 onMounted(async () => {
   let legacy: Draft[] = [];
   try { legacy = parseDrafts(JSON.parse(localStorage.getItem(storageKey) || "[]")); } catch { /* Retain inaccessible legacy data. */ }
-  try { await cockpit.migrate("drafts", legacy.map(draft => ({ id: draft.id, value: { title: draft.title, request: draft.request } }))); }
+  try { await cockpit.migrate("drafts", legacy.map(draft => ({ id: draft.id, value: { title: draft.title, request: draft.request, origin: "operator" } }))); }
   catch (cause) {
     draftsErrorKind.value = cockpitFailureKind(cause);
     draftsError.value = cockpitFailureMessage(cause, "Shared drafts");
@@ -112,6 +140,18 @@ onMounted(async () => {
 
 function editorText() { return { title: title.value, request: request.value }; }
 
+function syncActiveDraftFromShared() {
+  if (!activeId.value || unsaved.value) return;
+  const latest = drafts.value.find(draft => draft.id === activeId.value);
+  if (!latest) return;
+  title.value = latest.title;
+  request.value = latest.request;
+  activeVersion.value = latest.version;
+  origin.value = latest.origin ?? (latest.admission ? "task-mining" : "operator");
+  setAdmission(latest.admission, latest);
+  savedSnapshot.value = cleanSnapshot(activeId.value, activeVersion.value, editorText());
+}
+
 function setAdmission(value: WorkOrderAdmission | undefined, text: { title: string; request: string }) {
   admission.value = value;
   admissionText.value = value ? { title: text.title.trim(), request: text.request.trim() } : undefined;
@@ -119,7 +159,7 @@ function setAdmission(value: WorkOrderAdmission | undefined, text: { title: stri
 
 function draftValue() {
   const value = currentAdmission.value;
-  return { title: title.value.trim(), request: request.value.trim(), ...(value ? { admission: value } : {}) };
+  return { title: title.value.trim(), request: request.value.trim(), origin: origin.value, ...(value ? { admission: value } : {}) };
 }
 
 function guardNavigation() {
@@ -146,18 +186,21 @@ async function applyDestination(destination: DraftDestination) {
     activeVersion.value = destination.value.version ?? 0;
     title.value = destination.value.title;
     request.value = destination.value.body;
+    origin.value = destination.value.origin ?? "task-mining";
     setAdmission(destination.value.admission, { title: destination.value.title, request: destination.value.body });
   } else if (destination.kind === "draft") {
     activeId.value = destination.draft.id;
     activeVersion.value = draftVersions.value[destination.draft.id] ?? 0;
     title.value = destination.draft.title;
     request.value = destination.draft.request;
+    origin.value = destination.draft.origin ?? (destination.draft.admission ? "task-mining" : "operator");
     setAdmission(destination.draft.admission, destination.draft);
   } else {
     activeId.value = null;
     activeVersion.value = 0;
     title.value = "";
     request.value = "";
+    origin.value = "operator";
     setAdmission(undefined, { title: "", request: "" });
   }
   savedSnapshot.value = cleanSnapshot(activeId.value, activeVersion.value, editorText());
@@ -274,8 +317,12 @@ async function rememberDelivery(id: string) {
 
 async function go() {
   if (saving.value || deliveryStarting.value || confirmSaving.value || !title.value.trim() || !request.value.trim()) return;
-  if (currentAdmission.value?.kind !== "work_order") {
-    notice.value = "Only a task-mining draft admitted as a work order can start delivery.";
+  if (!operatorIdea.value && currentAdmission.value?.kind !== "work_order") {
+    notice.value = "This mined draft is not admitted for delivery. Start a new idea or activate a task-mining work order.";
+    return;
+  }
+  if (!titleReady.value) {
+    notice.value = "The title needs to be between 1 and 160 characters before delivery can start.";
     return;
   }
   if (requestLength.value < MIN_WORK_REQUEST_LENGTH) {
@@ -302,8 +349,8 @@ async function go() {
     navigationApproved.value = true;
     await router.replace({ path: "/work/run", query: { delivery: delivery.id } });
     deliveryOperationId = undefined;
-  } catch {
-    notice.value = "Could not confirm the loop start. Retry uses the same operation ID.";
+  } catch (cause) {
+    notice.value = cockpitActionMessage(cause, "Could not confirm the loop start. Retry uses the same operation ID.");
   } finally {
     deliveryStarting.value = false;
   }
@@ -326,8 +373,8 @@ watch([title, request], async () => {
 <template>
   <AdeoPageHeader
     eyebrow="WORKSPACE · NEW DRAFT"
-    title="Create a new draft"
-    description="Give the factory a useful problem. Start with the outcome you want and what would make it worth shipping."
+    title="Start with an idea"
+    description="Have a clear idea? Write it here and Go! will save the request and start the durable delivery. Task mining is available when you need more context first."
   >
     <template #actions>
       <UButton icon="i-lucide-plus" @click="compose()">New draft</UButton>
@@ -340,9 +387,14 @@ watch([title, request], async () => {
         <h2>{{ activeId ? "Review your request" : "A new request" }}</h2>
         <UBadge :color="unsaved ? 'warning' : 'secondary'" variant="soft">{{ unsaved ? "Unsaved changes" : "Draft" }}</UBadge>
       </div>
+      <UAlert v-if="draftsError" color="warning" variant="soft" title="Shared drafts are unavailable" :description="draftsError">
+        <template #actions>
+          <UButton size="xs" variant="outline" :loading="draftsLoading" :disabled="draftsLoading" @click="refreshDrafts">Retry shared drafts</UButton>
+        </template>
+      </UAlert>
       <p v-if="unsaved" role="status" class="small unsaved-hint">You have unsaved changes. Choosing another draft or request will ask before replacing this text.</p>
       <UFormField label="Title" name="title" required>
-        <UInput v-model="title" placeholder="An ADEO issue list" class="full-width" />
+        <UInput v-model="title" maxlength="160" placeholder="An ADEO issue list" class="full-width" />
       </UFormField>
       <UFormField
         label="What do you want to achieve?"
@@ -364,11 +416,12 @@ watch([title, request], async () => {
         >Create issue in GitHub</UButton>
       </div>
       <p v-if="notice" role="status" class="save-notice">{{ notice }}</p>
-      <p v-if="currentAdmission?.kind === 'work_order'" class="small muted" role="status">This draft is admitted as a work order. Go! saves it and starts durable delivery when the request reaches {{ MIN_WORK_REQUEST_LENGTH }} characters ({{ requestLength }}/{{ MIN_WORK_REQUEST_LENGTH }}).</p>
+      <p v-if="operatorIdea" class="small muted" role="status">Operator idea · task mining is optional. Go! saves this brief and starts durable delivery when it reaches {{ MIN_WORK_REQUEST_LENGTH }} characters ({{ requestLength }}/{{ MIN_WORK_REQUEST_LENGTH }}).</p>
+      <p v-else-if="currentAdmission?.kind === 'work_order'" class="small muted" role="status">This draft is admitted as a work order. Go! saves it and starts durable delivery when the request reaches {{ MIN_WORK_REQUEST_LENGTH }} characters ({{ requestLength }}/{{ MIN_WORK_REQUEST_LENGTH }}).</p>
       <p v-else-if="admission && !currentAdmission" class="small muted" role="status">The request changed after admission. Return to task mining and activate the current work order again before delivery.</p>
       <p v-else-if="admission?.kind === 'clarification'" class="small muted" role="status">This task needs an owner clarification before delivery can start.</p>
       <p v-else-if="admission?.kind === 'unsupported'" class="small muted" role="status">This task was not admitted for delivery.</p>
-      <p v-else class="small muted" role="status">Go! starts only from a task-mining draft admitted as a work order. The request needs at least {{ MIN_WORK_REQUEST_LENGTH }} characters ({{ requestLength }}/{{ MIN_WORK_REQUEST_LENGTH }}).</p>
+      <p v-else class="small muted" role="status">Go! starts from an operator idea or a task-mining draft admitted as a work order. The request needs at least {{ MIN_WORK_REQUEST_LENGTH }} characters ({{ requestLength }}/{{ MIN_WORK_REQUEST_LENGTH }}).</p>
       <section v-if="draftConflict" class="draft-conflict" role="alert">
         <div>
           <strong>Shared draft changed elsewhere</strong>
@@ -402,10 +455,10 @@ watch([title, request], async () => {
       </UModal>
       <p class="small muted">Create issue in GitHub opens a prefilled issue for you to review and submit. Go! saves the draft and starts durable delivery.</p>
       <div class="stage-note">
-        <UIcon name="i-lucide-sprout" />
+        <UIcon name="i-lucide-compass" />
         <div>
-          <strong>Start with an investigation</strong>
-          <p>Task mining reads the goal, code and current GitHub work. Start Go! when the request is ready, then follow the live handoffs on the run page.</p>
+          <strong>Choose how much discovery you need</strong>
+          <p>Go! is the direct path for a clear idea. If you need evidence before deciding, <NuxtLink to="/" class="inline-link">task mining</NuxtLink> reads the goal, code and current GitHub work without starting a worker.</p>
         </div>
       </div>
     </section>
