@@ -86,6 +86,7 @@ async function publishFallback(ctx: HookContext) {
 export default defineHook({ events: {
   "session.completed": (_event, ctx) => publishFallback(ctx),
   "session.failed": (_event, ctx) => publishFallback(ctx),
+  "turn.completed": (_event, ctx) => publishFallback(ctx),
   "turn.failed": (_event, ctx) => publishFallback(ctx),
   "turn.cancelled": (_event, ctx) => publishFallback(ctx),
 } });

@@ -97,6 +97,7 @@ test("reviewer failure records an explicit cockpit unavailable state", async () 
 
   assert.match(hook, /reviewUnavailable/);
   assert.match(hook, /No visual packet or GitHub review was published/);
+  assert.match(hook, /"turn\.completed"/);
   assert.match(cockpit, /export const reviewUnavailable/);
   assert.match(run, /Visual review unavailable/);
   assert.match(run, /unavailableResult\.limitations/);
