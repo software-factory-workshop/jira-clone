@@ -9,7 +9,7 @@ import { readCockpit,updateCockpit } from '../lib/cockpit-store';
 import { changeRecord,deliveryEntryPoint } from '../../shared/cockpit';
 import { factoryAuth } from '../lib/route-auth';
 import { stationOperation } from './stations';
-import { answerOwnerQuestion, deliveryRequest,newDelivery,operationFor,transition,terminal,applyReview,referenceState,claimAdvance,commitAdvance,requestResume,beginRevision,admissionRecoveryAction,recordAdmissionFailure,retryAdmission,type Delivery } from '../lib/delivery-state';
+import { reconcileCanReuse, answerOwnerQuestion, deliveryRequest,newDelivery,operationFor,transition,terminal,applyReview,referenceState,claimAdvance,commitAdvance,requestResume,beginRevision,admissionRecoveryAction,recordAdmissionFailure,retryAdmission,type Delivery } from '../lib/delivery-state';
 import { listDeliveryReceipts,readDelivery,updateDelivery } from '../lib/delivery-store';
 import { classifyDeliveryError,snapshotEvents,childIn,hostResult,stoppedWithoutResult,eventsForDelivery,modelUsageFromEvents,pendingSessionLimitResponses,resolvedSessionLimitRequests,resumeMessage,resumeReceipt,type ClassifiedDeliveryError, type EventSnapshot } from '../lib/delivery-events';
 import { readPull,readBranch,WorkError,workBranch } from '../lib/work-github';
@@ -52,7 +52,7 @@ async function persistGithubObservation(id:string, expected:NonNullable<Delivery
  return updateDelivery(id,current=>{
   if(!current)throw new Error('Delivery not found');
   if(!current.publication||current.publication.number!==expected.number||current.publication.headSha!==expected.headSha||current.publication.targetBranch!==expected.targetBranch)return{state:current,result:current};
-  current.github=snapshot;
+  current.github={...snapshot,observedAt:new Date().toISOString()};
   current.mergeDecision=decision;
   if(decision.status==='eligible'&&options.beginMerge&&['human_review','ready','blocked','needs_revision'].includes(current.phase)){
    transition(current,'merging',{actor:'operator',reason:'Exact GitHub and host policy checks passed; the requested merge is in flight.'});
@@ -78,6 +78,7 @@ async function persistRecoveredPublication(id:string, recovered:RecoveredPublica
 });
 }
 async function reconcileDelivery(state:Delivery) {
+ if(reconcileCanReuse(state))return state;
  let token:string|undefined;
  if(!state.publication){
   const owner=state.childSessionId||state.sessionId;

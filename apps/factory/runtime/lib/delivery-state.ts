@@ -592,3 +592,13 @@ export function answerOwnerQuestion(state: Delivery, operationId: string, answer
   transition(state, 'owner_resuming', { actor: 'operator', operationId, reason: 'The authenticated owner answered the worker question.' });
   return state;
 }
+
+// The cockpit polls /reconcile every few seconds per open page and each GitHub inspection is
+// several API calls against the installation budget every station shares. A fresh observation
+// is reused; finished deliveries never re-read GitHub through this path.
+export const RECONCILE_REUSE_MS=30_000;
+export function reconcileCanReuse(state: Pick<Delivery, 'phase' | 'github' | 'publication'>,now=Date.now()):boolean{
+ if(['merged','cancelled'].includes(state.phase))return true;
+ const observed=state.github?.observedAt?Date.parse(state.github.observedAt):NaN;
+ return Number.isFinite(observed)&&now-observed<RECONCILE_REUSE_MS&&!!state.publication&&state.github?.number===state.publication.number&&state.github?.headSha===state.publication.headSha;
+}
