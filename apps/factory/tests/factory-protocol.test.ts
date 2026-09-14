@@ -11,6 +11,7 @@ import {
 import { projectRunEvent } from '../runtime/lib/cockpit-run.ts';
 import { ownerPublication } from '../runtime/lib/work-owner.ts';
 import { workBranch } from '../runtime/lib/work-github.ts';
+import { factoryRepositoryUrl } from '../runtime/lib/factory-config.ts';
 
 const owner = 'wrun_owner';
 const operationId = '11111111-1111-4111-8111-111111111111';
@@ -22,7 +23,7 @@ const deliveryId = 'delivery-one';
 const publication = {
   branch,
   number: 48,
-  url: 'https://github.com/software-factory-workshop/jira-clone/pull/48',
+  url: `${factoryRepositoryUrl}/pull/48`,
   headSha,
   baseSha,
   ownerSessionId: owner,

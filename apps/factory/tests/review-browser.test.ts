@@ -7,6 +7,7 @@ import browserEvidenceHook from '../agents/reviewer/agent/hooks/browser-evidence
 import {browserComplete,browserOrigin,browserRequirements,type BrowserObservation,visualComparisonComplete,visualObservationComplete} from '../runtime/lib/review-browser.ts';
 import {hostReviewLimitations} from '../runtime/lib/review-policy.ts';
 import {reviewBrowser} from '../runtime/lib/review-browser.ts';
+import {factoryPorts} from '../runtime/lib/factory-config.ts';
 
 registerDefinitionSource(`tool:${snapshot.description}`,{kind:'tool',name:'browser__snapshot'});
 registerDefinitionSource(`tool:${find.description}`,{kind:'tool',name:'browser__find'});
@@ -18,10 +19,12 @@ const actionResult=(toolName:string,output:unknown,eventId:string)=>({
 });
 
 const hookContext={session:{id:'reviewer'}} as Parameters<NonNullable<typeof browserEvidenceHook.events>['action.result']>[1];
-const evidence:BrowserObservation={origin:'http://127.0.0.1:3001',headSha:'candidate',sessionId:'reviewer',snapshot:true,interaction:true,keyboard:true,screenshot:true,afterInteraction:true,eventIds:['1','2','3','4','5']};
+const jiraOrigin=`http://127.0.0.1:${factoryPorts.jira}`;
+const browserJiraOrigin=`http://127.0.0.1:${factoryPorts.browserJiraBase}`;
+const evidence:BrowserObservation={origin:jiraOrigin,headSha:'candidate',sessionId:'reviewer',snapshot:true,interaction:true,keyboard:true,screenshot:true,afterInteraction:true,eventIds:['1','2','3','4','5']};
 
 test('reviewer hook records a successful find action as browser interaction evidence',async()=>{
- const origin='http://127.0.0.1:3001';
+ const origin=jiraOrigin;
  await contextStorage.run(new ContextContainer(),async()=>{
   reviewBrowser.update(state=>({...state,targets:{[origin]:'candidate'}}));
   const onActionResult=browserEvidenceHook.events!['action.result']!;
@@ -46,15 +49,15 @@ test('both changed apps need evidence; host missing-browser fallback remains by 
  assert.deepEqual(browserRequirements([{filename:'docs/check.md'}]),[]);
 });
 test('visual evidence requires before and after frames for the same route and exact reviewer session',()=>{
- const withFrames:BrowserObservation={...evidence,route:'/issues',frames:{before:{phase:'before',url:'http://127.0.0.1:3001/issues',route:'/issues',dataUrl:'data:image/png;base64,AA==',capturedAt:'2026-09-13T12:00:00.000Z',eventId:'before'},after:{phase:'after',url:'http://127.0.0.1:3001/issues',route:'/issues',dataUrl:'data:image/png;base64,AA==',capturedAt:'2026-09-13T12:01:00.000Z',eventId:'after'}}};
+ const withFrames:BrowserObservation={...evidence,route:'/issues',frames:{before:{phase:'before',url:`${jiraOrigin}/issues`,route:'/issues',dataUrl:'data:image/png;base64,AA==',capturedAt:'2026-09-13T12:00:00.000Z',eventId:'before'},after:{phase:'after',url:`${jiraOrigin}/issues`,route:'/issues',dataUrl:'data:image/png;base64,AA==',capturedAt:'2026-09-13T12:01:00.000Z',eventId:'after'}}};
  assert.equal(visualObservationComplete(withFrames,'candidate','reviewer'),true);
  assert.equal(visualObservationComplete({...withFrames,frames:{...withFrames.frames,after:{...withFrames.frames.after!,route:'/board'}}},'candidate','reviewer'),false);
  assert.equal(visualObservationComplete(withFrames,'other-head','reviewer'),false);
 });
 test('visual comparison binds the before frame to base and after frame to candidate',()=>{
  const baseSha='a'.repeat(40);const headSha='b'.repeat(40);
- const before:BrowserObservation={...evidence,origin:browserOrigin('jira','base'),headSha:baseSha,source:'base',route:'/issues',frames:{before:{phase:'before',source:'base',sourceSha:baseSha,url:'http://127.0.0.1:3101/issues',route:'/issues',dataUrl:'data:image/png;base64,AA==',capturedAt:'2026-09-13T12:00:00.000Z',eventId:'before'}}};
- const after:BrowserObservation={...evidence,origin:browserOrigin('jira','head'),headSha,source:'head',route:'/issues',frames:{after:{phase:'after',source:'head',sourceSha:headSha,url:'http://127.0.0.1:3001/issues',route:'/issues',dataUrl:'data:image/png;base64,AA==',capturedAt:'2026-09-13T12:01:00.000Z',eventId:'after'}}};
+ const before:BrowserObservation={...evidence,origin:browserOrigin('jira','base'),headSha:baseSha,source:'base',route:'/issues',frames:{before:{phase:'before',source:'base',sourceSha:baseSha,url:`${browserJiraOrigin}/issues`,route:'/issues',dataUrl:'data:image/png;base64,AA==',capturedAt:'2026-09-13T12:00:00.000Z',eventId:'before'}}};
+ const after:BrowserObservation={...evidence,origin:browserOrigin('jira','head'),headSha,source:'head',route:'/issues',frames:{after:{phase:'after',source:'head',sourceSha:headSha,url:`${jiraOrigin}/issues`,route:'/issues',dataUrl:'data:image/png;base64,AA==',capturedAt:'2026-09-13T12:01:00.000Z',eventId:'after'}}};
  assert.equal(visualComparisonComplete(before,after,baseSha,headSha,'reviewer'),true);
  assert.equal(visualComparisonComplete({...before,headSha:headSha},after,baseSha,headSha,'reviewer'),false);
  assert.equal(visualComparisonComplete(before,{...after,route:'/board',frames:{after:{...after.frames!.after!,route:'/board'}}},baseSha,headSha,'reviewer'),false);

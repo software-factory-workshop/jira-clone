@@ -10,13 +10,14 @@ import { prepareRepository } from "../../../lib/prepare-context";
 import { workState } from "../../../lib/work-state";
 import { requireStation,stationRequest,reviewerRequest } from "../../../lib/station-access";
 import { hostReviewLimitations } from "../../../lib/review-policy";
+import { githubConnectorName } from "../../../lib/factory-config.ts";
 export default defineTool({description:"Fetch the authenticated PR's exact base/head, independent candidate workspace, frozen dependencies, and baseline policy. Call first.",inputSchema:z.object({}),
  async *execute(_,ctx){
   requireStation(ctx,"reviewer");
   const log=useLogger(ctx);
   if(workState.get().prepared){log.set({factory:{station:"reviewer",stage:"prepare_review",outcome:"already_prepared",prNumber:workState.get().pull?.number}});yield{phase:"Prepared",pull:workState.get().pull};return;}
   verifyScope(await getVercelOidcToken());yield{phase:"Preparing independent review"};
-  const token=await getToken("github/jira-clone",{subject:{type:"app"}});
+  const token=await getToken(githubConnectorName,{subject:{type:"app"}});
   const pull=await loadPullRequest(token,reviewerRequest.parse(stationRequest(ctx)).prNumber,ctx.abortSignal);
   const baseManifest=jiraManifest(pull.baseSnapshot.entries);const candidateManifest=jiraManifest(pull.snapshot.entries);
   validateJiraMcpChangeSet(pull.files.map(file=>file.filename),baseManifest,candidateManifest);

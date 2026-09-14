@@ -1,5 +1,6 @@
 import { loadRepository, manifestFor } from "./github.mjs";
 import { commandEvidence } from "./command-evidence.ts";
+import { factoryNodeVersion, factoryPnpmVersion } from "./factory-config.ts";
 interface Sandbox {
   writeBinaryFile(input:{path:string;content:Uint8Array}):PromiseLike<unknown>;
   writeTextFile(input:{path:string;content:string}):PromiseLike<unknown>;
@@ -17,8 +18,8 @@ export async function prepareRepository(sandbox:Sandbox,token:string,signal?:Abo
     const permissions=await sandbox.run({command:`chmod 755 -- ${paths}`});
     if(permissions.exitCode!==0)throw new Error("Could not restore source executable modes.");
   }
-  await sandbox.writeTextFile({path:"repo/.mining-snapshot.json",content:JSON.stringify({revision,files,exclusions:snapshotExclusions,exclusionNote,...(activeWork?{activeWork}:{}),node:"24.21.0",pnpm:"10.33.4"},null,2)});
-  const setup='set -eu; mkdir -p "$HOME/.local/bin"; npm install --prefix "$HOME/.local" --no-audit --no-fund node@24.21.0 pnpm@10.33.4; ln -sf "$HOME/.local/node_modules/node/bin/node" "$HOME/.local/bin/node"; ln -sf "$HOME/.local/node_modules/pnpm/bin/pnpm.cjs" "$HOME/.local/bin/pnpm"; export PATH="$HOME/.local/bin:$PATH"; cd /workspace/repo; node --version; pnpm --version; pnpm install --frozen-lockfile';
+  await sandbox.writeTextFile({path:"repo/.mining-snapshot.json",content:JSON.stringify({revision,files,exclusions:snapshotExclusions,exclusionNote,...(activeWork?{activeWork}:{}),node:factoryNodeVersion,pnpm:factoryPnpmVersion},null,2)});
+  const setup=`set -eu; mkdir -p "$HOME/.local/bin"; npm install --prefix "$HOME/.local" --no-audit --no-fund node@${factoryNodeVersion} pnpm@${factoryPnpmVersion}; ln -sf "$HOME/.local/node_modules/node/bin/node" "$HOME/.local/bin/node"; ln -sf "$HOME/.local/node_modules/pnpm/bin/pnpm.cjs" "$HOME/.local/bin/pnpm"; export PATH="$HOME/.local/bin:$PATH"; cd /workspace/repo; node --version; pnpm --version; pnpm install --frozen-lockfile`;
   const result=await sandbox.run({command:setup});
   return {revision,files,commands:[commandEvidence(setup,result)],prepared:result.exitCode===0,contextGaps:result.exitCode===0?[]:[`Dependency setup failed with exit ${result.exitCode}; inspect command evidence before proposing reproducibility-dependent work.`]};
 }

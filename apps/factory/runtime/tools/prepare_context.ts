@@ -9,6 +9,7 @@ import { verifyScope } from "../lib/github.mjs";
 import { prepareRepository } from "../lib/prepare-context";
 import { activeWork } from "../lib/active-work";
 import { miningState } from "../lib/mining-state";
+import { githubConnectorName } from "../lib/factory-config.ts";
 const tool = defineTool({
   description:"Prepare the pinned repository and dependency-complete native Eve sandbox. Call this first, once per investigation.",
   inputSchema:z.object({}),
@@ -21,7 +22,7 @@ const tool = defineTool({
     }
     verifyScope(await getVercelOidcToken());
     yield {phase:"Preparing repository context and dependencies"};
-    const token=await getToken("github/jira-clone",{subject:{type:"app"}});
+    const token=await getToken(githubConnectorName,{subject:{type:"app"}});
     const sandbox=await ctx.getSandbox();
     miningState.update(s=>({...s,sandboxStarted:true}));
     const result=await prepareRepository(sandbox,token,ctx.abortSignal,undefined,await activeWork(token,ctx.abortSignal));

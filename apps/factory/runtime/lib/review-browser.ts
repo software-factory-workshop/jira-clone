@@ -1,7 +1,8 @@
 import {defineState} from 'eve/context';
+import { factoryPorts } from './factory-config.ts';
 export type BrowserReviewSource='base'|'head';
 export type BrowserReviewApp='jira'|'factory';
-export function browserOrigin(app:BrowserReviewApp,source:BrowserReviewSource){const port=source==='base'?(app==='jira'?3101:3100):(app==='jira'?3001:3000);return `http://127.0.0.1:${port}`;}
+export function browserOrigin(app:BrowserReviewApp,source:BrowserReviewSource){const port=source==='base'?(app==='jira'?factoryPorts.browserJiraBase:factoryPorts.browserFactoryBase):(app==='jira'?factoryPorts.jira:factoryPorts.cockpit);return `http://127.0.0.1:${port}`;}
 
 export const MAX_REVIEW_FRAME_DATA_URL_LENGTH = 6_000_000;
 export interface BrowserFrame {phase:'before'|'after';source?:BrowserReviewSource;sourceSha?:string;url:string;route:string;dataUrl:string;capturedAt:string;eventId:string}

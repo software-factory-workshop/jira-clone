@@ -1,13 +1,14 @@
 import { appendFile } from "node:fs/promises";
 import { pathToFileURL } from "node:url";
+import { factoryRepository, vercelProjectNames, vercelTeamName } from "../runtime/lib/factory-config.ts";
 
-const projects = ["adeo-factory-cockpit", "adeo-jira-clone"];
+const projects = [vercelProjectNames.cockpit, vercelProjectNames.jira];
 export function deploymentStatus(response, sha) {
   if (response.sha !== sha || !Array.isArray(response.statuses)) throw new Error("GitHub returned status for a different revision or an invalid response.");
   return projects.map(project => {
     const status = response.statuses.find(item => item.context === `Vercel – ${project}`);
     if (!status) return { project, state: "pending" };
-    const prefix = `https://vercel.com/demo-software-factory/${project}/`;
+    const prefix = `https://vercel.com/${vercelTeamName}/${project}/`;
     if (!status.target_url?.startsWith(prefix)) throw new Error(`Unexpected Vercel team/project URL for ${project}.`);
     if (!["success", "pending", "failure", "error"].includes(status.state)) throw new Error(`Unknown deployment status for ${project}.`);
     return { project, state: status.state, url: status.target_url };
@@ -19,7 +20,7 @@ async function main() {
   if (!sha || !/^[a-f0-9]{40}$/.test(sha) || !token) throw new Error("Expected exact commit SHA and read-only GitHub workflow token.");
   const deadline = Date.now() + 15 * 60_000;
   while (Date.now() < deadline) {
-    const response = await fetch(`https://api.github.com/repos/software-factory-workshop/jira-clone/commits/${sha}/status`, {
+    const response = await fetch(`https://api.github.com/repos/${factoryRepository}/commits/${sha}/status`, {
       headers: { Authorization: `Bearer ${token}`, Accept: "application/vnd.github+json", "X-GitHub-Api-Version": "2022-11-28" },
       redirect: "error", signal: AbortSignal.timeout(20_000),
     });

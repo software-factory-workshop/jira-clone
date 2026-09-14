@@ -3,6 +3,7 @@ import { useEveAgent } from "eve/vue";
 import { authorizationLink, miningProgress, parseMiningOutput, proposalDeliveryRequest, proposalDraft, terminalMiningFailure, type MiningProposal } from "../utils/mining-output";
 import { renderReport } from "../utils/report";
 import { copyText, shortIdentifier } from "../utils/technical-details";
+import { factoryRepository, vercelTeamName } from "../../runtime/lib/factory-config.ts";
 const props = defineProps<{ sessionId?: string }>();
 const emit = defineEmits<{ session: [id: string, label: string]; draft: [value: { title: string; body: string;id?:string;version?:number }]; new: [] }>();
 const route = useRoute();
@@ -120,7 +121,7 @@ async function copySession(sessionId: string) {
       <p class="muted">Leave this open, or give the miner a question to investigate.</p>
       <UFormField label="Focus for this investigation" name="focus"><UTextarea v-model="focus" class="w-full" :rows="4" :maxlength="3000" placeholder="What context is missing before we can safely grow the factory?" :disabled="busy" /></UFormField>
       <div class="mining-actions"><UButton type="submit" icon="i-lucide-search" :loading="busy">Find useful tasks</UButton><span class="small muted">Proposals only · up to three</span></div>
-      <p class="small muted">Eve investigates with Muse Spark in a Vercel Sandbox, billed to demo-software-factory. It can inspect source, GitHub and Vercel evidence, and run local checks. It cannot publish changes.</p>
+      <p class="small muted">Eve investigates with Muse Spark in a Vercel Sandbox, billed to {{ vercelTeamName }}. It can inspect source, GitHub and Vercel evidence, and run local checks. It cannot publish changes.</p>
     </form>
     <div v-else>
       <div class="panel-heading"><h2>Investigation</h2><UBadge :color="incomplete ? 'warning' : output?.report ? 'success' : terminalFailure ? 'error' : 'primary'" variant="soft">{{ status === 'resuming' ? 'Reconnecting' : awaitingAuthorization ? 'Connection needed' : busy ? 'Running' : incomplete ? 'Incomplete' : output?.report ? 'Ready to review' : cancelled ? 'Stopped' : disconnected ? 'Disconnected' : 'Incomplete' }}</UBadge></div>
@@ -165,9 +166,9 @@ async function copySession(sessionId: string) {
         </UCard>
         <div class="mining-actions"><UButton v-if="!output.proposals?.length && !output.noProposalReason" icon="i-lucide-file-pen-line" :loading="activatingKey === 'findings'" :disabled="!!activatingKey" @click="draft">Use findings in a draft</UButton><UButton variant="outline" color="neutral" @click="emit('new')">New investigation</UButton></div>
         <details class="evidence"><summary>Source evidence · {{ output.files?.length ?? 0 }} files</summary>
-          <p v-if="output.revision"><a :href="`https://github.com/software-factory-workshop/jira-clone/tree/${output.revision}`" target="_blank" rel="noopener noreferrer">Revision {{ output.revision?.slice(0, 12) }}</a></p>
+          <p v-if="output.revision"><a :href="`https://github.com/${factoryRepository}/tree/${output.revision}`" target="_blank" rel="noopener noreferrer">Revision {{ output.revision?.slice(0, 12) }}</a></p>
           <p v-for="(read, index) in output.githubReads" :key="index">{{ read.resource }}: {{ read.count ?? 'Unknown number of' }} items · {{ read.complete ? 'complete inventory' : 'incomplete' }} · {{ read.capturedAt }}</p>
-          <ul v-if="output.revision"><li v-for="file in output.files" :key="file.file"><a :href="`https://github.com/software-factory-workshop/jira-clone/blob/${output.revision}/${file.file}`" target="_blank" rel="noopener noreferrer">{{ file.file }}</a></li></ul>
+          <ul v-if="output.revision"><li v-for="file in output.files" :key="file.file"><a :href="`https://github.com/${factoryRepository}/blob/${output.revision}/${file.file}`" target="_blank" rel="noopener noreferrer">{{ file.file }}</a></li></ul>
           <p v-for="(read, index) in output.vercelReads" :key="`vercel-${index}`">Vercel {{ read.resource }} · {{ read.projectId }} · {{ read.complete ? 'available' : 'incomplete' }} · {{ read.capturedAt }}<span v-if="read.coverage"> · {{ read.coverage }}</span><span v-if="read.summary"> · {{ read.summary }}</span></p>
           <details v-for="(command, index) in output.commands" :key="`command-${index}`" class="command-evidence">
             <summary><code>{{ command.command }}</code> · exit {{ command.exitCode ?? 'unknown' }}</summary>

@@ -1,10 +1,10 @@
 import { defineAgent, defineDynamic } from "eve";
 import { getVercelOidcToken } from "@vercel/oidc";
-import { model, verifyGatewayScope } from "./lib/github.mjs";
-import { factoryModelLimits } from "./lib/factory-config.ts";
+import { verifyGatewayScope } from "./lib/github.mjs";
+import { factoryModelIds, factoryModelLimits } from "./lib/factory-config.ts";
 
 export default defineAgent({
-  model: defineDynamic({events:{"session.started":async()=>{verifyGatewayScope(await getVercelOidcToken(),process.env.AI_GATEWAY_API_KEY);return model;}}}),
+  model: defineDynamic({events:{"session.started":async()=>{verifyGatewayScope(await getVercelOidcToken(),process.env.AI_GATEWAY_API_KEY);return factoryModelIds.taskMiner;}}}),
   build: { externalDependencies: ["@cedar-policy/cedar-wasm"] },
   // Static tool policy on purpose. Eve 0.52.5 accepts `defaultTools` in a
   // dynamic subagent return at build time but rejects it at runtime (hosted run

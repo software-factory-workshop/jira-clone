@@ -1,5 +1,7 @@
 // Restart the whole `pnpm dev` command after changing this file or installing
 // dependencies: this Eve/Nuxt version can keep proxying to its stopped child.
+import { vercelProjectNames } from "./runtime/lib/factory-config.ts";
+
 export default defineNuxtConfig({
   modules: ["evlog/nuxt", "workflow/nuxt", "./modules/station-routes"],
   vite: { optimizeDeps: { include: ["eve/vue"] } },
@@ -8,7 +10,7 @@ export default defineNuxtConfig({
   compatibilityDate: "2026-09-12",
   devtools: { enabled: false },
   evlog: {
-    env: { service: "adeo-factory-cockpit" },
+    env: { service: vercelProjectNames.cockpit },
     redact: true,
     transport: { enabled: true },
     exclude: ["/_nuxt/**", "/api/_evlog/ingest"],
@@ -24,5 +26,5 @@ export default defineNuxtConfig({
       ],
     },
   },
-  runtimeConfig: { public: { jiraUrl: "https://adeo-jira-clone.vercel.app", factorySha: process.env.VERCEL_GIT_COMMIT_SHA || "local" } },
+  runtimeConfig: { public: { jiraUrl: `https://${vercelProjectNames.jira}.vercel.app`, factorySha: process.env.VERCEL_GIT_COMMIT_SHA || "local" } },
 });

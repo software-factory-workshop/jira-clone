@@ -2,6 +2,7 @@ import { defineEventHandler, setResponseHeader, setResponseStatus } from "h3";
 import { getToken, ConnectError } from "@vercel/connect";
 import { z } from "zod";
 import { repository } from "@jira-clone/context";
+import { githubConnectorName } from "../../runtime/lib/factory-config.ts";
 
 const repositorySchema = z.object({
   full_name: z.literal(repository.name),
@@ -15,7 +16,7 @@ const repositorySchema = z.object({
 export default defineEventHandler(async (event) => {
   setResponseHeader(event, "Cache-Control", "private, no-store");
   try {
-    const token = await getToken("github/jira-clone", {
+    const token = await getToken(githubConnectorName, {
       subject: { type: "app" },
     });
     const response = await fetch(

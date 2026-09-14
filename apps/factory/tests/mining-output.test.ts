@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { authorizationLink, miningProgress, parseMiningOutput, proposalDeliveryRequest, proposalDraft, terminalMiningFailure } from "../app/utils/mining-output.ts";
+import { factoryRepository } from "../runtime/lib/factory-config.ts";
 
 const capturedAt = "2026-09-12T12:00:00.000Z";
 const revision = "a".repeat(40);
@@ -48,7 +49,7 @@ const firstProposal = { title: "First candidate", outcome: "A bounded first outc
 const secondProposal = { ...firstProposal, title: "Second candidate", outcome: "A different selected outcome", scope: ["Second scope"] };
 
 test("each task draft contains only the selected proposal and retains host provenance and gaps", () => {
-  const output = parseMiningOutput({ phase: "Incomplete", report: "Combined report", revision, capturedAt, proposals: [firstProposal, { ...secondProposal, id: "wrun_host:proposal:2", rank: 2, provenance: { sessionId: "wrun_host", repository: "software-factory-workshop/jira-clone", revision, capturedAt, executionSurface: "native-eve", source: "git-revision" } }], contextGaps: ["Deployment access pending"] });
+  const output = parseMiningOutput({ phase: "Incomplete", report: "Combined report", revision, capturedAt, proposals: [firstProposal, { ...secondProposal, id: "wrun_host:proposal:2", rank: 2, provenance: { sessionId: "wrun_host", repository: factoryRepository, revision, capturedAt, executionSurface: "native-eve", source: "git-revision" } }], contextGaps: ["Deployment access pending"] });
   const selected = output?.proposals?.[1];
   assert(selected);
   const draft = proposalDraft({ proposal: selected, index: 1, sessionId: "wrun_host", revision, capturedAt, phase: "Incomplete", contextGaps: output.contextGaps });

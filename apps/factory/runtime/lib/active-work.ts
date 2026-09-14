@@ -2,6 +2,7 @@ import { list } from '@vercel/blob';
 import { readGithub } from './github.mjs';
 import { readDelivery } from './delivery-store.ts';
 import { terminal } from './delivery-state.ts';
+import { factoryBlobPaths } from './factory-config.ts';
 
 export interface ActiveWork {
   capturedAt: string;
@@ -40,9 +41,9 @@ async function activeDeliveries() {
     const ids: string[] = [];
     let cursor: string | undefined;
     do {
-      const page = await list({ prefix: 'factory/delivery/', limit: 1000, ...(cursor ? { cursor } : {}) });
+      const page = await list({ prefix: factoryBlobPaths.deliveryPrefix, limit: 1000, ...(cursor ? { cursor } : {}) });
       for (const blob of page.blobs) {
-        const match = /^factory\/delivery\/([a-f0-9]{64})\.json$/.exec(blob.pathname);
+        const match = new RegExp(`^${factoryBlobPaths.deliveryPrefix}([a-f0-9]{64})\\.json$`).exec(blob.pathname);
         if (match) ids.push(match[1]!);
       }
       cursor = page.hasMore ? page.cursor : undefined;

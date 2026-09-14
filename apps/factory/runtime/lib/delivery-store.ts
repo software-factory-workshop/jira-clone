@@ -5,10 +5,11 @@ import {
   type Delivery,
   type DeliveryReceipt,
 } from './delivery-state.ts';
+import { factoryBlobPaths } from './factory-config.ts';
 
 function deliveryPath(id: string) {
   if (!/^[a-f0-9]{64}$/.test(id)) throw new Error('Invalid delivery ID');
-  return `factory/delivery/${id}.json`;
+  return `${factoryBlobPaths.deliveryPrefix}${id}.json`;
 }
 
 export function deliveryReceiptPath(deliveryId: string, receiptId: string) {
@@ -16,7 +17,7 @@ export function deliveryReceiptPath(deliveryId: string, receiptId: string) {
   if (!/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/.test(receiptId)) {
     throw new Error('Invalid delivery receipt ID');
   }
-  return `factory/delivery/${deliveryId}/receipts/${receiptId}.json`;
+  return `${factoryBlobPaths.deliveryPrefix}${deliveryId}/receipts/${receiptId}.json`;
 }
 
 function isAlreadyExists(error: unknown) {
@@ -81,7 +82,7 @@ export async function writeDeliveryReceipt(receipt: DeliveryReceipt) {
 
 export async function listDeliveryReceipts(deliveryId: string) {
   deliveryPath(deliveryId);
-  const prefix = `factory/delivery/${deliveryId}/receipts/`;
+  const prefix = `${factoryBlobPaths.deliveryPrefix}${deliveryId}/receipts/`;
   const receiptIds: string[] = [];
   let cursor: string | undefined;
   do {

@@ -9,6 +9,7 @@ import { loadWorkSnapshot,targetFor,readPull,verifyOwnerCommit,isDescendant,Work
 import { prepareRepository } from "../../../lib/prepare-context";
 import { workState } from "../../../lib/work-state";
 import { requireStation,stationRequest,workerRequest,currentRevision } from "../../../lib/station-access";
+import { githubConnectorName } from "../../../lib/factory-config.ts";
 export default defineTool({description:"Prepare a clean pinned main snapshot, frozen dependencies and the authenticated task brief. Call first.",inputSchema:z.object({}),
  async *execute(_,ctx){
   requireStation(ctx,"worker");
@@ -21,7 +22,7 @@ export default defineTool({description:"Prepare a clean pinned main snapshot, fr
   if(revision&&(!prior.publication||prior.publication.number!==revision.prNumber||prior.publication.ownerSessionId!==ctx.session.id))throw new WorkError("ownership_unverified","Durable owner state does not authorize this PR.");
   verifyScope(await getVercelOidcToken());
   yield{phase:"Preparing worker workspace"};
-  const token=await getToken("github/jira-clone",{subject:{type:"app"}});
+  const token=await getToken(githubConnectorName,{subject:{type:"app"}});
   let target=await targetFor(token,original.parentPrNumber,ctx.abortSignal);
   let source=target.targetHeadSha;
   if(revision){

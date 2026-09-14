@@ -1,10 +1,13 @@
 import { z } from "zod";
+import {
+  vercelMachineConnectorName,
+  vercelMachineCredentialExpiresAt as configuredCredentialExpiresAt,
+  vercelProjects as configuredProjects,
+  vercelTeamId as configuredTeamId,
+} from "./factory-config.ts";
 
-export const vercelTeamId = "team_Ljrc7ENgQWsCySwCwijvA0zy";
-export const vercelProjects = {
-  cockpit: "prj_ZXLHFUJhgo5EdvSf1IstOMn0ft0A",
-  jira: "prj_C3sDKTOQIOqpIpNO9w7bqcWYkwp4",
-} as const;
+export const vercelTeamId = configuredTeamId;
+export const vercelProjects = configuredProjects;
 export const vercelInput = z.object({
   project: z.enum(["cockpit", "jira"]),
   resource: z.enum(["project", "deployments", "build_logs", "runtime_logs"]),
@@ -36,8 +39,8 @@ export function latestVercelGaps(reads: readonly { resource: string; projectId?:
  * it in source, prompts, the sandbox or browser code. The host narrows it to
  * GET reads on the two fixed projects; the token itself is not read-only.
  */
-export const vercelMachineConnector = "factory/jira-clone-machine";
-export const vercelMachineCredentialExpiresAt = "2026-10-12";
+export const vercelMachineConnector = vercelMachineConnectorName;
+export const vercelMachineCredentialExpiresAt = configuredCredentialExpiresAt;
 /** Context gap emitted when the credential is within this many days of expiry. */
 export const vercelMachineCredentialWarningDays = 7;
 export function vercelCredentialExpiryGap(now = new Date()): string | null {

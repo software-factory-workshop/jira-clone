@@ -1,8 +1,9 @@
 import { Client } from 'eve/client';
 import { getVercelOidcToken } from '@vercel/oidc';
 import { readStationRegistry } from './station-registry';
+import { factoryPorts } from './factory-config.ts';
 export type RootAgent = 'task-miner' | 'worker' | 'reviewer';
-export function factoryOrigin() { return process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000'; }
+export function factoryOrigin() { return process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : `http://localhost:${factoryPorts.cockpit}`; }
 export async function serviceHeaders():Promise<Record<string,string>> {
  if(!process.env.VERCEL) return {'content-type':'application/json'};
  const token=await getVercelOidcToken();
