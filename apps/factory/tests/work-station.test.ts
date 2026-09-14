@@ -14,8 +14,9 @@ test("review input only accepts PRs in the configured repository", () => {
   assert.equal(parsePullRequest("0"), undefined);
 });
 test("worker success requires a real scoped PR link and exact head/base identity", () => {
-  const result = { station: "worker", sessionId: "wrun_test", revision: sha, summary: "Changed code", commands: [], publication: { branch: "factory/change", number: 2, url: pullUrl(2), headSha: sha, baseSha: sha } };
+  const result = { station: "worker", sessionId: "wrun_test", revision: sha, summary: "Changed code", commands: [], browserEvidence: { complete: false, observations: [{ origin: "http://127.0.0.1:3001", headSha: sha, sessionId: "wrun_test", source: "head", snapshot: true, interaction: false, keyboard: false, screenshot: true, afterInteraction: false, route: "/issues", eventIds: ["event-1"] }] }, publication: { branch: "factory/change", number: 2, url: pullUrl(2), headSha: sha, baseSha: sha } };
   assert.equal(parseStationResult(result)?.station, "worker");
+  assert.equal(parseStationResult(result)?.browserEvidence?.observations[0]?.route, "/issues");
   assert.equal(parseStationResult({ ...result, publication: { ...result.publication, headSha: "unknown" } }), undefined);
 });
 test("review findings retain exact reviewed head, limitations and command failures", () => {
