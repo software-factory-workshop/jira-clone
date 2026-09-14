@@ -19,8 +19,9 @@
  * route and the native PATCH detail save); the native PATCH route sends
  * status, priority, title, assignee and/or description. It does not claim
  * durable persistence or verified Jira workflow parity. Comments are flat,
- * demo-only annotations without threading, edit/delete, permissions or
- * accounts.
+ * demo-only annotations without threading, delete, permissions or
+ * accounts; comment bodies support one bounded demo-only edit per comment
+ * id (trimmed, nonblank, changed body only) on the same boundary.
  */
 import { demoIssues } from "@jira-clone/context";
 
@@ -564,6 +565,107 @@ export function listCommentsPage(
  * client error; the deterministic `fail` path returns a 500 and writes
  * nothing.
  */
+export type CommentEditInput = {
+  commentId?: unknown;
+  body?: unknown;
+};
+
+export type CommentEditResult =
+  | { ok: true; comment: DemoComment }
+  | { ok: false; error: string; statusCode: number };
+
+/**
+ * Validate a comment edit without writing. Rejects unknown keys (404),
+ * unknown comment ids (404), blank bodies (400), unchanged bodies that
+ * already match after trimming (409 replay guard), and the deterministic
+ * `fail` path (500). Pure; never writes.
+ */
+export function validateCommentEdit(
+  key: string,
+  current: DemoComment[] | undefined,
+  input: CommentEditInput,
+  options?: { fail?: boolean },
+): Extract<CommentEditResult, { ok: false }> | undefined {
+  if (options?.fail) {
+    return {
+      ok: false,
+      error:
+        "Demo-only comment edit failure (deterministic test path). No comment was changed.",
+      statusCode: 500,
+    };
+  }
+  if (!current) {
+    return { ok: false, error: `Unknown issue key: ${key}.`, statusCode: 404 };
+  }
+  if (typeof input.commentId !== "string" || input.commentId.trim() === "") {
+    return {
+      ok: false,
+      error: "A demo comment id is required. Nothing was written.",
+      statusCode: 400,
+    };
+  }
+  const target = current.find((comment) => comment.id === input.commentId);
+  if (!target) {
+    return {
+      ok: false,
+      error: `Unknown demo comment id: ${input.commentId}. Nothing was written.`,
+      statusCode: 404,
+    };
+  }
+  if (typeof input.body !== "string" || input.body.trim() === "") {
+    return {
+      ok: false,
+      error: "A nonblank demo comment is required. Nothing was written.",
+      statusCode: 400,
+    };
+  }
+  if (input.body.trim() === target.body) {
+    return {
+      ok: false,
+      error:
+        "Demo comment is already that text (replay): provide a changed body. Nothing was written.",
+      statusCode: 409,
+    };
+  }
+  return undefined;
+}
+
+/**
+ * Demo-only comment edit on the single in-memory save boundary. The trimmed
+ * body replaces the stored body for the matching comment id; the id, author,
+ * timestamp and demoOnly label are unchanged. Unknown keys, unknown comment
+ * ids, blank bodies, unchanged (replay) bodies and the deterministic `fail`
+ * path fail closed and write nothing.
+ */
+export function editComment(
+  key: string,
+  input: CommentEditInput,
+  options?: { fail?: boolean },
+): CommentEditResult {
+  const current = options?.fail ? undefined : listComments(key);
+  const validation = validateCommentEdit(
+    key,
+    options?.fail ? undefined : current,
+    input,
+    options,
+  );
+  if (validation) return validation;
+  const stored = commentStore.get(key);
+  if (!stored) {
+    return { ok: false, error: `Unknown issue key: ${key}.`, statusCode: 404 };
+  }
+  const target = stored.find((comment) => comment.id === input.commentId);
+  if (!target) {
+    return {
+      ok: false,
+      error: `Unknown demo comment id: ${input.commentId}. Nothing was written.`,
+      statusCode: 404,
+    };
+  }
+  target.body = (input.body as string).trim();
+  return { ok: true, comment: { ...target } };
+}
+
 export function addComment(
   key: string,
   input: CommentCreateInput,

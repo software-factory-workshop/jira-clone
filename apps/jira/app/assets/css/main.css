@@ -454,6 +454,16 @@ tr:hover td {
   gap: 12px;
   margin-top: 16px;
 }
+.comment-edit {
+  display: grid;
+  gap: 8px;
+  margin-top: 8px;
+}
+.comment-edit-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
 
 .detail-fields {
   display: grid;

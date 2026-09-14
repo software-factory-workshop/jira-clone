@@ -6,6 +6,11 @@ import {
   type RestPersistenceShape,
 } from "./restIssues.ts";
 
+/** Canonical comment-edit URL for one demo key and comment id. */
+export function restCommentEditUrl(key: string, commentId: string): string {
+  return `/api/rest/api/3/issue/${encodeURIComponent(key)}/comment/${encodeURIComponent(commentId)}`;
+}
+
 /** Prefer the server-provided demo message (Nuxt FetchError `data.message`) over the generic transport message. */
 function serverMessage(error: unknown, fallback: string): string {
   if (error && typeof error === "object" && "data" in error) {
@@ -106,6 +111,17 @@ export type RestCommentWriteRequest = {
 };
 
 /**
+ * Canonical Jira-shaped edit request for PUT
+ * /api/rest/api/3/issue/:key/comment/:commentId. `fail` is honoured only
+ * by the deterministic demo failure path (a literal `true`); the dialog
+ * never sets it.
+ */
+export type RestCommentEditRequest = {
+  body: string;
+  fail?: boolean;
+};
+
+/**
  * One coherent demo-only comment write through the canonical REST route
  * POST /api/rest/api/3/issue/:key/comment, mapped back to the existing
  * `DemoComment` display shape.
@@ -134,6 +150,120 @@ export async function postIssueComment(
     );
   }
   return restCommentToDemoComment(bean);
+}
+
+export type CommentEditResult =
+  | {
+      ok: true;
+      comments: DemoComment[];
+      draft: "";
+      error: null;
+      comment: DemoComment;
+    }
+  | { ok: false; comments: DemoComment[]; draft: string; error: string };
+
+/**
+ * One coherent demo-only comment edit through the canonical REST route
+ * PUT /api/rest/api/3/issue/:key/comment/:commentId, mapped back to the
+ * existing `DemoComment` display shape.
+ *
+ * The caller supplies a JSON write fetcher (Nuxt `$fetch` in the dialog, a
+ * stub in tests) with the demo account headers already applied. Blank or
+ * unchanged drafts are rejected before any save so a no-op edit never
+ * reaches the server. Rejections propagate so the composer can keep the
+ * draft and report the error without claiming success. Missing `comment`
+ * beans are rejected before any list refresh so failure never renders as
+ * success.
+ */
+export async function putIssueComment(
+  key: string,
+  commentId: string,
+  body: string,
+  writeJson: (
+    url: string,
+    request: RestCommentEditRequest,
+  ) => Promise<RestCommentWriteResponse>,
+): Promise<DemoComment> {
+  if (typeof commentId !== "string" || commentId.trim() === "") {
+    throw new Error("A demo comment id is required. Nothing was saved.");
+  }
+  if (body.trim() === "") {
+    throw new Error(
+      "A nonblank demo comment is required. Nothing was saved.",
+    );
+  }
+  const data = await writeJson(restCommentEditUrl(key, commentId), { body });
+  const bean = data?.comment;
+  if (!bean || typeof bean !== "object") {
+    throw new Error(
+      "Demo-only comment edit returned no comment. Your draft is kept for retry.",
+    );
+  }
+  return restCommentToDemoComment(bean);
+}
+
+/**
+ * Demo-only comment edit with draft retention.
+ *
+ * Blank and unchanged drafts are rejected before any save. On save failure
+ * the original comment list is returned unchanged and the draft is kept for
+ * retry, so the UI never renders a body that was not saved. On success the
+ * edited comment replaces its entry and the draft is cleared.
+ */
+export async function submitIssueCommentEdit(
+  comments: DemoComment[],
+  commentId: string,
+  draft: string,
+  save: (body: string) => Promise<DemoComment>,
+): Promise<CommentEditResult> {
+  const target = comments.find((comment) => comment.id === commentId);
+  if (!target) {
+    return {
+      ok: false,
+      comments,
+      draft,
+      error: "Unknown demo comment. Nothing was saved.",
+    };
+  }
+  if (draft.trim() === "") {
+    return {
+      ok: false,
+      comments,
+      draft,
+      error: "A nonblank demo comment is required. Nothing was saved.",
+    };
+  }
+  if (draft.trim() === target.body) {
+    return {
+      ok: false,
+      comments,
+      draft,
+      error:
+        "Demo comment is already that text: change the body to save an edit.",
+    };
+  }
+  try {
+    const comment = await save(draft.trim());
+    return {
+      ok: true,
+      comments: comments.map((entry) =>
+        entry.id === commentId ? comment : entry,
+      ),
+      draft: "",
+      error: null,
+      comment,
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      comments,
+      draft,
+      error: serverMessage(
+        error,
+        "Demo-only comment edit failed. Your draft is kept for retry.",
+      ),
+    };
+  }
 }
 
 /**

@@ -14,9 +14,11 @@ import {
   mcpWriteIdentity,
   restAddComment,
   restCreateIssue,
+  restEditComment,
   restTransitionIssue,
   restUpdateIssue,
   restIssue,
+  restComments,
   restTransitions,
   resolveRestTransitionTarget,
   toRestIssue,
@@ -360,6 +362,129 @@ test("rest comment rejects unknown keys, blank bodies and fail paths", async () 
   assert.equal(addComment("ADEO-2", { body: "Other" }).ok, true);
   assert.equal((listComments("ADEO-2") ?? []).length, 1);
   assert.equal((listComments("ADEO-1") ?? []).length, 0);
+  resetIssues();
+});
+
+test("rest comment edit updates the body with actor metadata and agrees with reads", async () => {
+  resetIssues();
+  const added = await restAddComment(memberFallback(), "ADEO-1", {
+    body: "Original REST comment",
+  });
+  assert.equal(added.ok, true);
+  const id = added.ok ? added.data.comment.id : "";
+  const edited = await restEditComment(memberFallback(), "ADEO-1", id, {
+    body: "  Edited REST comment  ",
+  });
+  assert.equal(edited.ok, true);
+  if (edited.ok) {
+    assert.equal(edited.data.comment.id, id);
+    assert.equal(edited.data.comment.body, "Edited REST comment");
+    assert.equal(edited.data.comment.demoOnly, true);
+    assert.deepEqual(edited.data.actor, {
+      id: "demo-member",
+      label: "Demo Member",
+      role: "member",
+      identitySource: "demoFallback",
+    });
+    assert.equal(edited.data.identitySource, "demoFallback");
+  }
+  assert.deepEqual(
+    (listComments("ADEO-1") ?? []).map((comment) => comment.body),
+    ["Edited REST comment"],
+  );
+  // List plus single reads agree after edit within the demo boundary.
+  const listed = await restComments("ADEO-1", {});
+  assert.equal(listed.ok, true);
+  if (listed.ok) {
+    assert.deepEqual(
+      listed.data.comments.map((comment) => comment.body),
+      ["Edited REST comment"],
+    );
+  }
+  resetIssues();
+  assert.deepEqual(listComments("ADEO-1"), []);
+});
+
+test("rest comment edit fails closed on unknown keys, ids, blank, replay and fail paths", async () => {
+  resetIssues();
+  const before = listComments("ADEO-1");
+  const unknownKey = await restEditComment(memberFallback(), "ADEO-9999", "ADEO-9999-comment-1", {
+    body: "x",
+  });
+  assert.equal(unknownKey.ok, false);
+  assert.equal(unknownKey.ok ? 0 : unknownKey.statusCode, 404);
+
+  const added = await restAddComment(memberFallback(), "ADEO-1", { body: "Keep me" });
+  assert.equal(added.ok, true);
+  const id = added.ok ? added.data.comment.id : "";
+
+  const unknownId = await restEditComment(memberFallback(), "ADEO-1", "ADEO-1-comment-9999", {
+    body: "Never",
+  });
+  assert.equal(unknownId.ok, false);
+  assert.equal(unknownId.ok ? 0 : unknownId.statusCode, 404);
+
+  for (const body of ["", "   ", undefined, 42]) {
+    const rejected = await restEditComment(memberFallback(), "ADEO-1", id, { body } as {
+      body?: unknown;
+    });
+    assert.equal(rejected.ok, false, JSON.stringify(body));
+    assert.equal(rejected.ok ? 0 : rejected.statusCode, 400);
+    assert.match(rejected.ok ? "" : rejected.error, /Nothing was written/);
+  }
+
+  const replay = await restEditComment(memberFallback(), "ADEO-1", id, {
+    body: "  Keep me  ",
+  });
+  assert.equal(replay.ok, false);
+  assert.equal(replay.ok ? 0 : replay.statusCode, 409);
+  assert.match(replay.ok ? "" : replay.error, /replay/);
+
+  const failed = await restEditComment(memberFallback(), "ADEO-1", id, {
+    body: "Never saved",
+    fail: true,
+  });
+  assert.equal(failed.ok, false);
+  assert.equal(failed.ok ? 0 : failed.statusCode, 500);
+
+  assert.deepEqual(
+    (listComments("ADEO-1") ?? []).map((comment) => comment.body),
+    ["Keep me"],
+  );
+  void before;
+  resetIssues();
+});
+
+test("rest comment edit keeps viewer denials and unauthorized identities write-free", async () => {
+  resetIssues();
+  const added = await restAddComment(memberFallback(), "ADEO-1", { body: "Guarded" });
+  assert.equal(added.ok, true);
+  const id = added.ok ? added.data.comment.id : "";
+
+  const denied = await restEditComment(viewerFallback(), "ADEO-1", id, { body: "Denied" });
+  assert.equal(denied.ok, false);
+  assert.equal(denied.ok ? 0 : denied.statusCode, 403);
+  assert.match(denied.ok ? "" : denied.error, /Nothing was written/);
+
+  const passportViewer = await restEditComment(passport("viewer"), "ADEO-1", id, {
+    body: "Denied",
+  });
+  assert.equal(passportViewer.ok, false);
+  assert.equal(passportViewer.ok ? 0 : passportViewer.statusCode, 403);
+
+  const passportMember = await restEditComment(passport("member", "edit-m-1"), "ADEO-1", id, {
+    body: "Member edit",
+  });
+  assert.equal(passportMember.ok, true);
+  if (passportMember.ok) {
+    assert.equal(passportMember.data.identitySource, "passport");
+    assert.equal(passportMember.data.actor.id, "passport:edit-m-1");
+  }
+
+  assert.deepEqual(
+    (listComments("ADEO-1") ?? []).map((comment) => comment.body),
+    ["Member edit"],
+  );
   resetIssues();
 });
 

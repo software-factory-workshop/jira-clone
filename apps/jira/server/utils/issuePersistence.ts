@@ -15,6 +15,7 @@ import {
 import { demoIssues } from "@jira-clone/context";
 import {
   addComment as addMemoryComment,
+  editComment as editMemoryComment,
   createIssue as createMemoryIssue,
   DEMO_COMMENT_AUTHOR,
   getIssue as getMemoryIssue,
@@ -28,6 +29,8 @@ import {
   updateIssue as updateMemoryIssue,
   validateIssuePatch,
   type CommentCreateInput,
+  type CommentEditInput,
+  type CommentEditResult,
   type CommentResult,
   type DemoComment,
   type DemoIssue,
@@ -81,6 +84,11 @@ export type IssuePersistence = {
     input: CommentCreateInput,
     options?: { fail?: boolean },
   ): Promise<CommentResult>;
+  editComment(
+    key: string,
+    input: CommentEditInput,
+    options?: { fail?: boolean },
+  ): Promise<CommentEditResult>;
   resetIssues(): Promise<DemoIssue[]>;
 };
 
@@ -156,6 +164,9 @@ const memoryPersistence: IssuePersistence = {
   },
   async addComment(key, input, options) {
     return addMemoryComment(key, input, options);
+  },
+  async editComment(key, input, options) {
+    return editMemoryComment(key, input, options);
   },
   async resetIssues() {
     return resetMemoryIssues();
@@ -471,6 +482,76 @@ export function createNeonIssuePersistence(
       }
       return { ok: true, comment: rowToComment(row) };
     },
+    async editComment(key, input, options) {
+      if (options?.fail) {
+        return {
+          ok: false,
+          error:
+            "Demo-only comment edit failure (deterministic test path). No comment was changed.",
+          statusCode: 500,
+        };
+      }
+      const normalized = normalizeCommentBody(input, options);
+      if (!normalized.ok) {
+        const message =
+          "statusCode" in normalized && normalized.statusCode === 500
+            ? normalized.error
+            : `${normalized.error} Nothing was written.`;
+        return {
+          ok: false,
+          error: message,
+          statusCode: normalized.statusCode,
+        };
+      }
+      if (typeof input.commentId !== "string" || input.commentId.trim() === "") {
+        return {
+          ok: false,
+          error: "A demo comment id is required. Nothing was written.",
+          statusCode: 400,
+        };
+      }
+      await ensureReady();
+      const issue = await findIssue(key);
+      if (!issue) {
+        return { ok: false, error: `Unknown issue key: ${key}.`, statusCode: 404 };
+      }
+      const existing = await readComments(key);
+      const target = existing.find((comment) => comment.id === input.commentId);
+      if (!target) {
+        return {
+          ok: false,
+          error: `Unknown demo comment id: ${input.commentId}. Nothing was written.`,
+          statusCode: 404,
+        };
+      }
+      if (normalized.body === target.body) {
+        return {
+          ok: false,
+          error:
+            "Demo comment is already that text (replay): provide a changed body. Nothing was written.",
+          statusCode: 409,
+        };
+      }
+      const commentNumberText = String(input.commentId).slice(`${key}-comment-`.length);
+      const commentNumber = Number(commentNumberText);
+      const rows = Number.isInteger(commentNumber)
+        ? await sql`
+          UPDATE jira_demo_comments
+          SET body = ${normalized.body}
+          WHERE issue_key = ${key} AND comment_number = ${commentNumber}
+          RETURNING comment_number, issue_key, body, author, created_at
+        `
+        : [];
+      const row = rows[0] as CommentRow | undefined;
+      if (!row) {
+        return {
+          ok: false,
+          error: `Unknown demo comment id: ${input.commentId}. Nothing was written.`,
+          statusCode: 404,
+        };
+      }
+      return { ok: true, comment: rowToComment(row) };
+    },
     async resetIssues() {
       await ensureReady();
       await sql.transaction((tx) => [
@@ -558,6 +639,14 @@ export async function addPersistentComment(
   options?: { fail?: boolean },
 ): Promise<CommentResult> {
   return getIssuePersistence().addComment(key, input, options);
+}
+
+export async function editPersistentComment(
+  key: string,
+  input: CommentEditInput,
+  options?: { fail?: boolean },
+): Promise<CommentEditResult> {
+  return getIssuePersistence().editComment(key, input, options);
 }
 
 export async function resetPersistentIssues(): Promise<DemoIssue[]> {

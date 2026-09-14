@@ -8,6 +8,7 @@ import { demoIssues } from "@jira-clone/context";
 import {
   createNeonIssuePersistence,
   createPersistentIssue,
+  editPersistentComment,
   getIssuePersistence,
   getIssuePersistenceInfo,
   getPersistentIssues,
@@ -61,6 +62,32 @@ test("memory persistence keeps the existing async demo contract", async () => {
       });
       assert.equal(comment.ok, true);
       assert.equal((await listPersistentComments("ADEO-5"))?.length, 1);
+      const commentId = comment.ok ? comment.comment.id : "";
+      const edited = await editPersistentComment("ADEO-5", {
+        commentId,
+        body: "  Edited through the shared boundary  ",
+      });
+      assert.equal(edited.ok, true);
+      assert.equal(edited.ok ? edited.comment.body : "", "Edited through the shared boundary");
+      assert.deepEqual(
+        ((await listPersistentComments("ADEO-5")) ?? []).map((entry) => entry.body),
+        ["Edited through the shared boundary"],
+      );
+      const replay = await editPersistentComment("ADEO-5", {
+        commentId,
+        body: "Edited through the shared boundary",
+      });
+      assert.equal(replay.ok, false);
+      assert.equal(replay.ok ? 0 : replay.statusCode, 409);
+      const blank = await editPersistentComment("ADEO-5", { commentId, body: "   " });
+      assert.equal(blank.ok, false);
+      assert.equal(blank.ok ? 0 : blank.statusCode, 400);
+      const unknown = await editPersistentComment("ADEO-5", {
+        commentId: "ADEO-5-comment-9999",
+        body: "Never",
+      });
+      assert.equal(unknown.ok, false);
+      assert.equal(unknown.ok ? 0 : unknown.statusCode, 404);
       const updated = await updatePersistentIssue("ADEO-5", {
         title: "Reloaded persistence",
       });
@@ -136,6 +163,10 @@ test("Neon adapter bootstraps once and maps issue/comment reads and writes", asy
     }
     if (text.startsWith("SELECT comment_number")) return [comment];
     if (text.startsWith("INSERT INTO jira_demo_comments")) return [comment];
+    if (text.startsWith("UPDATE jira_demo_comments")) {
+      const edited = { ...comment, body: "Edited neon comment" };
+      return [edited];
+    }
     if (text.startsWith("UPDATE jira_demo_issues")) return [issue];
     if (text.startsWith("INSERT INTO jira_demo_issues")) return [created];
     if (text.includes("FROM jira_demo_issues") && text.includes("WHERE key")) {
@@ -162,6 +193,28 @@ test("Neon adapter bootstraps once and maps issue/comment reads and writes", asy
   assert.equal((await persistence.createIssue({ title: "Created" })).ok, true);
   assert.equal((await persistence.listComments("ADEO-1"))?.[0]?.body, "Neon comment");
   assert.equal((await persistence.addComment("ADEO-1", { body: "Neon comment" })).ok, true);
+  const neonEdited = await persistence.editComment("ADEO-1", {
+    commentId: "ADEO-1-comment-1",
+    body: "Edited neon comment",
+  });
+  assert.equal(neonEdited.ok, true);
+  assert.equal(neonEdited.ok ? neonEdited.comment.body : "", "Edited neon comment");
+  const neonReplay = await persistence.editComment("ADEO-1", {
+    commentId: "ADEO-1-comment-1",
+    body: "Neon comment",
+  });
+  assert.equal(neonReplay.ok, false);
+  assert.equal(neonReplay.ok ? 0 : neonReplay.statusCode, 409);
+  const neonBlank = await persistence.editComment("ADEO-1", {
+    commentId: "ADEO-1-comment-1",
+    body: "   ",
+  });
+  assert.equal(neonBlank.ok, false);
+  const neonUnknown = await persistence.editComment("ADEO-1", {
+    commentId: "ADEO-1-comment-9999",
+    body: "Never",
+  });
+  assert.equal(neonUnknown.ok, false);
   assert.deepEqual(await persistence.resetIssues(), [issue]);
   assert.equal(queries.filter((query) => query.startsWith("CREATE TABLE")).length, 2);
   assert.equal(queries.filter((query) => query.includes("jsonb_array_elements")).length, 2);
