@@ -38,8 +38,10 @@ import {
   PRIORITIES,
   assigneeOptions,
   changePriority,
+  clearedIssueFilters,
   dragDropTargets,
   filterIssues,
+  isFiltersActive,
   moveIssue,
   moveTargets,
   type BoardIssue,
@@ -350,12 +352,26 @@ const boardFilterSummary = computed(() =>
 const boardFilterLabel = computed(() =>
   boardFilteredLabel(boardFilterSummary.value),
 );
-const filtersActive = computed(
-  () =>
-    search.value.trim() !== "" ||
-    status.value !== ALL_STATUSES ||
-    assignee.value !== ALL_ASSIGNEES,
+const filtersActive = computed(() =>
+  isFiltersActive({
+    search: search.value,
+    status: status.value,
+    assignee: assignee.value,
+  }),
 );
+
+/**
+ * One-step return to the full issue window. Reuses the existing filter-edit
+ * path (search/status/assignee watcher), so paging resets to page 1 and
+ * counts stay scoped to the loaded server window. Read-only safe: filters
+ * are client-side and stay available in viewer read-only mode.
+ */
+function clearFilters(): void {
+  const cleared = clearedIssueFilters();
+  search.value = cleared.search;
+  status.value = cleared.status;
+  assignee.value = cleared.assignee;
+}
 async function gotoBoardPage(page: number): Promise<void> {
   const target = boardStartAtForPage(page, boardPageSize);
   if (target === boardStartAt.value) {
@@ -753,9 +769,11 @@ await Promise.all([refreshAccount(), refresh()]);
             :statuses="statuses"
             :assignees="assignees"
             :summary="`${boardFilterLabel} · ${boardPageLabel}`"
+            :filters-active="filtersActive"
             @update:search="search = $event"
             @update:status="status = $event"
             @update:assignee="assignee = $event"
+            @clear="clearFilters"
           />
           <nav class="board-paging" aria-label="Board pages">
             <UButton

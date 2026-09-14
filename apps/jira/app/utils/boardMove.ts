@@ -131,6 +131,28 @@ export function filterIssues(
 }
 
 /**
+ * Whether search, status, or assignee filters narrow the demo window.
+ * A whitespace-only search counts as inactive so the Clear filters action
+ * only appears when it would change the visible window. Pure; never writes.
+ */
+export function isFiltersActive(filters: IssueFilters): boolean {
+  return (
+    filters.search.trim() !== "" ||
+    filters.status !== ALL_STATUSES ||
+    filters.assignee !== ALL_ASSIGNEES
+  );
+}
+
+/**
+ * Default (cleared) demo filter set: the full issue window. Pure; never
+ * writes. Clearing reuses the existing filter-edit path, so paging resets
+ * to page 1 and counts stay scoped to the loaded window.
+ */
+export function clearedIssueFilters(): IssueFilters {
+  return { search: "", status: ALL_STATUSES, assignee: ALL_ASSIGNEES };
+}
+
+/**
  * Optimistic status move with deterministic failure recovery.
  *
  * On save failure the original column list is returned unchanged so the UI
