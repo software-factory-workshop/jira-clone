@@ -57,6 +57,12 @@ export type RestSearchShape = {
   persistence?: RestPersistenceShape;
 };
 
+/** Shared envelope for native issue writes and their persistence evidence. */
+export type RestIssueWriteShape = {
+  issue: BoardIssue;
+  persistence?: RestPersistenceShape;
+};
+
 /** Client-side mirror of one server `RestComment`. */
 export type RestCommentShape = {
   id?: string;
