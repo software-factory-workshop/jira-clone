@@ -36,6 +36,22 @@ function isRecordedReview(value: unknown, expectedPrNumber: number, expectedVerd
     && /^[a-f0-9]{40}$/.test(headSha);
 }
 
+function hasPublishedFeedback(value: unknown): boolean {
+  if (!isRecord(value)) return false;
+  const publication = property(value, "publication");
+  if (!isRecord(publication)) return false;
+  const errors = property(publication, "errors");
+  const review = property(publication, "review");
+  const packet = property(value, "visualReview");
+  const requiredApps = isRecord(packet) ? property(packet, "requiredApps") : [];
+  return ["published", "already_published"].includes(String(property(publication, "githubReview")))
+    && isRecord(review)
+    && typeof property(review, "id") === "number"
+    && Array.isArray(errors)
+    && errors.length === 0
+    && (!Array.isArray(requiredApps) || requiredApps.length === 0 || property(publication, "body") === "published");
+}
+
 export default defineEval({
   description: "Reviewer host gates bound evidence and stop after the final verdict",
   tags: ["paid", "reviewer", "host-gate", "bounded"],
@@ -72,6 +88,7 @@ export default defineEval({
     const events = await readNdjsonUntilSessionTerminal(stream, 400);
     const reviewResults = toolResultEvents(events, "record_review");
     const successfulReview = reviewResults.find(event => isRecordedReview(toolResultOutput(event), prNumber, expectedVerdict));
+    const publishedFeedback = reviewResults.find(event => hasPublishedFeedback(toolResultOutput(event)));
     const lastReview = lastToolResultIndex(events, "record_review");
     const trailingToolNames = lastReview < 0 ? [] : toolResultNames(events.slice(lastReview + 1));
     const trailingWork = trailingToolNames.filter(name => name.startsWith("browser") || name === "prepare_browser" || name === "verify_review");
@@ -80,11 +97,12 @@ export default defineEval({
     t.check(toolResultEvents(events, "prepare_review").length, equals(1));
     t.check(reviewResults.length >= 1 && reviewResults.length <= 3, equals(true));
     t.check(successfulReview !== undefined, equals(true));
+    t.check(publishedFeedback !== undefined, equals(true));
     t.check(trailingWork.length, equals(0));
     t.check(
       reviewResults.some(event => toolResultError(event) !== undefined) || successfulReview !== undefined,
       satisfies(value => value === true, "host rejection is surfaced or a review is recorded"),
     );
-    t.log(`Reviewed PR #${prNumber}; the stream contained ${reviewResults.length} record_review result(s) and ${trailingWork.length} prohibited post-verdict tool action(s).`);
+    t.log(`Reviewed PR #${prNumber}; the stream contained ${reviewResults.length} record_review result(s), published GitHub feedback, and ${trailingWork.length} prohibited post-verdict tool action(s).`);
   },
 });

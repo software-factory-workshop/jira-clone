@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { visualReviewPacketSchema } from '../runtime/lib/visual-review.ts';
 export const idSchema = z.string().min(1).max(240).regex(/^[\w:.-]+$/);
 const admissionText = z.string().trim().min(1).max(4000);
 const admissionList = z.array(admissionText).min(1).max(20);
@@ -22,7 +23,8 @@ export function deliveryEntryPoint(value: Record<string, unknown>): 'task-mining
  return undefined;
 }
 export const feedbackInput = z.object({ verdict: z.enum(['useful','not-useful']), reason: z.string().max(500) }).strict();
-export const runInput = z.object({ label: z.string().max(200), station: z.enum(['mining','worker','reviewer','loop']), operationId: z.string().max(240).optional(), execution: z.enum(['owner','dispatcher','direct']).optional(), rootAgent:z.enum(['task-miner','worker','reviewer']).optional(), deliveryId: z.string().optional() }).strict();
+const reviewFallback = z.object({ station:z.literal('reviewer'), sessionId:z.string().min(1).max(240), prNumber:z.number().int().positive(), url:z.string().url(), baseSha:z.string().regex(/^[a-f0-9]{40}$/), headSha:z.string().regex(/^[a-f0-9]{40}$/), targetBranch:z.string().min(1).max(240), verdict:z.literal('incomplete'), summary:z.string().min(1).max(3000), findings:z.array(z.object({severity:z.enum(['blocking','nonblocking']),path:z.string(),message:z.string(),evidence:z.string()})).max(15), limitations:z.array(z.string()).max(20), visualReview:visualReviewPacketSchema, commands:z.array(z.unknown()).max(100), browserEvidence:z.object({complete:z.literal(false),observations:z.array(z.unknown()).max(4)}), capturedAt:z.string().min(1).max(100) }).strict();
+export const runInput = z.object({ label: z.string().max(200), station: z.enum(['mining','worker','reviewer','loop']), operationId: z.string().max(240).optional(), execution: z.enum(['owner','dispatcher','direct']).optional(), rootAgent:z.enum(['task-miner','worker','reviewer']).optional(), deliveryId: z.string().optional(), reviewFallback: reviewFallback.optional() }).strict();
 export const recordSchema = z.object({ id: idSchema, version: z.number().int().positive(), updatedAt: z.string(), createdAt: z.string(), value: z.record(z.string(), z.unknown()) });
 export type CockpitRecord = z.infer<typeof recordSchema>;
 export const collections = ['drafts','feedback','runs'] as const;

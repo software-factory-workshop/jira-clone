@@ -77,6 +77,14 @@ export function buildVisualReviewPacket(input: Omit<VisualReviewPacket, "status"
 export const VISUAL_REVIEW_START = "<!-- factory:visual-review:start -->";
 export const VISUAL_REVIEW_END = "<!-- factory:visual-review:end -->";
 
+// GitHub review objects cannot be edited after they are submitted. Keep the
+// idempotency marker separate for completed and incomplete attempts so a
+// retry can publish the real verdict after a host fallback without creating a
+// second review for the same attempt.
+export function visualReviewFeedbackMarker(headSha: string, kind: "recorded" | "incomplete") {
+  return `<!-- factory:visual-review:${kind}:${headSha} -->`;
+}
+
 function escapeHtml(value: string) {
   return value.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;");
 }

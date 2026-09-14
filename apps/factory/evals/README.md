@@ -41,8 +41,21 @@ pnpm exec eve eval session-cancellation --url <factory-root-url> --strict
 
 The reviewer probe defaults to `changes_requested`; set
 `FACTORY_REVIEW_GATE_EXPECTED_VERDICT` when the fixture should produce another
-host-accepted verdict. The worker probe defaults to the `worker` station and
-requires the operation UUID from the original owner session.
+host-accepted verdict. It also requires the final `record_review` result to
+report a successful or deduplicated GitHub `COMMENT` review publication. A
+factory-owned PR can additionally be started automatically by the native
+GitHub channel on `opened`, `reopened`, `ready_for_review`, or `synchronize`;
+the channel ignores PRs without the factory owner marker.
+
+The visual publication path is intentionally explicit in the reviewer probe:
+the PR body receives the replaceable `## Visual review` section when browser
+surfaces changed, while GitHub receives a visible non-approval review tied to
+the exact candidate head. If a reviewer session stops before `record_review`,
+the host writes an incomplete packet and non-approval review so the PR and
+Cockpit still show why approval is unavailable.
+
+The worker probe defaults to the `worker` station and requires the operation
+UUID from the original owner session.
 
 Provider-failure injection and Agent Run API normalization are deliberately
 left as target-specific follow-ups: they need a controllable fault fixture or

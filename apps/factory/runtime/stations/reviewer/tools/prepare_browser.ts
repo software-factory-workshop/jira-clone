@@ -6,38 +6,19 @@ import {requireStation} from '../../../lib/station-access';
 import {collectChanges} from '../../../lib/work-changes';
 import {browserOrigin,browserRequirements,reviewBrowser,type BrowserReviewApp,type BrowserReviewSource} from '../../../lib/review-browser';
 
-function shellQuote(value:string){return `'${value.replaceAll("'","'\\''")}'`;}
-function safeRelativePath(value:string){if(!value||value.startsWith('/')||value.split('/').includes('..'))throw new Error('The PR contains an unsafe browser source path.');return value;}
-function parentPath(value:string){const index=value.lastIndexOf('/');return index>0?value.slice(0,index):'.';}
-function baseWorkspaceCommand(files:Array<{filename:string;previous_filename?:string;status:string}>){
- const overlays=files.map(file=>{
-  const filename=safeRelativePath(file.filename);const source=file.status==='renamed'&&file.previous_filename?safeRelativePath(file.previous_filename):filename;
-  const candidate=`/workspace/review-base/${filename}`;const base=`/workspace/base/${source}`;const target=`/workspace/review-base/${source}`;
-  return `${source===filename?'':`rm -f ${shellQuote(candidate)}\n`}if [ -f ${shellQuote(base)} ]; then mkdir -p ${shellQuote(`/workspace/review-base/${parentPath(source)}`)}; cp -p ${shellQuote(base)} ${shellQuote(target)}; else rm -f ${shellQuote(target)}; fi`;
- }).join('\n');
- return `set -eu
-rm -rf /workspace/review-base
-mkdir -p /workspace/review-base
-tar -C /workspace/repo --exclude='node_modules' --exclude='*/node_modules' --exclude='.nuxt' --exclude='*/.nuxt' --exclude='.output' --exclude='*/.output' --exclude='.eve' --exclude='*/.eve' -cf - . | tar -C /workspace/review-base -xf -
-${overlays}
-export PATH="$HOME/.local/bin:$PATH"
-cd /workspace/review-base
-pnpm install --frozen-lockfile`;
-}
-
 async function ensureBaseWorkspace(sandbox:{run(input:{command:string}):PromiseLike<{exitCode:number;stdout:string;stderr:string}>},state:NonNullable<ReturnType<typeof workState.get>>){
  const current=reviewBrowser.get().baseWorkspaceSha;
  if(current&&current!==state.pull!.baseSha)throw new Error('The browser base is already bound to another PR base. Start a fresh reviewer session.');
  if(current)return;
- const result=await sandbox.run({command:baseWorkspaceCommand(state.pull!.files)});
- if(result.exitCode!==0)throw new Error(`Could not prepare the PR base browser: ${(result.stderr||result.stdout).trim().slice(-700)}`);
+ const result=await sandbox.run({command:'set -eu; test -d /workspace/base; test -f /workspace/base/pnpm-workspace.yaml'});
+ if(result.exitCode!==0)throw new Error(`The exact PR base workspace is unavailable: ${(result.stderr||result.stdout).trim().slice(-700)}`);
  reviewBrowser.update(s=>({...s,baseWorkspaceSha:state.pull!.baseSha}));
 }
 
 async function ensureServer(sandbox:{spawn(input:{command:string}):PromiseLike<unknown>},app:BrowserReviewApp,source:BrowserReviewSource,sha:string){
  const origin=browserOrigin(app,source);const existing=reviewBrowser.get().targets[origin];
  if(existing&&existing!==sha)throw new Error(`The ${source} browser target is already bound to another revision.`);
- if(!existing){const port=Number(new URL(origin).port);const root=source==='base'?'/workspace/review-base':'/workspace/repo';await sandbox.spawn({command:`export PATH="$HOME/.local/bin:$PATH"; cd ${root}/apps/${app}; pnpm exec nuxt dev --host 127.0.0.1 --port ${port}`});}
+ if(!existing){const port=Number(new URL(origin).port);const root=source==='base'?'/workspace/base':'/workspace/repo';await sandbox.spawn({command:`export PATH="$HOME/.local/bin:$PATH"; cd ${root}/apps/${app}; pnpm exec nuxt dev --host 127.0.0.1 --port ${port}`});}
  reviewBrowser.update(s=>({...s,targets:{...s.targets,[origin]:sha},sources:{...(s.sources||{}),[origin]:source}}));
 }
 

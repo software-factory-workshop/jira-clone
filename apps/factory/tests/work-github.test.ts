@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { allowedWorkPath, publishWork, workBranch, verifyPullRequestHead, loadPullRequest, githubRequest, GitHubError } from "../runtime/lib/work-github.ts";
+import { allowedWorkPath, publishWork, workBranch, verifyPullRequestHead, loadPullRequest, githubRequest, GitHubError, submitPullRequestReview } from "../runtime/lib/work-github.ts";
 import { factoryRepository } from "../runtime/lib/factory-config.ts";
 const base="a".repeat(40),baseTree="b".repeat(40),newTree="c".repeat(40),head="d".repeat(40);
 const repo=factoryRepository;
@@ -56,6 +56,24 @@ test("GitHub failures preserve a bounded provider reason and classify rate limit
   assert.match(error.message,/secondary rate limit/);
   return true;
  });
+});
+test("GitHub visual review publication uses COMMENT and deduplicates the exact marker",async t=>{
+ const marker=`<!-- factory:visual-review:recorded:${head} -->`;
+ const reviews:any[]=[];
+ const writes:any[]=[];
+ const pull={number:1,html_url:`https://github.com/${repo}/pull/1`,title:"review",body:"body",state:"open",head:{sha:head,ref:"factory/work-review",repo:{full_name:repo}},base:{sha:base,ref:"main",repo:{full_name:repo}}};
+ t.mock.method(globalThis,"fetch",async(url:unknown,init:any)=>{
+  const target=new URL(String(url));const path=target.pathname.slice(`/repos/${repo}/`.length);
+  if(path==="pulls/1"&&init.method==="GET")return Response.json(pull);
+  if(path==="pulls/1/reviews"&&init.method==="GET")return Response.json(reviews);
+  if(path==="pulls/1/reviews"&&init.method==="POST"){
+   const body=JSON.parse(init.body);writes.push(body);const review={id:42,body:body.body,commit_id:body.commit_id,html_url:`https://github.com/${repo}/pull/1#pullrequestreview-42`};reviews.push(review);return Response.json(review);
+  }
+  throw Error(`Unexpected request ${init.method} ${path}`);
+ });
+ const first=await submitPullRequestReview("test-token",1,head,`${marker}\nReview`,undefined);
+ const second=await submitPullRequestReview("test-token",1,head,`${marker}\nReview`,undefined);
+ assert.equal(first.deduplicated,false);assert.equal(second.deduplicated,true);assert.equal(second.id,42);assert.equal(writes.length,1);assert.deepEqual(writes[0],{commit_id:head,body:`${marker}\nReview`,event:"COMMENT"});
 });
 test("publication creates only one immutable feature branch and draft PR across retries",async t=>{
  const writes=mockGitHub(t);

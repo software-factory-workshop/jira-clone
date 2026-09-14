@@ -8,6 +8,7 @@ import { verifyScope } from "../../../lib/github.mjs";
 import { loadPullRequest } from "../../../lib/work-github";
 import { prepareRepository } from "../../../lib/prepare-context";
 import { workState } from "../../../lib/work-state";
+import { reviewBrowser } from "../../../lib/review-browser";
 import { requireStation,stationRequest,reviewerRequest } from "../../../lib/station-access";
 import { hostReviewLimitations } from "../../../lib/review-policy";
 import { githubConnectorName } from "../../../lib/factory-config.ts";
@@ -15,9 +16,16 @@ export default defineTool({description:"Fetch the authenticated PR's exact base/
  async *execute(_,ctx){
   requireStation(ctx,"reviewer");
   const log=useLogger(ctx);
-  if(workState.get().prepared){log.set({factory:{station:"reviewer",stage:"prepare_review",outcome:"already_prepared",prNumber:workState.get().pull?.number}});yield{phase:"Prepared",pull:workState.get().pull};return;}
   verifyScope(await getVercelOidcToken());yield{phase:"Preparing independent review"};
   const token=await getToken(githubConnectorName,{subject:{type:"app"}});
+  const prior=workState.get();
+  if(prior.prepared){
+   const sandbox=await ctx.getSandbox();
+   const cleared=await sandbox.run({command:"rm -rf /workspace/repo /workspace/base /workspace/review-policy"});
+   if(cleared.exitCode!==0)throw new Error("Could not reset the previous review workspace for the new candidate head.");
+   reviewBrowser.update(()=>({targets:{},sources:{},observations:{}}));
+   workState.update(s=>({...s,prepared:false,basePrepared:false,revision:"",commands:[],baseline:[],pull:null,contextGaps:[],verificationFindings:[],reviewVerified:false,verifiedDigest:null,recorded:false}));
+  }
   const pull=await loadPullRequest(token,reviewerRequest.parse(stationRequest(ctx)).prNumber,ctx.abortSignal);
   const baseManifest=jiraManifest(pull.baseSnapshot.entries);const candidateManifest=jiraManifest(pull.snapshot.entries);
   validateJiraMcpChangeSet(pull.files.map(file=>file.filename),baseManifest,candidateManifest);

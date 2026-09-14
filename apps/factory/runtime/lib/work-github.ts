@@ -166,6 +166,64 @@ export async function updatePullRequestBody(token:string,number:number,headSha:s
  await request(token,`pulls/${number}`,signal,{body},'PATCH');
  await verifyPullRequestHead(token,number,headSha,signal,undefined,pull.base.ref);
 }
+
+const pullRequestReviewSchema = z.object({
+  id: z.number().int().positive(),
+  body: z.string().nullable().optional(),
+  commit_id: sha.optional(),
+  html_url: z.string().url().optional(),
+}).passthrough();
+
+export interface PullRequestReviewReceipt {
+  id: number;
+  url?: string;
+  deduplicated: boolean;
+}
+
+/** Read the bounded review history so retried publication can find its marker. */
+export async function readPullRequestReviews(token: string, number: number, signal?: AbortSignal) {
+  z.number().int().positive().parse(number);
+  const reviews: Array<z.infer<typeof pullRequestReviewSchema>> = [];
+  for (let page = 1; page <= 5; page += 1) {
+    const response = await request(token, `pulls/${number}/reviews?per_page=100&page=${page}`, signal);
+    reviews.push(...z.array(pullRequestReviewSchema).parse(response.data));
+    if (!response.next) break;
+    if (page === 5) throw new WorkError("provider_unavailable", "Pull request review history exceeds the bounded publication limit.");
+  }
+  return reviews;
+}
+
+/**
+ * Publish a non-approval GitHub review tied to one exact candidate head.
+ * GitHub review objects are immutable, so the marker makes retries harmless
+ * and lets an incomplete fallback coexist with a later recorded verdict.
+ */
+export async function submitPullRequestReview(
+  token: string,
+  number: number,
+  headSha: string,
+  body: string,
+  signal?: AbortSignal,
+  baseSha?: string,
+  targetBranch?: string,
+  marker?: string,
+): Promise<PullRequestReviewReceipt> {
+  z.number().int().positive().parse(number);
+  sha.parse(headSha);
+  z.string().max(50000).parse(body);
+  await verifyPullRequestHead(token, number, headSha, signal, baseSha, targetBranch);
+  const idempotencyMarker = marker || `<!-- factory:visual-review:recorded:${headSha} -->`;
+  const prior = (await readPullRequestReviews(token, number, signal)).find(review => review.body?.includes(idempotencyMarker) && review.commit_id === headSha);
+  if (prior) return { id: prior.id, ...(prior.html_url ? { url: prior.html_url } : {}), deduplicated: true };
+  const created = pullRequestReviewSchema.parse((await request(token, `pulls/${number}/reviews`, signal, {
+    commit_id: headSha,
+    body,
+    event: "COMMENT",
+  }, "POST")).data);
+  if (created.commit_id && created.commit_id !== headSha) throw new WorkError("stale_head", "GitHub attached the visual review to a different candidate head.");
+  return { id: created.id, ...(created.html_url ? { url: created.html_url } : {}), deduplicated: false };
+}
+
 export async function loadPullRequest(token: string, number: number, signal?: AbortSignal) {
   const pr = await readPull(token, number, signal);
   if (pr.state !== "open") throw new Error("Review requires an open pull request.");
