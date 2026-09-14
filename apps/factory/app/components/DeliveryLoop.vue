@@ -31,6 +31,7 @@ interface Delivery {
     visualReview?: VisualReviewPacket;
   };
   mergeDecision?: { status: string; reason?: string };
+  questions?: Array<{ question: string; options?: string[]; operationId: string; sessionId: string; askedAt: string; answer?: string; answeredBy?: string; answeredAt?: string }>;
   error?: string;
   request?: { title?: string; brief?: string; parentPrNumber?: number };
   history: Array<{ phase: string; to?: string; at?: string; actor?: string; reason?: string; receiptId?: string; sessionId?: string; headSha?: string }>;
@@ -62,6 +63,8 @@ const confirmStop = ref(false);
 const reconciliation = ref<ReconciliationResult>();
 const reconciling = ref(false);
 const copiedEvidence = ref<string>();
+const ownerAnswer = ref("");
+const answeringOwner = ref(false);
 let copyTimer: ReturnType<typeof setTimeout> | undefined;
 let operationId: string | undefined;
 let timer: ReturnType<typeof setTimeout> | undefined;
@@ -69,6 +72,10 @@ let disposed = false;
 const stopped = new Set(["human_review", "ready", "blocked", "needs_revision", "cancelled", "merged"]);
 const reconcilable = new Set(["human_review", "ready", "blocked"]);
 const cockpit = useCockpit();
+
+const pendingOwnerQuestion = computed(() => run.value?.phase === "awaiting_input"
+  ? [...(run.value.questions || [])].reverse().find(question => !question.answer)
+  : undefined);
 
 const flowModel = computed(() => deliveryFlow({
   phase: run.value?.phase,
@@ -82,9 +89,10 @@ const flowModel = computed(() => deliveryFlow({
   review: run.value?.review,
   mergeDecision: run.value?.mergeDecision,
   error: run.value?.error,
+  question: pendingOwnerQuestion.value?.question,
 }));
 const phaseInfo = computed(() => run.value ? describeDeliveryPhase(run.value.phase) : { label: "Workflow blueprint", color: "neutral" as const });
-const phaseDetail = computed(() => run.value?.error || run.value?.mergeDecision?.reason || run.value?.review?.summary || "The durable workflow is observing the next station.");
+const phaseDetail = computed(() => pendingOwnerQuestion.value?.question || run.value?.error || run.value?.mergeDecision?.reason || run.value?.review?.summary || "The durable workflow is observing the next station.");
 const updatedLabel = computed(() => formatDeliveryUpdatedAt(run.value?.updatedAt));
 const usageLabel = computed(() => formatModelUsage(run.value?.usage));
 const reviewFindings = computed(() => run.value?.review?.findings ?? []);
@@ -174,6 +182,28 @@ async function refresh() {
   } finally {
     working.value = false;
     schedule();
+  }
+}
+
+async function submitOwnerAnswer(value = ownerAnswer.value) {
+  const delivery = run.value;
+  const question = pendingOwnerQuestion.value;
+  const answer = value.trim();
+  if (!delivery || !question || !answer || answeringOwner.value || working.value) return;
+  answeringOwner.value = true;
+  error.value = "";
+  try {
+    run.value = await $fetch<Delivery>(`/factory/delivery/${encodeURIComponent(delivery.id)}/answer`, {
+      method: "POST",
+      body: { operationId: question.operationId, answer },
+      retry: 0,
+    });
+    ownerAnswer.value = "";
+    schedule();
+  } catch {
+    error.value = "Could not send the answer. The worker is still waiting for you.";
+  } finally {
+    answeringOwner.value = false;
   }
 }
 
@@ -311,6 +341,18 @@ onBeforeUnmount(() => {
       <div><strong>{{ phaseInfo.label }}</strong><span>{{ phaseDetail }}</span></div>
       <span class="delivery-updated">{{ updatedLabel }}</span>
     </div>
+    <fieldset v-if="pendingOwnerQuestion" class="decision owner-question">
+      <legend>Waiting for you</legend>
+      <p>{{ pendingOwnerQuestion.question }}</p>
+      <div v-if="pendingOwnerQuestion.options?.length" class="owner-question-options">
+        <UButton v-for="option in pendingOwnerQuestion.options" :key="option" variant="outline" :disabled="answeringOwner || working" @click="submitOwnerAnswer(option)">{{ option }}</UButton>
+      </div>
+      <UFormField label="Your answer" name="owner-answer">
+        <UTextarea v-model="ownerAnswer" :rows="3" :maxlength="10000" placeholder="Answer the worker’s question…" :disabled="answeringOwner || working" />
+      </UFormField>
+      <UButton :disabled="!ownerAnswer.trim() || answeringOwner || working" :loading="answeringOwner" icon="i-lucide-send" @click="submitOwnerAnswer()">Send answer</UButton>
+      <p class="small muted">The answer is recorded with your authenticated principal before the existing worker is resumed.</p>
+    </fieldset>
     <p v-if="run" class="delivery-id">Delivery <code>{{ shortIdentifier(run.id) }}</code> · cycle {{ run.cycle }}<template v-if="run.publication?.targetBranch"> · target {{ shortIdentifier(run.publication.targetBranch, 24) }}</template></p>
     <p v-if="run && usageLabel" class="delivery-usage">Model usage · {{ usageLabel }}</p>
     <details v-if="run" class="technical-evidence">
@@ -422,6 +464,7 @@ onBeforeUnmount(() => {
 .delivery-live-dot { width: 9px; height: 9px; flex-shrink: 0; border-radius: 50%; background: #a6b5b8; }
 .delivery-live-dot.phase-working, .delivery-live-dot.phase-reviewing, .delivery-live-dot.phase-revising, .delivery-live-dot.phase-worker_starting, .delivery-live-dot.phase-review_starting, .delivery-live-dot.phase-revision_starting, .delivery-live-dot.phase-owner_resuming, .delivery-live-dot.phase-merging { background: var(--ui-primary); box-shadow: 0 0 0 4px rgba(0, 127, 140, 0.1); }
 .delivery-live-dot.phase-human_review, .delivery-live-dot.phase-needs_revision { background: #bb7410; }
+.delivery-live-dot.phase-awaiting_input { background: #bb7410; box-shadow: 0 0 0 4px rgba(187, 116, 16, 0.1); }
 .delivery-live-dot.phase-blocked, .delivery-live-dot.phase-cancelled { background: #bf4c43; }
 .delivery-live div { display: grid; gap: 2px; min-width: 0; }
 .delivery-live strong { color: #2d545c; font-size: 12px; }
@@ -439,6 +482,10 @@ onBeforeUnmount(() => {
 .technical-evidence code { overflow-wrap: anywhere; }
 .delivery-note { color: #53666e; }
 .delivery-decision { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.owner-question { display: grid; gap: 12px; margin: 20px 0 0; border: 1px solid var(--ui-border); padding: 18px; }
+.owner-question legend { padding: 0 8px; font-weight: 600; }
+.owner-question p { margin: 0; }
+.owner-question-options { display: flex; gap: 8px; flex-wrap: wrap; }
 .delivery-error { color: #a33d37; }
 .delivery-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 20px; }
 .review-evidence, .phase-timeline { margin-top: 24px; padding-top: 20px; border-top: 1px solid var(--ui-border); }

@@ -16,7 +16,8 @@ export function stationChannel(station:Station) {
    const reservation=await updateStationRegistry(registry=>reserveStation(registry,station,address,input));
    const prior=await resolveSession(address);
    if(!prior&&!reservation.start&&!reservation.sessionId)return Response.json({error:'Station start acceptance is pending. Retry this operation; no replacement session was created.'},{status:409});
-   const session=reservation.sessionId?{id:reservation.sessionId}:prior??await from(address).send(`Execute the authenticated ${station} request.`,{auth:{...auth,attributes:{...auth.attributes,factoryStation:station,factoryRequest:JSON.stringify(input)}}});
+   const deliveryId=body.contextKey&&/^[a-f0-9]{64}$/.test(body.contextKey)?body.contextKey:undefined;
+   const session=reservation.sessionId?{id:reservation.sessionId}:prior??await from(address).send(`Execute the authenticated ${station} request.`,{auth:{...auth,attributes:{...auth.attributes,factoryStation:station,factoryRequest:JSON.stringify(input),...(deliveryId?{factoryDeliveryId:deliveryId}:{})}}});
    await updateStationRegistry(registry=>bindStation(registry,station,address,session.id));
    await updateCockpit(doc=>{const prior=doc.runs[session.id];return changeRecord(doc,'runs',session.id,{...prior?.value,label:'title'in input?input.title:`Review PR #${input.prNumber}`,station,operationId:input.operationId,execution:'direct',rootAgent:station},prior?.version??0);});
    return Response.json({sessionId:session.id,station,execution:'direct',rootAgent:station,operationId:input.operationId},{status:prior?200:202});

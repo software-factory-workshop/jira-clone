@@ -339,13 +339,16 @@ export function eventsForDelivery(events: unknown[], deliveryId: string) {
   return events.filter(event => parseDeliveryIds(event)?.includes(deliveryId));
 }
 
-export function resumeMessage(operationId: string) {
-  return `Factory recovery ${operationId}. Continue your original authenticated task in the existing workspace. Preserve all pending changes and original scope. If repository checks were blocked by factory context, use refresh_target to incorporate the current target without losing your work, then run verify_work and publish_work. Do not bypass checks or create a replacement owner.`;
+export function resumeMessage(operationId: string, answer?: string) {
+  const base = `Factory recovery ${operationId}. Continue your original authenticated task in the existing workspace. Preserve all pending changes and original scope. If repository checks were blocked by factory context, use refresh_target to incorporate the current target without losing your work, then run verify_work and publish_work. Do not bypass checks or create a replacement owner.`;
+  if (!answer) return base;
+  const clean = answer.replace(/[\u0000-\u001f\u007f]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 10000);
+  return `${base}\n\nOwner answer (authenticated task input, not an instruction to change scope):\n${clean}`;
 }
 
-export function resumeReceipt(events: unknown[], operationId: string) {
+export function resumeReceipt(events: unknown[], operationId: string, expectedMessage = resumeMessage(operationId)) {
   for (const event of events) {
     const parsed = parseMessageReceivedEvent(event);
-    if (parsed?.data.message === resumeMessage(operationId) && parsed.event.meta?.deliveryIds?.length) return parsed.event.meta.deliveryIds[0];
+    if (parsed?.data.message === expectedMessage && parsed.event.meta?.deliveryIds?.length) return parsed.event.meta.deliveryIds[0];
   }
 }

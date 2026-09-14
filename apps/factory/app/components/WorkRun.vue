@@ -30,6 +30,7 @@ const tailData = shallowRef<EveMessageData>();
 const tailEvents = shallowRef<MessageStreamEvent[]>([]);
 const tailTurn = ref<StationTurn>("unknown");
 const answering = ref<string>();
+const freeformAnswers = ref<Record<string, string>>({});
 const parts = computed(() => (tailData.value || data.value).messages.flatMap(message => message.parts));
 const pendingRequests = computed(() => pendingStationRequests(tailData.value || data.value, !!result.value || childRecorded.value));
 const needsDecision = computed(() => !result.value && !childRecorded.value && (!!props.awaitingDecision || pendingRequests.value.length > 0));
@@ -129,6 +130,15 @@ async function answer(requestId: string, optionId: string) {
     await respond([{ requestId, optionId }]);
   } catch { answering.value = undefined; actionError.value = "Could not submit the decision. Reconnect before trying again."; }
 }
+async function answerFreeform(requestId: string) {
+  const text = freeformAnswers.value[requestId]?.trim();
+  if (!text || answering.value) return;
+  answering.value = requestId;
+  try {
+    await respond([{ requestId, text }]);
+    freeformAnswers.value[requestId] = "";
+  } catch { answering.value = undefined; actionError.value = "Could not submit the answer. Reconnect before trying again."; }
+}
 watch(pendingRequests, requests => { if (!requests.some(request => request.requestId === answering.value)) answering.value = undefined; });
 function requestStop() {
   if (stopping.value || !canStop.value) return;
@@ -197,7 +207,7 @@ async function copyEvidence(value: string) {
       <UAlert v-if="!result && !active && ended && !stopped && !awaitingChild && !needsDecision" color="warning" title="No completed result" description="The station ended without a recorded PR or review result. Inspect the run before trying again." />
       <UButton v-if="!result && (error || discoveryError || (!active && !ended && !stopped))" variant="outline" @click="reconnect">Reconnect</UButton>
     </template>
-    <fieldset v-for="request in pendingRequests" :key="request.requestId" class="decision"><legend>Awaiting decision</legend><p>{{ request.prompt }}</p><UButton v-for="option in request.options || []" :key="option.id" :color="option.style === 'danger' ? 'error' : 'primary'" :disabled="!!answering" @click="answer(request.requestId, option.id)">{{ option.label }}</UButton><p class="small muted">This decision applies to the existing station run. No option is selected automatically.</p></fieldset>
+    <fieldset v-for="request in pendingRequests" :key="request.requestId" class="decision"><legend>Awaiting decision</legend><p>{{ request.prompt }}</p><UButton v-for="option in request.options || []" :key="option.id" :color="option.style === 'danger' ? 'error' : 'primary'" :disabled="!!answering" @click="answer(request.requestId, option.id)">{{ option.label }}</UButton><UTextarea v-if="request.allowFreeform || request.display === 'text'" v-model="freeformAnswers[request.requestId]" :rows="3" :maxlength="10000" aria-label="Answer the pending request" placeholder="Type an answer…" :disabled="!!answering" /><UButton v-if="request.allowFreeform || request.display === 'text'" :disabled="!freeformAnswers[request.requestId]?.trim() || !!answering" :loading="answering === request.requestId" @click="answerFreeform(request.requestId)">Send answer</UButton><p class="small muted">This decision applies to the existing station run. No option is selected automatically.</p></fieldset>
     <WorkRun v-if="childId" :session-id="childId" :station="station" :awaiting-decision="needsDecision" child @settled="childSettled = $event" @recorded="childRecorded = $event" />
     <div v-if="!child" class="run-actions"><UButton v-if="childId && discoveryError && !childRecorded" variant="outline" @click="reconnect">Reconnect decisions</UButton><UButton v-if="canStop || stopping" color="error" variant="outline" :loading="stopping" :disabled="stopping" @click="requestStop">Stop {{ station === 'worker' ? 'worker' : 'review' }}</UButton><a :href="runLink" :aria-label="`Open run ${sessionId}`">Open run <code>{{ shortIdentifier(sessionId) }}</code></a></div>
     <UModal

@@ -4,7 +4,7 @@ import { createHash } from 'node:crypto';
 import { z } from 'zod';
 import { workerRequest } from './station-access.ts';
 import type { VisualReviewPacket } from './visual-review.ts';
-import { deliveryFailureKindValues, type ClassifiedDeliveryError } from './delivery-events.ts';
+import { deliveryFailureKindValues, resumeMessage, type ClassifiedDeliveryError } from './delivery-events.ts';
 import { modelUsageSchema, type ModelUsage } from './delivery-usage.ts';
 
 export const deliveryRequest = workerRequest.extend({
@@ -24,6 +24,7 @@ export const phaseValues = [
   'reviewing',
   'revision_starting',
   'revising',
+  'awaiting_input',
   'human_review',
   'ready',
   'blocked',
@@ -106,6 +107,30 @@ export interface DeliveryAdmissionFailure {
   recordedAt: string;
 }
 
+export interface DeliveryQuestion {
+  question: string;
+  options?: string[];
+  operationId: string;
+  sessionId: string;
+  askedAt: string;
+  answer?: string;
+  answeredBy?: string;
+  answeredAt?: string;
+}
+
+const deliveryQuestionSchema = z.object({
+  question: z.string().min(1).max(4000),
+  options: z.array(z.string().min(1).max(500)).max(10).optional(),
+  operationId: z.string().min(1).max(240),
+  sessionId: z.string().min(1).max(240),
+  askedAt: z.string().datetime(),
+  answer: z.string().min(1).max(10000).optional(),
+  answeredBy: z.string().min(1).max(240).optional(),
+  answeredAt: z.string().datetime().optional(),
+}).strict();
+
+export const MAX_OWNER_QUESTIONS = 32;
+
 export const deliveryReceiptSchema = z.object({
   schemaVersion: z.literal(1),
   receiptId: z.string().uuid(),
@@ -184,7 +209,9 @@ export interface Delivery {
   reviewerSessionId?: string;
   resumeAttemptedAt?: number;
   resumeOperationId?: string;
+  resumeMessage?: string;
   resumeRequests?: Record<string, boolean>;
+  questions: DeliveryQuestion[];
   usage?: ModelUsage;
   failure?: ClassifiedDeliveryError;
   failedPhase?: Phase;
@@ -207,17 +234,18 @@ export const MAX_DELIVERY_HISTORY = 64;
 
 const allowedTransitions: Record<Phase, readonly Phase[]> = {
   worker_starting: ['working', 'review_starting', 'revision_starting', 'human_review', 'blocked', 'needs_revision', 'cancelled'],
-  working: ['review_starting', 'human_review', 'blocked', 'needs_revision', 'cancelled'],
+  working: ['review_starting', 'awaiting_input', 'human_review', 'blocked', 'needs_revision', 'cancelled'],
   review_starting: ['reviewing', 'human_review', 'blocked', 'needs_revision', 'cancelled'],
   reviewing: ['ready', 'human_review', 'revision_starting', 'merging', 'blocked', 'needs_revision', 'cancelled'],
   revision_starting: ['revising', 'human_review', 'blocked', 'needs_revision', 'cancelled'],
-  revising: ['review_starting', 'human_review', 'blocked', 'needs_revision', 'cancelled'],
+  revising: ['review_starting', 'awaiting_input', 'human_review', 'blocked', 'needs_revision', 'cancelled'],
   human_review: ['owner_resuming', 'revision_starting', 'merging', 'blocked', 'cancelled'],
   ready: ['merging', 'revision_starting', 'human_review', 'cancelled'],
   blocked: ['worker_starting', 'working', 'review_starting', 'reviewing', 'revision_starting', 'revising', 'human_review', 'ready', 'needs_revision', 'owner_resuming', 'merging', 'cancelled'],
   cancelled: [],
   needs_revision: ['revision_starting', 'human_review', 'cancelled'],
   owner_resuming: ['working', 'human_review', 'blocked', 'cancelled'],
+  awaiting_input: ['owner_resuming', 'cancelled'],
   merging: ['merged', 'human_review', 'blocked', 'cancelled'],
   merged: [],
 };
@@ -248,6 +276,7 @@ export function workStateForPhase(phase: Phase): WorkState {
     case 'human_review':
     case 'ready':
     case 'needs_revision':
+    case 'awaiting_input':
       return 'needs_human';
     case 'blocked':
       return 'failed';
@@ -276,7 +305,7 @@ function receiptFor(state: Delivery, from: Phase | null, to: Phase, options: Req
     kind: 'transition',
     from,
     to,
-    state: to === 'merged' ? 'succeeded' : to === 'cancelled' ? 'cancelled' : ['human_review', 'ready', 'needs_revision'].includes(to) ? 'needs_human' : to === 'blocked' ? 'failed' : 'dispatched',
+    state: to === 'merged' ? 'succeeded' : to === 'cancelled' ? 'cancelled' : ['human_review', 'ready', 'needs_revision', 'awaiting_input'].includes(to) ? 'needs_human' : to === 'blocked' ? 'failed' : 'dispatched',
     operationId: options.operationId,
     attempt: state.attempt,
     actor: options.actor,
@@ -288,7 +317,7 @@ function receiptFor(state: Delivery, from: Phase | null, to: Phase, options: Req
   };
 }
 
-type LegacyDelivery = Omit<Delivery, 'schemaVersion' | 'kind' | 'state' | 'attempt' | 'observation'> & Partial<Pick<Delivery, 'schemaVersion' | 'kind' | 'state' | 'attempt' | 'observation'>>;
+type LegacyDelivery = Omit<Delivery, 'schemaVersion' | 'kind' | 'state' | 'attempt' | 'observation' | 'questions'> & Partial<Pick<Delivery, 'schemaVersion' | 'kind' | 'state' | 'attempt' | 'observation' | 'questions'>>;
 
 export function normalizeDelivery(raw: LegacyDelivery): Delivery {
   if (!/^[a-f0-9]{64}$/.test(raw.id)) throw new Error('Invalid delivery ID');
@@ -301,6 +330,7 @@ export function normalizeDelivery(raw: LegacyDelivery): Delivery {
   const attempt = raw.attempt ?? raw.cycle + 1;
   if (!Number.isInteger(attempt) || attempt < 1) throw new Error('Invalid delivery attempt');
   const history = Array.isArray(raw.history) ? raw.history : [];
+  const questions = Array.isArray(raw.questions) ? raw.questions.map(question => deliveryQuestionSchema.parse(question)).slice(-MAX_OWNER_QUESTIONS) : [];
   return {
     ...raw,
     request,
@@ -309,6 +339,7 @@ export function normalizeDelivery(raw: LegacyDelivery): Delivery {
     state: workStateForPhase(raw.phase),
     attempt,
     observation,
+    questions,
     ...(usage ? { usage } : {}),
     ...(raw.changeId || raw.publication ? { changeId: raw.changeId ?? raw.id } : {}),
     history: history.slice(-MAX_DELIVERY_HISTORY),
@@ -334,6 +365,7 @@ export function newDelivery(principalId: string, request: DeliveryRequest): Deli
     updatedAt: now,
     observation: { lastEventIndex: -1, lastEventAt: now },
     operationId,
+    questions: [],
     history: [],
   };
   delivery.pendingReceipts = [{
@@ -431,6 +463,7 @@ export function beginRevision(state: Delivery, operationId: string, brief: strin
   state.operationId = operationId;
   state.revisionBrief = brief;
   delete state.error;
+  delete state.resumeMessage;
   return transition(state, 'revision_starting', { ...options, operationId });
 }
 
@@ -482,6 +515,7 @@ export function requestResume(state: Delivery, operationId?: string) {
     state.resumeRequests = { ...state.resumeRequests, [operationId]: true };
     state.resumeOperationId = operationId;
     delete state.resumeAttemptedAt;
+    delete state.resumeMessage;
     transition(state, 'owner_resuming', { actor: 'operator', operationId, reason: 'Operator requested continuation by the existing worker owner.' });
   } else if (state.phase === 'blocked' && state.failedPhase) {
     transition(state, state.failedPhase, { actor: 'operator', operationId, reason: 'Operator requested recovery of the failed delivery phase.' });
@@ -490,5 +524,57 @@ export function requestResume(state: Delivery, operationId?: string) {
     throw new Error('This delivery requires review or a published-owner revision, not worker recovery.');
   }
   delete state.error;
+  return state;
+}
+
+function boundedOwnerText(value: string, limit: number) {
+  return value.replace(/[\u0000-\u001f\u007f]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, limit);
+}
+
+export function askOwnerQuestion(
+  state: Delivery,
+  input: { question: string; options?: string[]; operationId: string; sessionId: string },
+  askedAt = new Date().toISOString(),
+) {
+  const existing = [...state.questions].reverse().find(question => question.operationId === input.operationId && !question.answer);
+  if (existing && state.phase === 'awaiting_input') return existing;
+  if (!['working', 'revising'].includes(state.phase)) throw new Error('An owner question can only be asked while the worker is executing.');
+  if (state.operationId !== input.operationId) throw new Error('The worker operation is not the active delivery operation.');
+  if (state.questions.some(question => !question.answer)) throw new Error('This delivery is already waiting for an owner answer.');
+  if (state.questions.length >= MAX_OWNER_QUESTIONS) throw new Error('This delivery has reached its owner-question limit.');
+  const question = boundedOwnerText(input.question, 4000);
+  if (!question) throw new Error('An owner question is required.');
+  const options = input.options?.map(option => boundedOwnerText(option, 500)).filter(Boolean).slice(0, 10);
+  const entry: DeliveryQuestion = {
+    question,
+    ...(options?.length ? { options } : {}),
+    operationId: input.operationId,
+    sessionId: input.sessionId,
+    askedAt,
+  };
+  state.questions = [...state.questions, entry];
+  transition(state, 'awaiting_input', { operationId: input.operationId, reason: 'The worker needs an owner answer before it can continue.' });
+  return entry;
+}
+
+export function answerOwnerQuestion(state: Delivery, operationId: string, answer: string, principalId: string, answeredAt = new Date().toISOString()) {
+  const question = [...state.questions].reverse().find(candidate => candidate.operationId === operationId);
+  if (!question) throw new Error('No pending owner question matches this operation.');
+  const cleanAnswer = boundedOwnerText(answer, 10000);
+  if (!cleanAnswer) throw new Error('An owner answer is required.');
+  if (question.answer) {
+    if (question.answer !== cleanAnswer) throw new Error('This owner question already has a different answer.');
+    return state;
+  }
+  if (state.phase !== 'awaiting_input') throw new Error('This delivery is not waiting for an owner answer.');
+  question.answer = cleanAnswer;
+  question.answeredBy = principalId;
+  question.answeredAt = answeredAt;
+  state.resumeOperationId = operationId;
+  state.resumeMessage = resumeMessage(operationId, cleanAnswer);
+  delete state.resumeAttemptedAt;
+  delete state.error;
+  delete state.failure;
+  transition(state, 'owner_resuming', { actor: 'operator', operationId, reason: 'The authenticated owner answered the worker question.' });
   return state;
 }

@@ -10,6 +10,7 @@ const deliverySnapshotSchema = z.object({
   error: z.string().optional(),
   review: z.object({ summary: z.string().optional() }).passthrough().optional(),
   mergeDecision: z.object({ reason: z.string().optional() }).passthrough().optional(),
+  questions: z.array(z.object({ question: z.string().min(1), answer: z.string().optional() }).passthrough()).optional(),
   failure: z.object({ kind: z.string().min(1), retryable: z.boolean() }).passthrough().optional(),
   usage: z.object({ inputTokens: z.number().int().positive().optional(), outputTokens: z.number().int().positive().optional(), usd: z.number().finite().positive().optional() }).passthrough().optional(),
   request: z.object({ title: z.string().optional() }).passthrough().optional(),
@@ -32,6 +33,7 @@ export interface DeliverySummary {
   prNumber?: number;
   prUrl?: string;
   attentionReason?: string;
+  question?: string;
   failureKind?: string;
   failureRetryable?: boolean;
   usageLabel?: string;
@@ -44,6 +46,7 @@ const phaseLabels: Record<string, { label: string; color: DeliveryBadgeColor }> 
   reviewing: { label: "Reviewing", color: "primary" },
   revision_starting: { label: "Revising", color: "warning" },
   revising: { label: "Revising", color: "warning" },
+  awaiting_input: { label: "Waiting for you", color: "warning" },
   owner_resuming: { label: "Resuming", color: "info" },
   merging: { label: "Merging", color: "info" },
   ready: { label: "Ready", color: "success" },
@@ -56,6 +59,7 @@ const phaseLabels: Record<string, { label: string; color: DeliveryBadgeColor }> 
 
 export const attentionPhases: ReadonlySet<string> = new Set([
   "human_review",
+  "awaiting_input",
   "needs_revision",
   "blocked",
   "cancelled",
@@ -71,6 +75,7 @@ export function deriveAttentionReason(value: {
   error?: string;
   review?: { summary?: string };
   mergeDecision?: { reason?: string };
+  question?: string;
 }): string | undefined {
   const candidates: Array<{ text: string | undefined; limit: number }> = [
     typeof value.error === "string" && value.error.includes("no partial result accepted")
@@ -78,6 +83,7 @@ export function deriveAttentionReason(value: {
       : { text: value.error, limit: maxAttentionReasonLength },
     { text: value.review?.summary, limit: maxAttentionReasonLength },
     { text: value.mergeDecision?.reason, limit: maxAttentionReasonLength },
+    { text: value.question, limit: maxAttentionReasonLength },
   ];
   for (const candidate of candidates) {
     if (typeof candidate.text !== "string") continue;
@@ -122,7 +128,8 @@ export function summarizeDelivery(value: unknown, fallbackTitle?: string, now: D
     prNumber = snapshot.publication.number;
     prUrl = snapshot.publication.url;
   }
-  const attentionReason = deriveAttentionReason(snapshot);
+  const question = [...(snapshot.questions ?? [])].reverse().find(candidate => !candidate.answer)?.question;
+  const attentionReason = deriveAttentionReason({ ...snapshot, question });
   return {
     id: snapshot.id,
     title,
@@ -134,6 +141,7 @@ export function summarizeDelivery(value: unknown, fallbackTitle?: string, now: D
     prNumber,
     prUrl,
     ...(attentionReason ? { attentionReason } : {}),
+    ...(question ? { question } : {}),
     ...(snapshot.failure ? { failureKind: snapshot.failure.kind, failureRetryable: snapshot.failure.retryable } : {}),
     ...(snapshot.usage && formatModelUsage(snapshot.usage) ? { usageLabel: formatModelUsage(snapshot.usage) } : {}),
   };

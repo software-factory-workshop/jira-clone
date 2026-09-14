@@ -34,6 +34,15 @@ test("blocked delivery flow marks the failed phase and explains the outcome", ()
   assert.equal(flow.nodes.find((node) => node.id === "outcome")?.detail, "Reviewer could not reach the host");
 });
 
+test("owner input keeps the worker handoff active and marks it as attention", () => {
+  const flow = deliveryFlow({ phase: "awaiting_input", question: "Which project should receive the issue?" });
+
+  assert.equal(flow.activeNodeId, "worker");
+  assert.equal(flow.nodes.find((node) => node.id === "worker")?.status, "attention");
+  assert.equal(flow.nodes.find((node) => node.id === "outcome")?.subtitle, "Waiting for owner input");
+  assert.equal(flow.nodes.find((node) => node.id === "outcome")?.detail, "Which project should receive the issue?");
+});
+
 test("ready delivery flow shows the merge gate as checked before the outcome", () => {
   const flow = deliveryFlow({ phase: "ready", history: [{ phase: "reviewing" }] });
 

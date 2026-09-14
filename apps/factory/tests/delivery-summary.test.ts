@@ -8,6 +8,7 @@ const now = new Date("2026-09-12T12:00:00.000Z");
 test("delivery phases map to readable labels and badge colors", () => {
   assert.deepEqual(describeDeliveryPhase("reviewing"), { label: "Reviewing", color: "primary" });
   assert.deepEqual(describeDeliveryPhase("human_review"), { label: "Needs human review", color: "warning" });
+  assert.deepEqual(describeDeliveryPhase("awaiting_input"), { label: "Waiting for you", color: "warning" });
   assert.deepEqual(describeDeliveryPhase("blocked"), { label: "Blocked", color: "error" });
   assert.deepEqual(describeDeliveryPhase("merged"), { label: "Merged", color: "success" });
   assert.deepEqual(describeDeliveryPhase("future_phase"), { label: "future_phase", color: "neutral" });
@@ -104,6 +105,21 @@ test("terminal attention cards keep a bounded reason while active cards do not n
   const reviewing = summarizeDelivery({ id: "delivery-reviewing", phase: "reviewing", error: "Delivery is blocked" }, "History label", now);
   assert.equal(reviewing?.attentionReason, "Delivery is blocked");
   assert.equal(attentionPhases.has(reviewing?.phase ?? ""), false);
+});
+
+test("waiting deliveries expose the unanswered owner question", () => {
+  const summary = summarizeDelivery({
+    id: "delivery-question",
+    phase: "awaiting_input",
+    questions: [
+      { question: "Which project should receive the issue?", operationId: "operation-one", sessionId: "wrun-owner", askedAt: now.toISOString() },
+      { question: "This answer is already recorded", operationId: "operation-two", sessionId: "wrun-owner", askedAt: now.toISOString(), answer: "ADEO", answeredBy: "owner" },
+    ],
+  }, "History label", now);
+  assert.equal(summary?.phaseLabel, "Waiting for you");
+  assert.equal(summary?.question, "Which project should receive the issue?");
+  assert.equal(summary?.attentionReason, "Which project should receive the issue?");
+  assert.equal(attentionPhases.has("awaiting_input"), true);
 });
 
 test("delivery summaries retain positive model usage without rendering zeroes", () => {
