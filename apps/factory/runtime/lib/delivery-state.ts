@@ -213,6 +213,7 @@ export interface Delivery {
   resumeAttemptedAt?: number;
   resumeOperationId?: string;
   resumeMessage?: string;
+  resumeInputRequestIds?: string[];
   resumeRequests?: Record<string, boolean>;
   questions: DeliveryQuestion[];
   usage?: ModelUsage;
@@ -469,6 +470,7 @@ export function beginRevision(state: Delivery, operationId: string, brief: strin
   state.revisionBrief = brief;
   delete state.error;
   delete state.resumeMessage;
+  delete state.resumeInputRequestIds;
   return transition(state, 'revision_starting', { ...options, operationId });
 }
 
@@ -521,6 +523,7 @@ export function requestResume(state: Delivery, operationId?: string) {
     state.resumeOperationId = operationId;
     delete state.resumeAttemptedAt;
     delete state.resumeMessage;
+    delete state.resumeInputRequestIds;
     transition(state, 'owner_resuming', { actor: 'operator', operationId, reason: 'Operator requested continuation by the existing worker owner.' });
   } else if (state.phase === 'blocked' && state.failedPhase) {
     const failedPhase = state.failedPhase;
@@ -583,6 +586,7 @@ export function answerOwnerQuestion(state: Delivery, operationId: string, answer
   state.resumeOperationId = operationId;
   state.resumeMessage = resumeMessage(operationId, cleanAnswer);
   delete state.resumeAttemptedAt;
+  delete state.resumeInputRequestIds;
   delete state.error;
   delete state.failure;
   transition(state, 'owner_resuming', { actor: 'operator', operationId, reason: 'The authenticated owner answered the worker question.' });

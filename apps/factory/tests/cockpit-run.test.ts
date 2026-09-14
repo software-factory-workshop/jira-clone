@@ -20,6 +20,11 @@ test('new turn removes stale completion and truncated snapshots cannot activate'
  assert.equal((await readRun(session(events))).terminal,undefined);
  assert.equal((await readRun(session(events,4))).complete,false);
 });
+test('session lifetime completion is exposed as a terminal event',async()=>{
+ const result=await readRun(session([{type:'session.completed'}]));
+ assert.equal(result.terminal,'session.completed');
+ assert.equal(result.complete,true);
+});
 test('dispatcher result follows actual recorded child call',async()=>{
  const event=proof.dispatch;assert.ok(event);
  const child=event.data.childSessionId;const seen:string[]=[];

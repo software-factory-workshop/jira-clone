@@ -1,7 +1,11 @@
 // Host-owned factory budgets. Keep these values in source control so a
 // deployment cannot silently fall back to an uncapped Eve session.
+// A successful worker run used about 2.44M input tokens in 13 minutes. Give
+// normal runs headroom, while the lifetime bound prevents approved limit
+// continuations from turning a defective run into an unbounded session.
 export const factoryModelLimits = {
-  maxInputTokensPerSession: 500_000,
+  sessionTimeoutMs: 20 * 60 * 1000,
+  maxInputTokensPerSession: 3_000_000,
   maxOutputTokensPerSession: 100_000,
   maxTokenCostUsdPerSession: 25,
 } as const;

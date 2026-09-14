@@ -17,7 +17,7 @@ export async function readRun(session:{getStreamTailIndex():Promise<number>;getE
   const child=parseSubagentCalledEvent(event);if(child&&(child.name==='worker'||child.name==='reviewer'))childSessionId=child.childSessionId;
   if(event.type==='turn.started'){terminal=undefined;result=undefined;}
   result=projectRunEvent(item.value,filter.operationId)||result;
-  if(['turn.completed','turn.cancelled','turn.failed','session.failed'].includes(event.type))terminal=event.type;
+  if(['turn.completed','session.completed','turn.cancelled','turn.failed','session.failed'].includes(event.type))terminal=event.type;
  }} finally {clearTimeout(timeout);await reader.cancel();}
  return {result,terminal,childSessionId,streamIndex:tail,complete:!timedOut&&read>tail};
 }

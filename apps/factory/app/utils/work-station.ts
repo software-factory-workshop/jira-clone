@@ -56,7 +56,7 @@ export type StationTurn = "cancelled" | "failed" | "completed" | "running" | "un
 export function advanceStationTurn(current: StationTurn, event: { type: string }): StationTurn {
   if (event.type === "turn.cancelled") return "cancelled";
   if (["turn.failed", "session.failed"].includes(event.type)) return "failed";
-  if (event.type === "turn.completed") return "completed";
+  if (["turn.completed", "session.completed"].includes(event.type)) return "completed";
   if (["turn.started", "step.started", "message.received"].includes(event.type)) return "running";
   return current;
 }
@@ -166,7 +166,7 @@ export async function* readStationStream(sessionId: string, signal: AbortSignal,
       for (const line of lines) {
         if (!line.trim()) continue;
         const event = JSON.parse(line);
-        if (!event || typeof event.type !== "string" || !event.data || typeof event.data !== "object") throw new Error("Invalid station event");
+        if (!event || typeof event.type !== "string" || (event.type !== "session.completed" && (!event.data || typeof event.data !== "object"))) throw new Error("Invalid station event");
         yield event;
       }
       if (chunk.done) break;

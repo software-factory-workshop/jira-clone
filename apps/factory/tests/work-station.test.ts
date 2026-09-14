@@ -67,6 +67,7 @@ test("a resumed child is not stopped by an earlier cancellation", () => {
   assert.equal(latestStationTurn(history), "running");
   history.push({ type: "turn.completed" });
   assert.equal(latestStationTurn(history), "completed");
+  assert.equal(advanceStationTurn("running", { type: "session.completed" }), "completed");
 });
 
 test("station event tails stay bounded while turn state remains incremental", () => {
@@ -127,6 +128,13 @@ test("durable station tail reads late dispatch and child decisions beyond a turn
   const received = [];
   for await (const event of readStationStream("wrun_child", new AbortController().signal, "worker")) received.push(event);
   assert.deepEqual(received, events);
+});
+
+test("durable station tail accepts Eve session completion without data", async (t) => {
+  t.mock.method(globalThis, "fetch", async () => new Response(`${JSON.stringify({ type: "session.completed" })}\n`));
+  const received = [];
+  for await (const event of readStationStream("wrun_child", new AbortController().signal, "worker")) received.push(event);
+  assert.deepEqual(received, [{ type: "session.completed" }]);
 });
 
 test("station tail follows the selected Eve root", () => {

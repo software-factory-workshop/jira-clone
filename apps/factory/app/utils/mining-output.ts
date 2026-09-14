@@ -119,5 +119,5 @@ export function terminalMiningFailure(input: {
 }) {
   if (input.hasReport || input.awaitingAuthorization || ["submitted", "streaming", "resuming"].includes(input.status)) return false;
   if (input.events.some(event => event.type === "turn.cancelled")) return false;
-  return input.outputError || input.events.some(event => ["turn.completed", "turn.failed", "session.failed"].includes(event.type));
+  return input.outputError || input.events.some(event => ["turn.completed", "session.completed", "turn.failed", "session.failed"].includes(event.type));
 }

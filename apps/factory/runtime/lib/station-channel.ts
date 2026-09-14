@@ -1,4 +1,5 @@
 import { defineChannel,POST } from 'eve/channels';
+import { inputResponseSchema,parseInputResponses } from 'eve/client';
 import { routeAuth } from 'eve/channels/auth';
 import { z } from 'zod';
 import { factoryAuth } from './route-auth';
@@ -28,6 +29,12 @@ export function stationChannel(station:Station) {
    const revision=input.revision?revisionRequest.parse(JSON.parse(input.revision)):undefined;
    if(revision&&station!=='worker')return Response.json({error:'Only worker sessions accept revisions'},{status:400});
    const result=await attachSession(params.id).send(input.message,{turnPolicy:'queue',auth:{...auth,attributes:{...auth.attributes,...(revision?{factoryRevision:JSON.stringify(revision),factoryRevisionOperationId:revision.operationId}:{})}}});
+   return Response.json(result);
+  }),
+  POST('/factory/session/:id/respond',async(request,{attachSession,params})=>{
+   const auth=await routeAuth(request,factoryAuth);if(auth instanceof Response)return auth;
+   const input=z.object({inputResponses:z.array(inputResponseSchema).min(1).max(32),resumeOperationId:z.string().uuid().optional()}).strict().parse(await request.json());
+   const result=await attachSession(params.id).respond(parseInputResponses(input.inputResponses),{auth:{...auth,attributes:{...auth.attributes,...(input.resumeOperationId?{factoryResumeOperationId:input.resumeOperationId}:{})}}});
    return Response.json(result);
   }),
  ]});

@@ -1,4 +1,5 @@
 import { Client } from 'eve/client';
+import type { InputResponse } from 'eve/client';
 import { getVercelOidcToken } from '@vercel/oidc';
 import { readStationRegistry } from './station-registry';
 import { factoryPorts } from './factory-config.ts';
@@ -41,6 +42,7 @@ export function rootSession(root:RootAgent,id:string) {
   },
   cancel:async(options?:{tasks?:boolean})=>session.cancel(options),
   send:async(message:string,options?:{auth?:{attributes?:Readonly<Record<string,unknown>>}})=>rootRequest(root,`/factory/session/${encodeURIComponent(id)}/continue`,{message,revision:options?.auth?.attributes?.factoryRevision}),
+  respond:async(inputResponses:readonly InputResponse[],options?:{auth?:{attributes?:Readonly<Record<string,unknown>>}})=>rootRequest(root,`/factory/session/${encodeURIComponent(id)}/respond`,{inputResponses,resumeOperationId:options?.auth?.attributes?.factoryResumeOperationId}),
  };
 }
 

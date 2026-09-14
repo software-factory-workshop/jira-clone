@@ -32,5 +32,7 @@ test("the worker tool, built root and answer route share the durable owner-input
   assert.match(route, /new WorkError\('invalid_request'/);
   assert.match(route, /current\.principalId!==auth\.principalId/);
   assert.match(station, /factoryDeliveryId/);
+  assert.match(station, /\/factory\/session\/:id\/respond/);
+  assert.match(station, /parseInputResponses/);
   assert.match(instructions, /ask_owner/);
 });
