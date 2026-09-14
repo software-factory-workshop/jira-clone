@@ -15,6 +15,7 @@ import {
   recordAdmissionFailure,
   retryAdmission,
   transition,
+  workStateValues,
   workStateForPhase,
 } from '../runtime/lib/delivery-state.ts';
 
@@ -168,6 +169,7 @@ test('blocked owner recovery returns to the preserved phase', () => {
 });
 
 test('phase-specific state remains a derived, compact work status', () => {
+  assert.deepEqual(workStateValues, ['queued', 'running', 'needs_human', 'succeeded', 'failed', 'cancelled']);
   assert.equal(workStateForPhase('worker_starting'), 'queued');
   assert.equal(workStateForPhase('reviewing'), 'running');
   assert.equal(workStateForPhase('human_review'), 'needs_human');
