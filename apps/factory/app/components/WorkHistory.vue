@@ -10,12 +10,30 @@ const lastRefreshed = ref<Date>();
 const route = useRoute();
 const runs = computed(() => cockpit.items.value.runs.filter((r) => r.value.station !== "mining"));
 const deliveries = ref<Record<string, { status: "loading" | "ready" | "unavailable"; summary?: DeliverySummary }>>({});
+const actionLoading = ref<string>();
 function label(run: (typeof runs.value)[number]) {
   const value = run.value as Record<string, unknown>;
   return typeof value.label === "string" && value.label.trim() ? value.label : "Delivery loop";
 }
 function deliveryFor(id: string) {
   return deliveries.value[id];
+}
+function summaryFor(id: string) {
+  return deliveryFor(id)?.summary;
+}
+function isAttentionRun(run: (typeof runs.value)[number]) {
+  const summary = summaryFor(run.id);
+  return !!summary && attentionPhases.has(summary.phase);
+}
+const orderedRuns = computed(() => [...runs.value].sort((left, right) => Number(isAttentionRun(right)) - Number(isAttentionRun(left))));
+const attentionCount = computed(() => orderedRuns.value.filter(isAttentionRun).length);
+function canResume(run: (typeof runs.value)[number]) {
+  const summary = summaryFor(run.id);
+  return !!summary && (summary.phase === "blocked" || (summary.phase === "human_review" && !summary.prUrl));
+}
+function canRevise(run: (typeof runs.value)[number]) {
+  const summary = summaryFor(run.id);
+  return !!summary?.prUrl && ["human_review", "needs_revision", "blocked"].includes(summary.phase);
 }
 function attentionReasonFor(id: string) {
   const summary = deliveryFor(id)?.summary;
@@ -51,6 +69,19 @@ async function refresh() {
     historyLoading.value = false;
   }
 }
+async function resumeDelivery(run: (typeof runs.value)[number]) {
+  if (actionLoading.value || !canResume(run)) return;
+  actionLoading.value = run.id;
+  error.value = "";
+  try {
+    await $fetch(`/factory/delivery/${encodeURIComponent(run.id)}/resume`, { method: "POST", body: { operationId: crypto.randomUUID() }, retry: 0 });
+    await refresh();
+  } catch {
+    error.value = "Could not resume this delivery. Open it to inspect the saved recovery state.";
+  } finally {
+    actionLoading.value = undefined;
+  }
+}
 function link(run: (typeof runs.value)[number]) {
   const value = run.value as Record<string, unknown>;
   if (value.station === "loop") return { path: "/work/run", query: { delivery: run.id } };
@@ -80,7 +111,7 @@ onBeforeUnmount(() => clearInterval(refreshTimer));
 <template>
   <section class="panel" style="padding: 24px; margin-top: 24px">
     <div v-if="props.showHeading" class="panel-heading">
-      <h2>Recent work</h2>
+      <div class="history-heading"><h2>Recent work</h2><UBadge :color="attentionCount ? 'warning' : 'neutral'" variant="soft">{{ attentionCount }} need attention</UBadge></div>
       <UButton variant="ghost" :loading="historyLoading" :disabled="historyLoading" @click="refresh">Refresh</UButton>
     </div>
     <p v-if="lastRefreshed" class="small muted" role="status">Updated {{ lastRefreshed.toLocaleTimeString() }} · refreshes automatically</p>
@@ -90,7 +121,7 @@ onBeforeUnmount(() => clearInterval(refreshTimer));
     <p v-if="!historyLoaded && !error" role="status" class="muted">Loading shared work history…</p>
     <p v-if="historyLoaded && !runs.length" class="muted">Accepted worker and review runs appear here.</p>
     <ul class="work-history-list">
-      <li v-for="run in runs" :key="run.id">
+      <li v-for="run in orderedRuns" :key="run.id">
         <article v-if="(run.value as Record<string, unknown>).station === 'loop'" class="delivery-card" :aria-label="`Delivery: ${label(run)}`">
           <div class="delivery-heading">
             <h3>{{ deliveryFor(run.id)?.summary?.title ?? label(run) }}</h3>
@@ -117,7 +148,9 @@ onBeforeUnmount(() => clearInterval(refreshTimer));
               variant="outline"
               icon="i-lucide-git-pull-request"
               >Open PR #{{ deliveryFor(run.id)?.summary?.prNumber }}</UButton>
-            <NuxtLink :to="link(run)" :class="{ selected: isSelected(run) }" :aria-current="isSelected(run) ? 'page' : undefined">Open delivery</NuxtLink>
+            <UButton v-if="canResume(run)" size="xs" color="warning" variant="outline" :loading="actionLoading === run.id" :disabled="!!actionLoading" icon="i-lucide-rotate-ccw" @click="resumeDelivery(run)">Resume</UButton>
+            <UButton v-if="canRevise(run)" size="xs" color="neutral" variant="outline" :to="link(run)" icon="i-lucide-message-square-more">Revise</UButton>
+            <UButton size="xs" variant="outline" :to="link(run)" :class="{ selected: isSelected(run) }" :aria-current="isSelected(run) ? 'page' : undefined" icon="i-lucide-arrow-right">Open</UButton>
           </div>
         </article>
         <NuxtLink v-else :to="link(run)" :class="{ selected: isSelected(run) }" :aria-current="isSelected(run) ? 'page' : undefined">{{ (run.value as Record<string, unknown>).label }} · {{ (run.value as Record<string, unknown>).station }}</NuxtLink>
@@ -143,6 +176,15 @@ onBeforeUnmount(() => clearInterval(refreshTimer));
 .delivery-card h3 {
   font-size: 14px;
   font-weight: 600;
+  margin: 0;
+}
+.history-heading {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.history-heading h2 {
   margin: 0;
 }
 .delivery-heading {

@@ -24,5 +24,5 @@ export default defineNuxtConfig({
       ],
     },
   },
-  runtimeConfig: { public: { jiraUrl: "https://adeo-jira-clone.vercel.app" } },
+  runtimeConfig: { public: { jiraUrl: "https://adeo-jira-clone.vercel.app", factorySha: process.env.VERCEL_GIT_COMMIT_SHA || "local" } },
 });

@@ -69,6 +69,7 @@ const sectionLabel = computed(() => {
             icon="i-lucide-github"
             >Repository</UButton
           >
+          <p class="sidebar-build">Factory SHA <code>{{ config.public.factorySha || 'local' }}</code></p>
         </div>
       </aside>
       <main>

@@ -71,6 +71,33 @@ export function appendStationTail(tail: MessageStreamEvent[], event: MessageStre
   if (tail.length > MAX_STATION_TAIL_EVENTS) tail.splice(0, tail.length - MAX_STATION_TAIL_EVENTS);
 }
 
+// Eve stamps the same call ID onto the request, input, dispatch and result
+// events. Keep that correlation visible in the cockpit without making the UI
+// understand every event variant in the protocol.
+export function eventToolId(event: { type: string; data?: unknown }): string | undefined {
+  const record = event.data && typeof event.data === "object" ? event.data as Record<string, unknown> : undefined;
+  if (!record) return undefined;
+
+  const directId = [record.callId, record.toolCallId, record.toolId].find((value): value is string => typeof value === "string" && value.length > 0);
+  if (directId) return directId;
+
+  const result = record.result;
+  if (result && typeof result === "object") {
+    const resultRecord = result as Record<string, unknown>;
+    if (typeof resultRecord.callId === "string" && resultRecord.callId.length > 0) return resultRecord.callId;
+  }
+
+  if (event.type === "actions.requested" && Array.isArray(record.actions)) {
+    const ids = record.actions
+      .filter((action): action is Record<string, unknown> => !!action && typeof action === "object")
+      .map(action => action.callId)
+      .filter((value): value is string => typeof value === "string" && value.length > 0);
+    if (ids.length) return ids.join(", ");
+  }
+
+  return undefined;
+}
+
 function stationProjectionPin(part: EveMessagePart, station: StationKind, operationId?: string) {
   if (part.type === "authorization") return part.state === "required";
   if (part.type !== "dynamic-tool") return false;
