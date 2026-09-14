@@ -1,8 +1,10 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { createHash } from "node:crypto";
 import { factoryRepository, requiredCheckName } from "../runtime/lib/factory-config.ts";
-import { inspectMergeCandidate, markPullRequestReady, readGithubPullSnapshot, snapshotIsMergedCandidate, summarizeGithubChecks, type PullPublicationBinding } from "../runtime/lib/pr-lifecycle.ts";
+import { inspectMergeCandidate, markPullRequestReady, readGithubPullSnapshot, recoverPublishedWork, snapshotIsMergedCandidate, summarizeGithubChecks, type PullPublicationBinding } from "../runtime/lib/pr-lifecycle.ts";
 import type { MergeReview } from "../runtime/lib/merge-policy.ts";
+import { workBranch } from "../runtime/lib/work-github.ts";
 
 const head = "a".repeat(40);
 const base = "b".repeat(40);
@@ -189,5 +191,71 @@ test("external merge readback confirms only the recorded candidate", async () =>
     assert.equal(snapshotIsMergedCandidate(snapshot, { ...publication, headSha: advanced }), false);
   } finally {
     restore();
+  }
+});
+
+test("recovery binds an unrecorded publication to the exact owner operation", async () => {
+  const owner = "wrun_recovery";
+  const recoveryOperation = "22222222-2222-4222-8222-222222222222";
+  const branch = workBranch(owner);
+  const recoveryHead = "e".repeat(40);
+  const recoveryBase = "f".repeat(40);
+  const ownerMarker = createHash("sha256").update(owner).digest("hex");
+  const body = `Model text must not be enough.\n\n<!-- Factory-Owner: ${owner}\nFactory-Operation: ${recoveryOperation}\nFactory-Target: main\nFactory-Target-Head: ${recoveryBase}\nFactory-Session: ${ownerMarker}\nFactory-Base: ${recoveryBase} -->`;
+  const prior = globalThis.fetch;
+  globalThis.fetch = async (url) => {
+    const path = String(url);
+    if (path.includes("/pulls?")) return Response.json([{
+      number: 49,
+      html_url: `https://github.com/${factoryRepository}/pull/49`,
+      title: "Recovered publication",
+      body,
+      state: "closed",
+      merged: true,
+      head: { sha: recoveryHead, ref: branch, repo: { full_name: factoryRepository } },
+      base: { sha: recoveryBase, ref: "main", repo: { full_name: factoryRepository } },
+    }]);
+    if (path.includes("/git/commits/")) return Response.json({ message: `factory publication\n\nFactory-Operation: ${recoveryOperation}\nFactory-Target: main\nFactory-Target-Head: ${recoveryBase}\nFactory-Session: ${ownerMarker}` });
+    throw new Error(`Unexpected GitHub request: ${path}`);
+  };
+  try {
+    assert.deepEqual(await recoverPublishedWork("token", owner, recoveryOperation, "main"), {
+      number: 49,
+      url: `https://github.com/${factoryRepository}/pull/49`,
+      headSha: recoveryHead,
+      targetHeadSha: recoveryBase,
+      targetBranch: "main",
+      ownerSessionId: owner,
+      branch,
+      operationId: recoveryOperation,
+    });
+  } finally {
+    globalThis.fetch = prior;
+  }
+});
+
+test("recovery ignores a plausible marker outside the host publication comment", async () => {
+  const owner = "wrun_unbound";
+  const recoveryOperation = "33333333-3333-4333-8333-333333333333";
+  const branch = workBranch(owner);
+  const ownerMarker = createHash("sha256").update(owner).digest("hex");
+  const prior = globalThis.fetch;
+  globalThis.fetch = async (url) => {
+    const path = String(url);
+    if (path.includes("/pulls?")) return Response.json([{
+      number: 50,
+      html_url: `https://github.com/${factoryRepository}/pull/50`,
+      title: "Unbound publication",
+      body: `Factory-Owner: ${owner}\nFactory-Operation: ${recoveryOperation}\nFactory-Session: ${ownerMarker}`,
+      state: "open",
+      head: { sha: "a".repeat(40), ref: branch, repo: { full_name: factoryRepository } },
+      base: { sha: "b".repeat(40), ref: "main", repo: { full_name: factoryRepository } },
+    }]);
+    throw new Error(`Unexpected GitHub request: ${path}`);
+  };
+  try {
+    assert.equal(await recoverPublishedWork("token", owner, recoveryOperation, "main"), undefined);
+  } finally {
+    globalThis.fetch = prior;
   }
 });

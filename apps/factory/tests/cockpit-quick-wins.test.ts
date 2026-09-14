@@ -42,6 +42,7 @@ test("cockpit quick wins keep delivery evidence and operator actions visible", a
   assert.match(deliveryRoute, /\/factory\/delivery\/:id\/pr\/ready/);
   assert.match(deliveryRoute, /\/factory\/delivery\/:id\/pr\/merge/);
   assert.match(deliveryRoute, /inspectMergeCandidate/);
+  assert.match(deliveryRoute, /recoverPublishedWork/);
   assert.match(deliveryRoute, /snapshotIsMergedCandidate/);
 
   assert.match(history, /need attention/);
@@ -50,6 +51,7 @@ test("cockpit quick wins keep delivery evidence and operator actions visible", a
   assert.match(history, />Revise</);
   assert.match(history, />Open</);
   assert.match(history, /refreshes automatically/);
+  assert.match(history, /\/factory\/delivery\/\$\{encodeURIComponent\(run\.id\)\}\/reconcile/);
 
   assert.match(newDraft, /title="Start with an idea"/);
   assert.match(newDraft, /origin: origin\.value/);

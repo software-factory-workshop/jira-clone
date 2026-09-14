@@ -200,9 +200,7 @@ async function refresh() {
   working.value = true;
   try {
     const id = run.value.id;
-    run.value = run.value.publication
-      ? await $fetch<Delivery>(`/factory/delivery/${encodeURIComponent(id)}/reconcile`, { retry: 0 })
-      : await $fetch<Delivery>(`/factory/delivery/${encodeURIComponent(id)}`, { retry: 0 });
+    run.value = await $fetch<Delivery>(`/factory/delivery/${encodeURIComponent(id)}/reconcile`, { retry: 0 });
     error.value = "";
   } catch (cause) {
     error.value = cockpitActionMessage(cause, "Could not refresh this delivery. Reconnect to the same run.");
@@ -235,7 +233,7 @@ async function submitOwnerAnswer(value = ownerAnswer.value) {
 }
 
 async function refreshGithubStatus() {
-  if (!run.value?.publication || reconciling.value || working.value) return;
+  if (!run.value || reconciling.value || working.value) return;
   clearTimeout(timer);
   reconciling.value = true;
   try {
@@ -354,8 +352,13 @@ watch(() => route.query.delivery, async (id) => {
   clearTimeout(timer);
   if (typeof id !== "string") return;
   try {
-    run.value = await $fetch<Delivery>(`/factory/delivery/${encodeURIComponent(id)}`);
-    if (run.value.publication) await refreshGithubStatus();
+    const saved = await $fetch<Delivery>(`/factory/delivery/${encodeURIComponent(id)}`);
+    run.value = saved;
+    try {
+      run.value = await $fetch<Delivery>(`/factory/delivery/${encodeURIComponent(id)}/reconcile`, { retry: 0 });
+    } catch {
+      // Keep the saved delivery visible when GitHub is temporarily unavailable.
+    }
     schedule();
   } catch (cause) {
     error.value = cockpitActionMessage(cause, "Could not load this delivery. Keep its URL to retry.");

@@ -130,13 +130,10 @@ async function loadDeliveries(): Promise<void> {
     try {
       const saved = await $fetch<unknown>(`/factory/delivery/${encodeURIComponent(run.id)}`, { retry: 0 });
       let current = saved;
-      const hasPublication = typeof saved === "object" && saved !== null && "publication" in saved && !!saved.publication;
-      if (hasPublication) {
-        try {
-          current = await $fetch(`/factory/delivery/${encodeURIComponent(run.id)}/reconcile`, { retry: 0 });
-        } catch {
-          // Keep the saved delivery summary visible when GitHub is temporarily unavailable.
-        }
+      try {
+        current = await $fetch(`/factory/delivery/${encodeURIComponent(run.id)}/reconcile`, { retry: 0 });
+      } catch {
+        // Keep the saved delivery summary visible when GitHub is temporarily unavailable.
       }
       const summary = summarizeDelivery(current, label(run));
       setDelivery(run.id, summary ? { status: "ready", summary } : { status: "unavailable", summary: deliveryFor(run.id)?.summary });

@@ -14,7 +14,7 @@ import { listDeliveryReceipts,readDelivery,updateDelivery } from '../lib/deliver
 import { classifyDeliveryError,snapshotEvents,childIn,hostResult,stoppedWithoutResult,eventsForDelivery,modelUsageFromEvents,resumeMessage,resumeReceipt,type ClassifiedDeliveryError, type EventSnapshot } from '../lib/delivery-events';
 import { readPull,readBranch,WorkError,workBranch } from '../lib/work-github';
 import { githubConnectorName } from '../lib/factory-config.ts';
-import { inspectMergeCandidate, markPullRequestReady, readGithubPullSnapshot, snapshotIsMergedCandidate } from '../lib/pr-lifecycle';
+import { inspectMergeCandidate, markPullRequestReady, readGithubPullSnapshot, recoverPublishedWork, snapshotIsMergedCandidate, type RecoveredPublication } from '../lib/pr-lifecycle';
 import type { MergeDecision, MergeReview } from '../lib/merge-policy';
 import { mergeReviewed } from '../lib/merge-reviewed';
 import { visualReviewPacketSchema } from '../lib/visual-review';
@@ -63,6 +63,34 @@ async function persistGithubObservation(id:string, expected:NonNullable<Delivery
   }
   return{state:current,result:current};
  });
+}
+const publicationRecoveryPhases = new Set<Delivery['phase']>(['human_review', 'blocked', 'needs_revision']);
+async function persistRecoveredPublication(id:string, recovered:RecoveredPublication) {
+ return updateDelivery(id,current=>{
+  if(!current)throw new Error('Delivery not found');
+  if(current.publication)return{state:current,result:current};
+  const owner=current.childSessionId||current.sessionId;
+  if(owner!==recovered.ownerSessionId||current.operationId!==recovered.operationId)return{state:current,result:current};
+  current.publication={number:recovered.number,url:recovered.url,headSha:recovered.headSha,targetHeadSha:recovered.targetHeadSha,targetBranch:recovered.targetBranch,ownerSessionId:recovered.ownerSessionId,branch:recovered.branch};
+  current.changeId??=current.id;
+  delete current.error;
+  return{state:current,result:current};
+});
+}
+async function reconcileDelivery(state:Delivery) {
+ let token:string|undefined;
+ if(!state.publication){
+  const owner=state.childSessionId||state.sessionId;
+  if(!owner||!publicationRecoveryPhases.has(state.phase))return state;
+  token=await getToken(githubConnectorName,{subject:{type:'app'}});
+  const recovered=await recoverPublishedWork(token,owner,state.operationId,state.request.parentPrNumber?undefined:'main');
+  if(!recovered)return state;
+  state=await persistRecoveredPublication(state.id,recovered);
+ }
+ if(!state.publication)return state;
+ token??=await getToken(githubConnectorName,{subject:{type:'app'}});
+ const inspection=await inspectMergeCandidate(token,state.publication,mergeReviewFor(state),state.reviewerSessionId);
+ return persistGithubObservation(state.id,state.publication,inspection.snapshot,inspection.decision);
 }
 function mergeFailureResponse(state:Delivery,decision:MergeDecision){
  return Response.json({delivery:state,error:{code:'merge_not_eligible',message:decision.reason},blockers:decision.blockers||[decision.reason]},{status:409});
@@ -171,11 +199,7 @@ export default defineChannel({routes:[
  })),
  GET('/factory/delivery/:id',protectedRoute(async(_,ctx)=>Response.json(await existing(ctx.params.id)))),
  GET('/factory/delivery/:id/reconcile',protectedRoute(async(_,ctx)=>{
-  const state=await existing(ctx.params.id);
-  if(!state.publication)return Response.json(state);
-  const token=await getToken(githubConnectorName,{subject:{type:'app'}});
-  const inspection=await inspectMergeCandidate(token,state.publication,mergeReviewFor(state),state.reviewerSessionId);
-  return Response.json(await persistGithubObservation(state.id,state.publication,inspection.snapshot,inspection.decision));
+  return Response.json(await reconcileDelivery(await existing(ctx.params.id)));
  })),
  POST('/factory/delivery/:id/pr/ready',protectedRoute(async(request,ctx)=>{
   const auth=await routeAuth(request,factoryAuth);if(auth instanceof Response)return auth;

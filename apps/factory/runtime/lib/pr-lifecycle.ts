@@ -1,8 +1,9 @@
 import { z } from "zod";
+import { createHash } from "node:crypto";
 import { requiredCheckName } from "./factory-config.ts";
 import { repository } from "./github.mjs";
 import { mergeEligibility, type MergeDecision, type MergeFile, type MergeReview } from "./merge-policy.ts";
-import { readBranch, readPull, readPullFiles, githubRequest, WorkError } from "./work-github.ts";
+import { readBranch, readPull, readPullFiles, readPullsByHead, githubRequest, verifyOwnerCommit, workBranch, WorkError } from "./work-github.ts";
 
 const sha = z.string().regex(/^[a-f0-9]{40}$/);
 
@@ -43,6 +44,12 @@ export interface PullPublicationBinding {
   targetHeadSha: string;
   targetBranch: string;
   ownerSessionId?: string;
+}
+
+export interface RecoveredPublication extends PullPublicationBinding {
+  branch: string;
+  ownerSessionId: string;
+  operationId: string;
 }
 
 export interface MergeInspection {
@@ -181,6 +188,59 @@ function exactPullUrl(url: string, number: number) {
 
 function validatedSnapshot(value: GithubPullSnapshot): GithubPullSnapshot {
   return githubPullSnapshotSchema.parse(value);
+}
+
+const publicationMarker = /<!--\s*Factory-Owner: ([^\r\n]+)\r?\nFactory-Operation: ([^\r\n]+)\r?\nFactory-Target: ([^\r\n]+)\r?\nFactory-Target-Head: ([a-f0-9]{40})\r?\nFactory-Session: ([a-f0-9]{64})\r?\nFactory-Base: ([a-f0-9]{40})\s*-->/g;
+
+function markerFor(body: string | null, ownerSessionId: string, operationId: string, targetBranch?: string) {
+  if (!body) return undefined;
+  const sessionMarker = createHash("sha256").update(ownerSessionId).digest("hex");
+  for (const match of body.matchAll(publicationMarker)) {
+    const owner = match[1];
+    const operation = match[2];
+    const target = match[3];
+    const targetHeadSha = match[4];
+    const session = match[5];
+    const baseSha = match[6];
+    if (!owner || !operation || !target || !targetHeadSha || !session || !baseSha) continue;
+    const normalizedTarget = target.trim();
+    if (owner !== ownerSessionId || operation !== operationId || session !== sessionMarker || (targetBranch && normalizedTarget !== targetBranch)) continue;
+    return { targetBranch: normalizedTarget, targetHeadSha, baseSha };
+  }
+}
+
+/**
+ * Recover a worker publication when the delivery cursor stopped before the
+ * host recorded its result. The branch and operation marker are exact, and
+ * the owner commit is checked before any GitHub lifecycle state is trusted.
+ */
+export async function recoverPublishedWork(token: string, ownerSessionId: string, operationId: string, targetBranch?: string, signal?: AbortSignal): Promise<RecoveredPublication | undefined> {
+  z.string().min(1).max(240).parse(ownerSessionId);
+  z.string().min(1).max(240).parse(operationId);
+  const branch = workBranch(ownerSessionId);
+  const candidates = await readPullsByHead(token, branch, targetBranch, signal);
+  const matches = candidates.filter(candidate => {
+    if (candidate.head.ref !== branch || !exactPullUrl(candidate.html_url, candidate.number)) return false;
+    const marker = markerFor(candidate.body, ownerSessionId, operationId, targetBranch);
+    return !!marker && marker.targetBranch === candidate.base.ref && marker.targetHeadSha === candidate.base.sha;
+  });
+  if (matches.length > 1) throw new WorkError("ownership_unverified", "Multiple GitHub pull requests match the delivery owner and operation.");
+  const candidate = matches[0];
+  if (!candidate) return undefined;
+  const marker = markerFor(candidate.body, ownerSessionId, operationId, targetBranch);
+  if (!marker || marker.targetBranch !== candidate.base.ref || marker.targetHeadSha !== candidate.base.sha) throw new WorkError("ownership_unverified", "The recovered pull request marker is not bound to its GitHub target.");
+  const publication: RecoveredPublication = {
+    number: candidate.number,
+    url: candidate.html_url,
+    headSha: candidate.head.sha,
+    targetHeadSha: candidate.base.sha,
+    targetBranch: candidate.base.ref,
+    ownerSessionId,
+    branch,
+    operationId,
+  };
+  await verifyOwnerCommit(token, publication, ownerSessionId, signal, { operationId, targetBranch: candidate.base.ref, targetHeadSha: candidate.base.sha });
+  return publication;
 }
 
 export async function readGithubPullSnapshot(token: string, publication: PullPublicationBinding, signal?: AbortSignal): Promise<GithubPullSnapshot> {
