@@ -15,3 +15,28 @@ test("failed checks and substantive limitations remain visible", () => {
   assert.match(body, /`pnpm test`: failed \(exit 1\)/);
   assert.match(body, /## Limitations\n\n- Browser verification is still required\./);
 });
+
+test("host browser evidence is included without embedding frame data", () => {
+  const body = publicationBody("Preserve issue drafts.", [], [command("pnpm test")], {
+    complete: false,
+    observations: [{
+      origin: "http://127.0.0.1:3001",
+      headSha: "a".repeat(40),
+      sessionId: "wrun_worker",
+      source: "head",
+      snapshot: true,
+      interaction: true,
+      keyboard: false,
+      screenshot: true,
+      afterInteraction: false,
+      route: "/issues?view=`open`",
+      eventIds: ["event-1"],
+    }],
+  });
+
+  assert.match(body, /## Browser evidence/);
+  assert.match(body, /Status: partial/);
+  assert.match(body, /keyboard no/);
+  assert.match(body, /route `\/issues\?view='open'`/);
+  assert.doesNotMatch(body, /data:image|event-1/);
+});

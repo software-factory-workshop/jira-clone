@@ -38,6 +38,23 @@ test("worker verification records one fixed base reproduction in command evidenc
   assert.match(instructions, /one named required check on the pristine/);
 });
 
+test("worker publication carries reviewer-configured browser and model evidence", async () => {
+  const reviewerAgent = await source("runtime/stations/reviewer/agent.ts");
+  const workerPrepare = await source("runtime/stations/worker/tools/prepare_work.ts");
+  const workerHook = await source("agents/worker/agent/hooks/browser-evidence.ts");
+  const publish = await source("runtime/stations/worker/tools/publish_work.ts");
+  const body = await source("runtime/lib/publication-body.ts");
+
+  assert.match(reviewerAgent, /factoryModelIds\.reviewer/);
+  assert.match(reviewerAgent, /return factoryModelIds\.reviewer/);
+  assert.match(workerPrepare, /reviewBrowser\.update/);
+  assert.match(workerHook, /reviewer\/agent\/hooks\/browser-evidence/);
+  assert.match(publish, /const browser=reviewBrowser\.get\(\)/);
+  assert.match(publish, /const browserEvidence=/);
+  assert.match(publish, /browserEvidence/);
+  assert.match(body, /## Browser evidence/);
+});
+
 test("base preparation records its locked setup in the existing command evidence", async () => {
   const writes: string[] = [];
   const commands: string[] = [];

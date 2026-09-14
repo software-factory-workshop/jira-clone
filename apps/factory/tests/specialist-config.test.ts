@@ -16,6 +16,11 @@ test("each built root includes its stop-after-turn hook entrypoint", () => {
  }
 });
 
+test("worker root mounts the host browser-evidence hook", () => {
+ const path = fileURLToPath(new URL("../agents/worker/agent/hooks/browser-evidence.ts", import.meta.url));
+ assert.equal(existsSync(path), true);
+});
+
 test("all three root agents use the shared model ceilings",()=>{
  for(const definition of [root,worker,reviewer]){
   assert.deepEqual(definition.limits,factoryModelLimits);
