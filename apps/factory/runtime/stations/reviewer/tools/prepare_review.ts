@@ -32,8 +32,9 @@ export default defineTool({description:"Fetch the authenticated PR's exact base/
    workState.update(s=>({...s,prepared:false,basePrepared:false,revision:"",prepareAttempts:0,prepareFailure:null,commands:[],baseline:[],pull:null,contextGaps:[],verificationFindings:[],reviewVerified:false,verifiedDigest:null,recorded:false}));
   }
   const state=workState.get();
-  if(state.prepareFailure && state.prepareAttempts > 0) throw new Error(`GitHub review preparation already failed for this session: ${state.prepareFailure.message} Start a fresh review after the provider recovers; do not retry this tool again.`);
-  const attempt=state.prepareAttempts+1;
+  const previousAttempts=state.prepareAttempts || 0;
+  if(state.prepareFailure && previousAttempts > 0) throw new Error(`GitHub review preparation already failed for this session: ${state.prepareFailure.message} Start a fresh review after the provider recovers; do not retry this tool again.`);
+  const attempt=previousAttempts+1;
   workState.update(s=>({...s,prepareAttempts:attempt,prepareFailure:null}));
   try {
    const token=await getToken(githubConnectorName,{subject:{type:"app"}});
