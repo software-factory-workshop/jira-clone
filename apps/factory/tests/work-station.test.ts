@@ -1,7 +1,7 @@
 import test from "node:test";
 import { defaultMessageReducer } from "eve/client";
 import assert from "node:assert/strict";
-import { dispatchedTask, parsePullRequest, parseStationResult, pendingStationRequests, stationLinkSchema, latestStationTurn, readStationStream, workerRequest, stationLaunchError, matchesStationDelivery, parseStationToolResult, appendStationTail, advanceStationTurn, boundStationProjection, eventToolId, MAX_STATION_TAIL_EVENTS, MAX_STATION_PROJECTION_MESSAGES, MAX_STATION_PROJECTION_PARTS } from "../app/utils/work-station.ts";
+import { dispatchedTask, parsePullRequest, parseStationResult, pendingStationRequests, stationLinkSchema, latestStationTurn, readStationStream, stationStreamPath, workerRequest, stationLaunchError, matchesStationDelivery, parseStationToolResult, appendStationTail, advanceStationTurn, boundStationProjection, eventToolId, MAX_STATION_TAIL_EVENTS, MAX_STATION_PROJECTION_MESSAGES, MAX_STATION_PROJECTION_PARTS } from "../app/utils/work-station.ts";
 import { factoryPorts, factoryRepositoryUrl } from "../runtime/lib/factory-config.ts";
 const sha = "a".repeat(40);
 const pullUrl = (number: number) => `${factoryRepositoryUrl}/pull/${number}`;
@@ -118,15 +118,20 @@ test("durable station tail reads late dispatch and child decisions beyond a turn
   ];
   const text = events.map(event => JSON.stringify(event)).join("\n");
   t.mock.method(globalThis, "fetch", async (url: string) => {
-    assert.equal(url, "/eve/v1/session/wrun_child/stream?startIndex=0");
+    assert.equal(url, "/worker/eve/v1/session/wrun_child/stream?startIndex=0");
     return new Response(new ReadableStream({ start(controller) {
       const bytes = new TextEncoder().encode(text);
       controller.enqueue(bytes.slice(0, 17)); controller.enqueue(bytes.slice(17)); controller.close();
     } }));
   });
   const received = [];
-  for await (const event of readStationStream("wrun_child", new AbortController().signal)) received.push(event);
+  for await (const event of readStationStream("wrun_child", new AbortController().signal, "worker")) received.push(event);
   assert.deepEqual(received, events);
+});
+
+test("station tail follows the selected Eve root", () => {
+  assert.equal(stationStreamPath("wrun_child", "worker"), "/worker/eve/v1/session/wrun_child/stream?startIndex=0");
+  assert.equal(stationStreamPath("wrun_child"), "/eve/v1/session/wrun_child/stream?startIndex=0");
 });
 
 test("work actions keep same-owner revision distinct from a new child contribution", () => {
