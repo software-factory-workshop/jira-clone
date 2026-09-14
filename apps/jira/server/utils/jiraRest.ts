@@ -361,7 +361,19 @@ export function parseRestPagination(
 export function restMyself(
   header: unknown,
   passport?: Pick<AppRequestIdentity, "passportToken" | "devUser" | "nodeEnv">,
+  options?: { bearer?: ReturnType<typeof validateOAuthBearer> | null },
 ): RestResult<RestUser> {
+  // A present `Authorization: Bearer` demo OAuth token is validated instead
+  // of the Passport/demo read path and never falls through to the demo
+  // fallback: an unknown, revoked or expired token is a 401, a valid one
+  // answers as the account the grant was issued to. This is the read the
+  // MCP gateway uses to check a bearer before proxying `/mcp`.
+  if (options?.bearer !== undefined && options.bearer !== null) {
+    if (!options.bearer.ok) {
+      return { ok: false, statusCode: options.bearer.statusCode, error: options.bearer.error };
+    }
+    return { ok: true, data: toRestUser(options.bearer.account) };
+  }
   const resolved = resolveAppActor({
     passportToken: passport?.passportToken,
     demoUser: header,

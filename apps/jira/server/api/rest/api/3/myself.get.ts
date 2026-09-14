@@ -1,6 +1,6 @@
 import { DEMO_ROLE_MATRIX_LABEL } from "../../../../utils/demoAccounts";
 import { PASSPORT_TOKEN_HEADER } from "../../../../utils/passportIdentity";
-import { REST_BOUNDARY, restMyself, restPermissions } from "../../../../utils/jiraRest";
+import { REST_BOUNDARY, restBearerIdentity, restMyself, restPermissions } from "../../../../utils/jiraRest";
 import { resolveAppActor } from "../../../../utils/appAccounts";
 
 /**
@@ -9,8 +9,11 @@ import { resolveAppActor } from "../../../../utils/appAccounts";
  * resolver to a Jira-shaped user plus a read permission summary. A present
  * Passport identity maps through the explicit claims/groups role mapping
  * (default viewer); otherwise the labelled synthetic `x-demo-user` fallback
- * applies. Reads stay open to read-only accounts; no write gate. Never
- * writes and never exposes the raw token.
+ * applies. Reads stay open to read-only accounts; no write gate. When an
+ * `Authorization: Bearer` demo OAuth token is present it is validated
+ * instead and never falls through to the demo fallback (401 on unknown,
+ * revoked or expired tokens) so bearer holders such as the MCP gateway can
+ * check a token here. Never writes and never exposes the raw token.
  */
 export default defineEventHandler((event) => {
   const identity = {
@@ -19,8 +22,12 @@ export default defineEventHandler((event) => {
     devUser: process.env.PASSPORT_DEV_USER,
     nodeEnv: process.env.NODE_ENV,
   };
-  const result = restMyself(identity.demoUser, identity);
+  const bearer = restBearerIdentity(getHeader(event, "authorization"));
+  const result = restMyself(identity.demoUser, identity, { bearer });
   if (!result.ok) {
+    if (bearer) {
+      setHeader(event, "WWW-Authenticate", 'Bearer realm="jira-clone-demo"');
+    }
     throw createError({
       statusCode: result.statusCode,
       message: result.error,
@@ -31,8 +38,12 @@ export default defineEventHandler((event) => {
       },
     });
   }
-  const resolved = resolveAppActor(identity);
-  const account = resolved.ok ? resolved.account : undefined;
+  const account = bearer?.ok
+    ? bearer.account
+    : (() => {
+        const resolved = resolveAppActor(identity);
+        return resolved.ok ? resolved.account : undefined;
+      })();
   return {
     ...result.data,
     permissions: account ? restPermissions(account) : undefined,
