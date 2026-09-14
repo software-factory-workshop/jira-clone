@@ -129,6 +129,15 @@ export async function readPull(token: string, number: number, signal?: AbortSign
   if (pr.number !== number) throw new Error("GitHub returned a different pull request.");
   return pr;
 }
+export async function readPullsByHead(token: string, branch: string, targetBranch?: string, signal?: AbortSignal) {
+  safeBranch(branch);
+  if (targetBranch) safeBranch(targetBranch);
+  const query = new URLSearchParams({ state: "all", head: `${repository}:${branch}`, per_page: "100" });
+  if (targetBranch) query.set("base", targetBranch);
+  const response = await request(token, `pulls?${query}`, signal);
+  if (response.next) throw new WorkError("provider_unavailable", "GitHub returned more than the bounded pull-request recovery window.");
+  return z.array(pullSchema).parse(response.data);
+}
 export interface PullRequestFile { filename: string; status: string; patch?: string; previous_filename?: string }
 export async function readPullFiles(token: string, number: number, signal?: AbortSignal): Promise<PullRequestFile[]> {
   z.number().int().positive().parse(number);
@@ -187,11 +196,12 @@ export async function isDescendant(token:string,ancestor:string,head:string,sign
 export async function readBranch(token:string,branch:string,signal?:AbortSignal){
  safeBranch(branch);return z.object({object:z.object({sha})}).parse((await request(token,`git/ref/heads/${branch}`,signal)).data).object.sha;
 }
-export async function verifyOwnerCommit(token:string,publication:{branch:string;headSha:string;number:number},ownerSessionId:string,signal?:AbortSignal){
+export async function verifyOwnerCommit(token:string,publication:{branch:string;headSha:string;number:number},ownerSessionId:string,signal?:AbortSignal,expected?:{operationId:string;targetBranch:string;targetHeadSha:string}){
  if(publication.branch!==workBranch(ownerSessionId))throw new WorkError("ownership_unverified","Branch does not belong to this logical owner.");
  const commit=z.object({message:z.string()}).parse((await request(token,`git/commits/${sha.parse(publication.headSha)}`,signal)).data);
  const marker=`Factory-Session: ${createHash("sha256").update(ownerSessionId).digest("hex")}`;
  if(!commit.message.includes(marker))throw new WorkError("ownership_unverified","Original publication lacks verified factory provenance.");
+ if(expected&&(!commit.message.includes(`Factory-Operation: ${expected.operationId}`)||!commit.message.includes(`Factory-Target: ${expected.targetBranch}`)||!commit.message.includes(`Factory-Target-Head: ${expected.targetHeadSha}`)))throw new WorkError("ownership_unverified","Original publication lacks the expected delivery operation and target provenance.");
 }
 export async function targetFor(token:string,parentPrNumber?:number,signal?:AbortSignal){
  if(!parentPrNumber)return {targetBranch:"main",targetHeadSha:await readBranch(token,"main",signal)};
