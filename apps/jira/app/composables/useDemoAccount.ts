@@ -33,10 +33,29 @@ export type MeResponse = {
 export const DEMO_ROLE_MATRIX_LABEL =
   "Demo-only role matrix: admin (read, write, reset) · member (read, write) · viewer (read-only).";
 
+const DEMO_ADMIN: DemoAccountOption = {
+  id: "demo-admin",
+  label: "Demo Admin",
+  role: "admin",
+  blurb: "read, write, reset",
+};
+const DEMO_MEMBER: DemoAccountOption = {
+  id: "demo-member",
+  label: "Demo Member",
+  role: "member",
+  blurb: "read, write",
+};
+const DEMO_VIEWER: DemoAccountOption = {
+  id: "demo-viewer",
+  label: "Demo Viewer",
+  role: "viewer",
+  blurb: "read-only",
+};
+
 export const DEMO_ACCOUNT_OPTIONS: readonly DemoAccountOption[] = [
-  { id: "demo-admin", label: "Demo Admin", role: "admin", blurb: "read, write, reset" },
-  { id: "demo-member", label: "Demo Member", role: "member", blurb: "read, write" },
-  { id: "demo-viewer", label: "Demo Viewer", role: "viewer", blurb: "read-only" },
+  DEMO_ADMIN,
+  DEMO_MEMBER,
+  DEMO_VIEWER,
 ];
 
 const DEMO_USER_STORAGE_KEY = "adeo-demo-user";
@@ -58,7 +77,7 @@ function knownDemoAccount(id: string): DemoAccountOption | undefined {
 export function useDemoAccount() {
   const storedId = readStoredDemoUser();
   const initialId = knownDemoAccount(storedId ?? "")?.id ?? DEFAULT_DEMO_USER_ID;
-  const initialAccount = knownDemoAccount(initialId) ?? DEMO_ACCOUNT_OPTIONS[1]!;
+  const initialAccount = knownDemoAccount(initialId) ?? DEMO_MEMBER;
 
   const demoUserId = ref(initialId);
   const demoAccount = ref(initialAccount);

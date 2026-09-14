@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { FeedbackVerdict } from "../utils/proposal-feedback";
+import { feedbackVerdictSchema } from "../utils/proposal-feedback";
 import { useProposalFeedback } from "../composables/useProposalFeedback";
 
 const props = defineProps<{
@@ -20,6 +20,11 @@ const {
   clear,
   refresh,
 } = useProposalFeedback(props);
+
+function updateVerdict(value: unknown): void {
+  const parsed = feedbackVerdictSchema.safeParse(value);
+  if (parsed.success) void choose(parsed.data);
+}
 </script>
 
 <template>
@@ -36,7 +41,7 @@ const {
       orientation="horizontal"
       :name="`proposal-feedback-${feedbackId}`"
       :aria-label="`Mark proposal ${props.proposalTitle} useful or not useful`"
-      @update:model-value="choose($event as FeedbackVerdict)"
+      @update:model-value="updateVerdict"
     />
     <p v-if="verdict" class="small feedback-saved" role="status">
       Marked {{ verdict === "useful" ? "useful" : "not useful" }} in the shared cockpit.
