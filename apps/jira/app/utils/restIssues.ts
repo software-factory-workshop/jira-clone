@@ -57,6 +57,12 @@ export type RestSearchShape = {
   persistence?: RestPersistenceShape;
 };
 
+/** Shared envelope for native issue writes and their persistence evidence. */
+export type RestIssueWriteShape = {
+  issue: BoardIssue;
+  persistence?: RestPersistenceShape;
+};
+
 /** Client-side mirror of one server `RestComment`. */
 export type RestCommentShape = {
   id?: string;
@@ -271,6 +277,45 @@ export type BoardVisibleRange = {
   start: number;
   end: number;
 };
+
+/**
+ * Honest filtered count for one loaded server window.
+ *
+ * Filters run client-side over the loaded `startAt`/`maxResults` page only,
+ * so the filtered match count is scoped to that window and must never reuse
+ * the store `total` as the filtered result. Pure; never writes.
+ */
+export type BoardFilteredSummary = {
+  /** Matches inside the loaded window (`filtered.length` in the board). */
+  shown: number;
+  /** Issues on the loaded server window (`issues.length` in the board). */
+  windowSize: number;
+  /** Store total reported by the search envelope, not the filtered result. */
+  windowTotal: number;
+};
+
+export function boardFilteredSummary(
+  filteredCount: number,
+  windowSize: number,
+  windowTotal: number,
+): BoardFilteredSummary {
+  const shown = Number.isFinite(filteredCount)
+    ? Math.max(0, Math.floor(filteredCount))
+    : 0;
+  const size = Number.isFinite(windowSize)
+    ? Math.max(0, Math.floor(windowSize))
+    : 0;
+  const total = Number.isFinite(windowTotal)
+    ? Math.max(0, Math.floor(windowTotal))
+    : 0;
+  return { shown, windowSize: size, windowTotal: total };
+}
+
+/** Filter-match label scoped to the loaded window, e.g. "1 of 4 in this window". */
+export function boardFilteredLabel(summary: BoardFilteredSummary): string {
+  const noun = summary.shown === 1 ? "match" : "matches";
+  return `${summary.shown} of ${summary.windowSize} in this window (${noun})`;
+}
 
 export function boardVisibleRange(
   startAt: number,

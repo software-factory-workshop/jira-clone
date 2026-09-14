@@ -1,4 +1,5 @@
 import type { BoardIssue } from "./boardMove";
+import { serverMessage } from "./errorMessage.ts";
 
 /**
  * Demo-only issue field edit (summary/assignee/description) for the detail
@@ -84,17 +85,6 @@ export function toDetailPatch(draft: DetailFieldDraft): DetailFieldPatch {
     assignee: draft.assignee.trim(),
     description: draft.description,
   };
-}
-
-/** Prefer the server-provided demo message over the generic transport message. */
-function serverMessage(error: unknown, fallback: string): string {
-  if (error && typeof error === "object" && "data" in error) {
-    const message = (error as { data?: { message?: unknown } }).data?.message;
-    if (typeof message === "string" && message.trim() !== "") {
-      return message;
-    }
-  }
-  return error instanceof Error && error.message ? error.message : fallback;
 }
 
 export type DetailFieldsResult =

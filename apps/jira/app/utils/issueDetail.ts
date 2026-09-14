@@ -4,6 +4,7 @@ import {
   restIssueUrl,
   type RestIssueShape,
 } from "./restIssues.ts";
+import { serverMessage } from "./errorMessage.ts";
 
 export type IssueDetailResponse = RestIssueShape;
 
@@ -43,17 +44,6 @@ export async function fetchIssueDetail(
 /** Detail state for a successful single-issue read. */
 export function loadedDetail(result: IssueDetailResult): IssueDetailState {
   return { issue: result.issue, demoOnly: result.demoOnly, error: null };
-}
-
-/** Prefer the server-provided demo message (Nuxt FetchError `data.message`) over the generic transport message. */
-function serverMessage(error: unknown, fallback: string): string {
-  if (error && typeof error === "object" && "data" in error) {
-    const message = (error as { data?: { message?: unknown } }).data?.message;
-    if (typeof message === "string" && message.trim() !== "") {
-      return message;
-    }
-  }
-  return error instanceof Error && error.message ? error.message : fallback;
 }
 
 /**

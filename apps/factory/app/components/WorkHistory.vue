@@ -1,6 +1,66 @@
 <script setup lang="ts">
-import { attentionPhases, isLoopRun, summarizeDelivery, type DeliverySummary } from "../utils/delivery-summary";
+import { computed, onBeforeUnmount, onMounted, ref } from "vue";
+import type { CockpitRecord } from "../../shared/cockpit";
+import { attentionPhases, summarizeDelivery, type DeliverySummary } from "../utils/delivery-summary";
 import { cockpitFailureMessage } from "../utils/cockpit-errors";
+
+type HistoryStation = "worker" | "reviewer" | "loop";
+type HistoryExecution = "owner" | "dispatcher" | "direct";
+type HistoryRootAgent = "task-miner" | "worker" | "reviewer";
+
+type HistoryRun = {
+  id: string;
+  version: number;
+  createdAt: string;
+  updatedAt: string;
+  value: {
+    label: string;
+    station: HistoryStation;
+    operationId?: string;
+    execution?: HistoryExecution;
+    rootAgent?: HistoryRootAgent;
+    deliveryId?: string;
+  };
+};
+
+type DeliveryState = {
+  status: "loading" | "ready" | "unavailable";
+  summary?: DeliverySummary;
+};
+
+function parseHistoryRun(record: CockpitRecord): HistoryRun | undefined {
+  const value = record.value;
+  if (value.station === "mining") return undefined;
+  if (value.station !== "worker" && value.station !== "reviewer" && value.station !== "loop") {
+    return undefined;
+  }
+
+  const label = typeof value.label === "string" && value.label.trim()
+    ? value.label
+    : value.station === "loop" ? "Delivery loop" : "Station run";
+  const execution = value.execution === "owner" || value.execution === "dispatcher" || value.execution === "direct"
+    ? value.execution
+    : undefined;
+  const rootAgent = value.rootAgent === "task-miner" || value.rootAgent === "worker" || value.rootAgent === "reviewer"
+    ? value.rootAgent
+    : undefined;
+
+  return {
+    id: record.id,
+    version: record.version,
+    createdAt: record.createdAt,
+    updatedAt: record.updatedAt,
+    value: {
+      label,
+      station: value.station,
+      ...(typeof value.operationId === "string" ? { operationId: value.operationId } : {}),
+      ...(execution ? { execution } : {}),
+      ...(rootAgent ? { rootAgent } : {}),
+      ...(typeof value.deliveryId === "string" ? { deliveryId: value.deliveryId } : {}),
+    },
+  };
+}
+
 const cockpit = useCockpit();
 const props = withDefaults(defineProps<{ showHeading?: boolean }>(), { showHeading: true });
 const error = ref("");
@@ -8,53 +68,76 @@ const historyLoading = ref(false);
 const historyLoaded = ref(false);
 const lastRefreshed = ref<Date>();
 const route = useRoute();
-const runs = computed(() => cockpit.items.value.runs.filter((r) => r.value.station !== "mining"));
-const deliveries = ref<Record<string, { status: "loading" | "ready" | "unavailable"; summary?: DeliverySummary }>>({});
+const runs = computed<HistoryRun[]>(() =>
+  cockpit.items.value.runs.flatMap((record) => {
+    const parsed = parseHistoryRun(record);
+    return parsed ? [parsed] : [];
+  }),
+);
+const deliveries = ref<Record<string, DeliveryState>>({});
 const actionLoading = ref<string>();
-function label(run: (typeof runs.value)[number]) {
-  const value = run.value as Record<string, unknown>;
-  return typeof value.label === "string" && value.label.trim() ? value.label : "Delivery loop";
+
+function label(run: HistoryRun): string {
+  return run.value.label;
 }
-function deliveryFor(id: string) {
+
+function deliveryFor(id: string): DeliveryState | undefined {
   return deliveries.value[id];
 }
-function summaryFor(id: string) {
+
+function summaryFor(id: string): DeliverySummary | undefined {
   return deliveryFor(id)?.summary;
 }
-function isAttentionRun(run: (typeof runs.value)[number]) {
+
+function isAttentionRun(run: HistoryRun): boolean {
   const summary = summaryFor(run.id);
   return !!summary && attentionPhases.has(summary.phase);
 }
-const orderedRuns = computed(() => [...runs.value].sort((left, right) => Number(isAttentionRun(right)) - Number(isAttentionRun(left))));
+
+const orderedRuns = computed(() =>
+  [...runs.value].sort(
+    (left, right) => Number(isAttentionRun(right)) - Number(isAttentionRun(left)),
+  ),
+);
 const attentionCount = computed(() => orderedRuns.value.filter(isAttentionRun).length);
-function canResume(run: (typeof runs.value)[number]) {
+
+function canResume(run: HistoryRun): boolean {
   const summary = summaryFor(run.id);
   return !!summary && (summary.phase === "blocked" || (summary.phase === "human_review" && !summary.prUrl));
 }
-function canRevise(run: (typeof runs.value)[number]) {
+
+function canRevise(run: HistoryRun): boolean {
   const summary = summaryFor(run.id);
   return !!summary?.prUrl && ["human_review", "needs_revision", "blocked"].includes(summary.phase);
 }
-function attentionReasonFor(id: string) {
+
+function attentionReasonFor(id: string): string | undefined {
   const summary = deliveryFor(id)?.summary;
   if (!summary || !attentionPhases.has(summary.phase) || !summary.attentionReason) return undefined;
   return summary.attentionReason;
 }
-async function loadDeliveries() {
-  const loops = runs.value.filter((run) => isLoopRun(run));
+
+function setDelivery(id: string, state: DeliveryState): void {
+  deliveries.value = { ...deliveries.value, [id]: state };
+}
+
+async function loadDeliveries(): Promise<void> {
+  const loops = runs.value.filter((run) => run.value.station === "loop");
   await Promise.all(loops.map(async (run) => {
-    if (deliveries.value[run.id]?.status === "loading") return;
-    deliveries.value[run.id] = { status: "loading", summary: deliveries.value[run.id]?.summary };
+    const previous = deliveryFor(run.id);
+    if (previous?.status === "loading") return;
+    setDelivery(run.id, { status: "loading", summary: previous?.summary });
     try {
       const saved = await $fetch(`/factory/delivery/${encodeURIComponent(run.id)}`, { retry: 0 });
       const summary = summarizeDelivery(saved, label(run));
-      deliveries.value[run.id] = summary ? { status: "ready", summary } : { status: "unavailable", summary: deliveries.value[run.id]?.summary };
+      setDelivery(run.id, summary ? { status: "ready", summary } : { status: "unavailable", summary: deliveryFor(run.id)?.summary });
     } catch {
-      deliveries.value[run.id] = { status: "unavailable", summary: deliveries.value[run.id]?.summary };
+      setDelivery(run.id, { status: "unavailable", summary: deliveryFor(run.id)?.summary });
     }
   }));
 }
-async function refresh() {
+
+async function refresh(): Promise<void> {
   if (historyLoading.value) return;
   historyLoading.value = true;
   try {
@@ -69,7 +152,8 @@ async function refresh() {
     historyLoading.value = false;
   }
 }
-async function resumeDelivery(run: (typeof runs.value)[number]) {
+
+async function resumeDelivery(run: HistoryRun): Promise<void> {
   if (actionLoading.value || !canResume(run)) return;
   actionLoading.value = run.id;
   error.value = "";
@@ -82,34 +166,38 @@ async function resumeDelivery(run: (typeof runs.value)[number]) {
     actionLoading.value = undefined;
   }
 }
-function link(run: (typeof runs.value)[number]) {
-  const value = run.value as Record<string, unknown>;
-  if (value.station === "loop") return { path: "/work/run", query: { delivery: run.id } };
+function link(run: HistoryRun) {
+  if (run.value.station === "loop") return { path: "/work/run", query: { delivery: run.id } };
   return {
     path: "/work/run",
     query: {
-      station: String(value.station),
+      station: run.value.station,
       run: run.id,
-      operationId: value.operationId as string | undefined,
-      deliveryId: value.deliveryId as string | undefined,
-      execution: value.execution as string | undefined,
-      rootAgent: value.rootAgent as string | undefined,
+      operationId: run.value.operationId,
+      deliveryId: run.value.deliveryId,
+      execution: run.value.execution,
+      rootAgent: run.value.rootAgent,
     },
   };
 }
-function isSelected(run: (typeof runs.value)[number]) {
-  const value = run.value as Record<string, unknown>;
-  return value.station === "loop" ? route.query.delivery === run.id : route.query.run === run.id;
+
+function isSelected(run: HistoryRun): boolean {
+  return run.value.station === "loop" ? route.query.delivery === run.id : route.query.run === run.id;
 }
 let refreshTimer: ReturnType<typeof setInterval> | undefined;
-onMounted(async () => {
-  await refresh();
-  refreshTimer = setInterval(() => void refresh(), 10000);
+let disposed = false;
+onMounted(() => {
+  void refresh().then(() => {
+    if (!disposed) refreshTimer = setInterval(() => void refresh(), 10000);
+  });
 });
-onBeforeUnmount(() => clearInterval(refreshTimer));
+onBeforeUnmount(() => {
+  disposed = true;
+  clearInterval(refreshTimer);
+});
 </script>
 <template>
-  <section class="panel" style="padding: 24px; margin-top: 24px">
+  <section class="panel history-panel">
     <div v-if="props.showHeading" class="panel-heading">
       <div class="history-heading"><h2>Recent work</h2><UBadge :color="attentionCount ? 'warning' : 'neutral'" variant="soft">{{ attentionCount }} need attention</UBadge></div>
       <UButton variant="ghost" :loading="historyLoading" :disabled="historyLoading" @click="refresh">Refresh</UButton>
@@ -122,7 +210,7 @@ onBeforeUnmount(() => clearInterval(refreshTimer));
     <p v-if="historyLoaded && !runs.length" class="muted">Accepted worker and review runs appear here.</p>
     <ul class="work-history-list">
       <li v-for="run in orderedRuns" :key="run.id">
-        <article v-if="(run.value as Record<string, unknown>).station === 'loop'" class="delivery-card" :aria-label="`Delivery: ${label(run)}`">
+        <article v-if="run.value.station === 'loop'" class="delivery-card" :aria-label="`Delivery: ${label(run)}`">
           <div class="delivery-heading">
             <h3>{{ deliveryFor(run.id)?.summary?.title ?? label(run) }}</h3>
             <UBadge v-if="deliveryFor(run.id)?.status === 'ready'" :color="deliveryFor(run.id)?.summary?.phaseColor" variant="soft">{{ deliveryFor(run.id)?.summary?.phaseLabel }}</UBadge>
@@ -154,12 +242,17 @@ onBeforeUnmount(() => clearInterval(refreshTimer));
             <UButton size="xs" variant="outline" :to="link(run)" :class="{ selected: isSelected(run) }" :aria-current="isSelected(run) ? 'page' : undefined" icon="i-lucide-arrow-right">Open</UButton>
           </div>
         </article>
-        <NuxtLink v-else :to="link(run)" :class="{ selected: isSelected(run) }" :aria-current="isSelected(run) ? 'page' : undefined">{{ (run.value as Record<string, unknown>).label }} · {{ (run.value as Record<string, unknown>).station }}</NuxtLink>
+        <NuxtLink v-else :to="link(run)" :class="{ selected: isSelected(run) }" :aria-current="isSelected(run) ? 'page' : undefined">{{ run.value.label }} · {{ run.value.station }}</NuxtLink>
       </li>
     </ul>
   </section>
 </template>
 <style scoped>
+.history-panel {
+  padding: 24px;
+  margin-top: 24px;
+}
+
 .work-history-list {
   display: grid;
   gap: 12px;

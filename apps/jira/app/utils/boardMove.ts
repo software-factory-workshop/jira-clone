@@ -1,16 +1,5 @@
 /** Shared board-move helpers used by the Kanban UI and focused tests. */
-
-/** Prefer the server-provided demo message (Nuxt FetchError `data.message`) over the generic transport message. */
-function serverMessage(error: unknown, fallback: string): string {
-  if (error && typeof error === "object" && "data" in error) {
-    const message = (error as { data?: { message?: unknown } }).data?.message;
-    if (typeof message === "string" && message.trim() !== "") {
-      return message;
-    }
-  }
-  return error instanceof Error && error.message ? error.message : fallback;
-}
-
+import { serverMessage } from "./errorMessage.ts";
 
 export const OBSERVED_STATUSES = [
   "To Do",
@@ -83,13 +72,14 @@ export function allowedMoveHint(currentStatus: string): string {
 }
 
 export function columnIssues(
-  issues: BoardIssue[],
+  issues: readonly BoardIssue[],
   status: string,
 ): BoardIssue[] {
   return issues.filter((issue) => issue.status === status);
 }
 
 export const ALL_ASSIGNEES = "All assignees";
+export const ALL_STATUSES = "All statuses";
 export const UNASSIGNED = "Unassigned";
 
 export type IssueFilters = {
@@ -121,7 +111,7 @@ export function matchesFilters(issue: BoardIssue, filters: IssueFilters): boolea
     .toLowerCase()
     .includes(query);
   const matchesStatus =
-    filters.status === "All statuses" || issue.status === filters.status;
+    filters.status === ALL_STATUSES || issue.status === filters.status;
   const matchesAssignee =
     filters.assignee === ALL_ASSIGNEES ||
     issue.assignee === filters.assignee;

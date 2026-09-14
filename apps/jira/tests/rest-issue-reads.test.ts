@@ -18,6 +18,8 @@ import {
   type RestSearchResponse,
 } from "../server/utils/jiraRest.ts";
 import {
+  boardFilteredLabel,
+  boardFilteredSummary,
   boardSearchUrl,
   boardPageForStartAt,
   boardStartAtForPage,
@@ -342,4 +344,41 @@ test("board list stays honest on an out-of-range startAt page", async () => {
     { start: 0, end: 0 },
   );
   resetIssues();
+});
+
+/**
+ * Filtered count/range honesty: selecting one match out of a 4-issue window
+ * must report "1 of 4 in this window" with the server window 1-4, never
+ * "1 of 4 issues · showing 1-4 of 4 issues" (which reads as if the store
+ * filtered down to one issue). Mirrors the reported Board + "issue list"
+ * case: only ADEO-2 visible.
+ */
+test("filtered summary stays window-scoped instead of reusing the store total", () => {
+  resetIssues();
+  try {
+    const windowed = getIssues().slice(0, 4);
+    assert.equal(windowed.length, 4);
+    const matches = windowed.filter((issue) =>
+      `${issue.key} ${issue.title}`.toLowerCase().includes("issue list"),
+    );
+    assert.deepEqual(
+      matches.map((issue) => issue.key),
+      ["ADEO-2"],
+    );
+    const summary = boardFilteredSummary(matches.length, windowed.length, 4);
+    assert.deepEqual(summary, { shown: 1, windowSize: 4, windowTotal: 4 });
+    assert.equal(boardFilteredLabel(summary), "1 of 4 in this window (match)");
+    // A search larger than one page stays scoped to its loaded window too.
+    const paged = boardFilteredSummary(9, 50, 59);
+    assert.equal(
+      boardFilteredLabel(paged),
+      "9 of 50 in this window (matches)",
+    );
+    assert.deepEqual(
+      boardVisibleRange(0, REST_BOARD_PAGE_SIZE, 59, 50),
+      { start: 1, end: 50 },
+    );
+  } finally {
+    resetIssues();
+  }
 });
