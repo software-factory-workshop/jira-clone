@@ -39,7 +39,7 @@ test("factory delivery configuration keeps host bindings in one plain module", (
   assert.equal(vercelMachineConnectorName, "factory/jira-clone-machine");
   assert.equal(vercelMachineCredentialExpiresAt, "2026-10-12");
   assert.deepEqual(factoryModelIds, {
-    taskMiner: "openai/gpt-5.6-luna-fast",
+    taskMiner: "openai/gpt-5.6-sol-fast",
     worker: "openai/gpt-5.6-sol-fast",
     reviewer: "zai/glm-5.3-flash",
   });

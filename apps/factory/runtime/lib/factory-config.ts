@@ -32,7 +32,7 @@ export const vercelMachineCredentialExpiresAt = "2026-10-12";
 // AI Gateway model ids (15 Sep): the most recent fast models, same family as the
 // micro-factory. Reviewer stays on a different vendor than the worker.
 export const factoryModelIds = {
-  taskMiner: "openai/gpt-5.6-luna-fast",
+  taskMiner: "openai/gpt-5.6-sol-fast",
   worker: "openai/gpt-5.6-sol-fast",
   reviewer: "zai/glm-5.3-flash",
 } as const;
