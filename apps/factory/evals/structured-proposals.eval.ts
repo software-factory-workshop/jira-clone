@@ -9,7 +9,11 @@ export default defineEval({
     await t.send("Review the already-pending usefulness-feedback capture and bounded ADEO Jira demo-scope candidates for Remi's review. Inspect the current goal, codebase, GitHub work and Vercel evidence. Record justified candidates as separate proposals, acknowledging their existing pending status rather than calling them newly discovered work. Do not implement or approve them. Keep the investigation focused.");
     t.succeeded();
     t.calledTool("prepare_context");
+    t.calledTool("record_work_order", { count: 1 });
     t.calledTool("record_findings");
+    t.toolOrder(["prepare_context", "record_work_order", "record_findings"]);
+    t.maxToolCalls(32);
+    t.notCalledTool("session_limit_continuation");
     const event = t.events.find(event => event.type === "action.result" && event.data.result.kind === "tool-result" && event.data.result.toolName === "record_findings");
     const output = event?.type === "action.result" ? event.data.result.output : undefined;
     const record = output && typeof output === "object" ? output as Record<string, unknown> : {};
