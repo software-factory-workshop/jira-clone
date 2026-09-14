@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { factoryRepository } from "../../runtime/lib/factory-config.ts";
+import type { WorkOrderAdmission } from "../../shared/cockpit.ts";
 
 const githubReadSchema = z.object({
   resource: z.string(), complete: z.boolean(), capturedAt: z.string(),
@@ -19,6 +20,13 @@ const reflectionSchema = z.object({
   helpfulContext: z.array(z.string()), missingContext: z.array(z.string()),
   contradictions: z.array(z.string()), suggestedImprovements: z.array(z.string()),
 });
+const admissionText = z.string().trim().min(1).max(4000);
+const admissionList = z.array(admissionText).min(1).max(20);
+export const miningAdmissionSchema = z.discriminatedUnion("kind", [
+  z.object({ kind: z.literal("work_order"), outcome: admissionText, scope: admissionList, evidence: admissionList, verification: admissionList }).strict(),
+  z.object({ kind: z.literal("clarification"), questions: admissionList, blockingDecision: admissionText }).strict(),
+  z.object({ kind: z.literal("unsupported"), reason: admissionText, evidence: admissionList }).strict(),
+]);
 
 // This is a display boundary for durable records, including earlier fx sessions.
 // It deliberately ignores model-only fields; trusted evidence comes from tool output.
@@ -37,6 +45,7 @@ const outputSchema = z.object({
   commands: z.array(z.object({ command: z.string(), exitCode: z.number().nullable(), stdout: z.string(), stderr: z.string(), capturedAt: z.string(), truncated: z.boolean().optional() })).optional(),
   contextGaps: z.array(z.string()).optional(),
   vercelReads: z.array(z.object({ resource: z.string(), projectId: z.string(), capturedAt: z.string(), complete: z.boolean(), coverage: z.string().optional(), summary: z.string().optional() })).optional(),
+  admission: miningAdmissionSchema.optional(),
 });
 
 export function parseMiningOutput(value: unknown) {
@@ -72,9 +81,9 @@ type ProposalHandoff = "draft" | "delivery";
 
 function proposalRequest(input: {
   proposal: MiningProposal; index: number; sessionId: string;
-  revision?: string; capturedAt?: string; phase: string; contextGaps?: string[];
+  revision?: string; capturedAt?: string; phase: string; contextGaps?: string[]; admission?: WorkOrderAdmission;
 }, handoff: ProposalHandoff) {
-  const { proposal, index, sessionId, revision, capturedAt, phase, contextGaps } = input;
+  const { proposal, index, sessionId, revision, capturedAt, phase, contextGaps, admission } = input;
   const list = (values: string[]) => values.map(value => `- ${value}`).join("\n");
   const id = proposal.id || `${sessionId}:proposal:${index + 1}`;
   const sections = [proposal.outcome, `## Why now\n\n${proposal.whyNow}`, `## Evidence\n\n${list(proposal.evidence)}`,
@@ -87,19 +96,19 @@ function proposalRequest(input: {
     ? "Selected to start the durable delivery. Preserve this scope through implementation and review."
     : "Selected for review as an editable draft. Implementation has not started.";
   sections.push(`---\nProposal: ${id}\nProposal identity: ${proposal.id && provenance ? "Recorded by the investigation" : "Derived from the legacy session and proposal position"}\nInvestigation: ${provenance?.sessionId || sessionId}\nRepository: ${provenance?.repository || factoryRepository}\nSource revision: ${provenance?.revision || revision || "Unavailable"}\nCaptured: ${provenance?.capturedAt || capturedAt || "Unavailable"}\nInvestigation status: ${phase}\n\n${handoffNote}`);
-  return { title: proposal.title, body: sections.join("\n\n") };
+  return { title: proposal.title, body: sections.join("\n\n"), ...(admission ? { admission } : {}) };
 }
 
 export function proposalDraft(input: {
   proposal: MiningProposal; index: number; sessionId: string;
-  revision?: string; capturedAt?: string; phase: string; contextGaps?: string[];
+  revision?: string; capturedAt?: string; phase: string; contextGaps?: string[]; admission?: WorkOrderAdmission;
 }) {
   return proposalRequest(input, "draft");
 }
 
 export function proposalDeliveryRequest(input: {
   proposal: MiningProposal; index: number; sessionId: string;
-  revision?: string; capturedAt?: string; phase: string; contextGaps?: string[];
+  revision?: string; capturedAt?: string; phase: string; contextGaps?: string[]; admission?: WorkOrderAdmission;
 }) {
   return proposalRequest(input, "delivery");
 }

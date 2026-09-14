@@ -5,6 +5,7 @@ import { factoryRepository } from "../runtime/lib/factory-config.ts";
 
 const capturedAt = "2026-09-12T12:00:00.000Z";
 const revision = "a".repeat(40);
+const workOrder = { kind: "work_order" as const, outcome: "Build the bounded issue flow.", scope: ["apps/jira/server/api/issues.get.ts"], evidence: ["The route returns the current issue list."], verification: ["pnpm --filter @jira-clone/jira test"] };
 
 test("replays historical fx reports and normalizes GitHub inventory counts", () => {
   const result = parseMiningOutput({ phase: "Complete", report: "Legacy findings", revision, capturedAt, githubReads: [{ resource: "issues", complete: true, capturedAt, items: [{ number: 1 }] }] });
@@ -19,6 +20,16 @@ test("retains native incomplete findings and actual reproduction failures", () =
   assert.equal(result?.githubReads?.[0]?.count, 0);
   assert.deepEqual(result?.contextGaps, ["Deployment logs unavailable"]);
   assert.equal(result?.vercelReads?.[0]?.complete, false);
+});
+
+test("preserves each host admission outcome and carries work-order admission into a draft", () => {
+  const clarification = { kind: "clarification" as const, questions: ["Which transition should be supported first?"], blockingDecision: "The owner must choose the first transition." };
+  const unsupported = { kind: "unsupported" as const, reason: "The required provider evidence is unavailable.", evidence: ["The provider read was denied."] };
+  assert.equal(parseMiningOutput({ phase: "Complete", admission: workOrder })?.admission?.kind, "work_order");
+  assert.equal(parseMiningOutput({ phase: "Incomplete", admission: clarification })?.admission?.kind, "clarification");
+  assert.equal(parseMiningOutput({ phase: "Incomplete", admission: unsupported })?.admission?.kind, "unsupported");
+  const draft = proposalDraft({ proposal: firstProposal, index: 0, sessionId: "wrun_admission", phase: "Complete", admission: workOrder });
+  assert.deepEqual(draft.admission, workOrder);
 });
 
 test("shows incomplete findings when preparation did not obtain a revision", () => {

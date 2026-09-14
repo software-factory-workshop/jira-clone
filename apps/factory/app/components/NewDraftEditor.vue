@@ -7,18 +7,23 @@ import {
 import { MIN_WORK_REQUEST_LENGTH } from "../utils/work-station";
 import { applySaveReceipt, cleanSnapshot, destinationLabel, isDraftDirty, type DraftDestination, type ProposalPayload } from "../utils/draft-guard";
 import { cockpitFailureKind, cockpitFailureMessage, type CockpitFailureKind } from "../utils/cockpit-errors";
+import { type WorkOrderAdmission } from "../../shared/cockpit";
+import { miningAdmissionSchema } from "../utils/mining-output";
 
 // Draft editor implementation; route pages compose this focused surface.
 const { consume } = useWorkRequest();
 const router = useRouter();
 const editor = ref<HTMLElement | null>(null);
-const drafts = ref<Draft[]>([]);
+type EditorDraft = Draft & { admission?: WorkOrderAdmission };
+const drafts = ref<EditorDraft[]>([]);
 const activeId = ref<string | null>(null);
 const activeVersion = ref(0);
 const saving = ref(false);
 const confirmSaving = ref(false);
 const title = ref("");
 const request = ref("");
+const admission = ref<WorkOrderAdmission>();
+const admissionText = ref<{ title: string; request: string }>();
 const notice = ref("");
 const savedSnapshot = ref(cleanSnapshot(null, 0, { title: "", request: "" }));
 const pendingDestination = ref<DraftDestination | null>(null);
@@ -27,7 +32,7 @@ const draftsLoading = ref(false);
 const draftsLoaded = ref(false);
 const draftsError = ref("");
 const draftsErrorKind = ref<CockpitFailureKind>();
-const draftConflict = ref<{ latest: Draft; local: { title: string; request: string } }>();
+const draftConflict = ref<{ latest: EditorDraft; local: { title: string; request: string } }>();
 const storageKey = "adeo-factory-drafts-v1";
 const cockpit = useCockpit();
 const draftVersions = ref<Record<string, number>>({});
@@ -36,7 +41,12 @@ const navigationApproved = ref(false);
 const deliveryStarting = ref(false);
 let deliveryOperationId: string | undefined;
 const requestLength = computed(() => request.value.trim().length);
-const deliveryReady = computed(() => requestLength.value >= MIN_WORK_REQUEST_LENGTH);
+const currentAdmission = computed(() => {
+  const text = admissionText.value;
+  const value = admission.value;
+  return value && text && text.title === title.value.trim() && text.request === request.value.trim() ? value : undefined;
+});
+const deliveryReady = computed(() => requestLength.value >= MIN_WORK_REQUEST_LENGTH && currentAdmission.value?.kind === "work_order");
 
 async function refreshDrafts() {
   if (draftsLoading.value) return false;
@@ -45,7 +55,10 @@ async function refreshDrafts() {
   draftsErrorKind.value = undefined;
   try {
     const rows = await cockpit.refresh("drafts");
-    drafts.value = rows.map(row => ({ id: row.id, title: String(row.value.title), request: String(row.value.request), updatedAt: row.updatedAt }));
+    drafts.value = rows.map(row => {
+      const parsedAdmission = miningAdmissionSchema.safeParse(row.value.admission);
+      return { id: row.id, title: String(row.value.title), request: String(row.value.request), updatedAt: row.updatedAt, ...(parsedAdmission.success ? { admission: parsedAdmission.data } : {}) };
+    });
     draftVersions.value = Object.fromEntries(rows.map(row => [row.id, row.version]));
     draftsLoaded.value = true;
     return true;
@@ -73,6 +86,8 @@ async function reloadLatestDraft() {
   activeVersion.value = draftVersions.value[conflict.latest.id] ?? 0;
   title.value = conflict.latest.title;
   request.value = conflict.latest.request;
+  admission.value = conflict.latest.admission;
+  admissionText.value = conflict.latest.admission ? { title: conflict.latest.title.trim(), request: conflict.latest.request.trim() } : undefined;
   savedSnapshot.value = cleanSnapshot(activeId.value, activeVersion.value, editorText());
   draftConflict.value = undefined;
   draftSwitchError.value = "";
@@ -96,6 +111,16 @@ onMounted(async () => {
 });
 
 function editorText() { return { title: title.value, request: request.value }; }
+
+function setAdmission(value: WorkOrderAdmission | undefined, text: { title: string; request: string }) {
+  admission.value = value;
+  admissionText.value = value ? { title: text.title.trim(), request: text.request.trim() } : undefined;
+}
+
+function draftValue() {
+  const value = currentAdmission.value;
+  return { title: title.value.trim(), request: request.value.trim(), ...(value ? { admission: value } : {}) };
+}
 
 function guardNavigation() {
   if (!unsaved.value) return true;
@@ -121,16 +146,19 @@ async function applyDestination(destination: DraftDestination) {
     activeVersion.value = destination.value.version ?? 0;
     title.value = destination.value.title;
     request.value = destination.value.body;
+    setAdmission(destination.value.admission, { title: destination.value.title, request: destination.value.body });
   } else if (destination.kind === "draft") {
     activeId.value = destination.draft.id;
     activeVersion.value = draftVersions.value[destination.draft.id] ?? 0;
     title.value = destination.draft.title;
     request.value = destination.draft.request;
+    setAdmission(destination.draft.admission, destination.draft);
   } else {
     activeId.value = null;
     activeVersion.value = 0;
     title.value = "";
     request.value = "";
+    setAdmission(undefined, { title: "", request: "" });
   }
   savedSnapshot.value = cleanSnapshot(activeId.value, activeVersion.value, editorText());
   notice.value = "";
@@ -187,11 +215,13 @@ async function saveAndContinue() {
   confirmSaving.value = true;
   const previousId = activeId.value;
   const id = previousId || crypto.randomUUID();
+  const value = draftValue();
   try {
-    const saved = await cockpit.save("drafts", id, { title: title.value.trim(), request: request.value.trim() }, activeVersion.value);
+    const saved = await cockpit.save("drafts", id, value, activeVersion.value);
     const applied = applySaveReceipt({ activeId: activeId.value, activeVersion: activeVersion.value }, previousId, { id, version: saved.version });
     activeId.value = applied.activeId;
     activeVersion.value = applied.activeVersion;
+    setAdmission(value.admission, value);
     draftConflict.value = undefined;
     await refreshDrafts();
     notice.value = "Draft saved in the shared cockpit.";
@@ -213,11 +243,13 @@ async function save(): Promise<boolean> {
   saving.value = true;
   const previousId = activeId.value;
   const id = previousId || crypto.randomUUID();
+  const value = draftValue();
   try {
-    const saved = await cockpit.save("drafts", id, { title: title.value.trim(), request: request.value.trim() }, activeVersion.value);
+    const saved = await cockpit.save("drafts", id, value, activeVersion.value);
     const applied = applySaveReceipt({ activeId: activeId.value, activeVersion: activeVersion.value }, previousId, { id, version: saved.version });
     activeId.value = applied.activeId;
     activeVersion.value = applied.activeVersion;
+    setAdmission(value.admission, value);
     draftConflict.value = undefined;
     savedSnapshot.value = cleanSnapshot(activeId.value, activeVersion.value, editorText());
     await refreshDrafts();
@@ -242,7 +274,11 @@ async function rememberDelivery(id: string) {
 
 async function go() {
   if (saving.value || deliveryStarting.value || confirmSaving.value || !title.value.trim() || !request.value.trim()) return;
-  if (!deliveryReady.value) {
+  if (currentAdmission.value?.kind !== "work_order") {
+    notice.value = "Only a task-mining draft admitted as a work order can start delivery.";
+    return;
+  }
+  if (requestLength.value < MIN_WORK_REQUEST_LENGTH) {
     notice.value = `The request needs at least ${MIN_WORK_REQUEST_LENGTH} characters before delivery can start.`;
     return;
   }
@@ -256,6 +292,7 @@ async function go() {
       method: "POST",
       body: {
         operationId: deliveryOperationId,
+        draftId: activeId.value,
         title: title.value.trim(),
         brief: request.value.trim(),
       },
@@ -327,7 +364,11 @@ watch([title, request], async () => {
         >Create issue in GitHub</UButton>
       </div>
       <p v-if="notice" role="status" class="save-notice">{{ notice }}</p>
-      <p class="small muted" role="status">Go! saves the draft and starts durable delivery. The request needs at least {{ MIN_WORK_REQUEST_LENGTH }} characters ({{ requestLength }}/{{ MIN_WORK_REQUEST_LENGTH }}).</p>
+      <p v-if="currentAdmission?.kind === 'work_order'" class="small muted" role="status">This draft is admitted as a work order. Go! saves it and starts durable delivery when the request reaches {{ MIN_WORK_REQUEST_LENGTH }} characters ({{ requestLength }}/{{ MIN_WORK_REQUEST_LENGTH }}).</p>
+      <p v-else-if="admission && !currentAdmission" class="small muted" role="status">The request changed after admission. Return to task mining and activate the current work order again before delivery.</p>
+      <p v-else-if="admission?.kind === 'clarification'" class="small muted" role="status">This task needs an owner clarification before delivery can start.</p>
+      <p v-else-if="admission?.kind === 'unsupported'" class="small muted" role="status">This task was not admitted for delivery.</p>
+      <p v-else class="small muted" role="status">Go! starts only from a task-mining draft admitted as a work order. The request needs at least {{ MIN_WORK_REQUEST_LENGTH }} characters ({{ requestLength }}/{{ MIN_WORK_REQUEST_LENGTH }}).</p>
       <section v-if="draftConflict" class="draft-conflict" role="alert">
         <div>
           <strong>Shared draft changed elsewhere</strong>

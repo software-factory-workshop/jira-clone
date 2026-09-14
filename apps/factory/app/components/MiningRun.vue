@@ -1,11 +1,12 @@
 <script setup lang="ts">
 import { useEveAgent } from "eve/vue";
-import { authorizationLink, miningProgress, parseMiningOutput, proposalDeliveryRequest, proposalDraft, terminalMiningFailure, type MiningProposal } from "../utils/mining-output";
+import { authorizationLink, miningProgress, parseMiningOutput, terminalMiningFailure, type MiningProposal } from "../utils/mining-output";
 import { renderReport } from "../utils/report";
 import { copyText, shortIdentifier } from "../utils/technical-details";
 import { factoryRepository, vercelTeamName } from "../../runtime/lib/factory-config.ts";
+import type { WorkOrderAdmission } from "../../shared/cockpit";
 const props = defineProps<{ sessionId?: string }>();
-const emit = defineEmits<{ session: [id: string, label: string]; draft: [value: { title: string; body: string;id?:string;version?:number }]; new: [] }>();
+const emit = defineEmits<{ session: [id: string, label: string]; draft: [value: { title: string; body: string;id?:string;version?:number;admission?:WorkOrderAdmission }]; new: [] }>();
 const route = useRoute();
 const router = useRouter();
 const focus = ref("");
@@ -63,26 +64,29 @@ function deliveryKey(proposal: MiningProposal, index: number) {
 async function useProposal(proposal: MiningProposal, index: number) {
   await activate(proposal.id, proposalKey(proposal, index));
 }
+
+type ActivatedDraft = { id: string; version: number; value: { title: string; request: string; admission?: WorkOrderAdmission } };
+
+async function activateDraft(proposalId?: string) {
+  const sessionId = currentSessionId.value;
+  if (!sessionId) throw new Error("Investigation session is unavailable");
+  const response = await $fetch<{ item: ActivatedDraft }>("/factory/cockpit/activate", { method: "POST", body: { sessionId, proposalId }, retry: 0 });
+  return response.item;
+}
+
 async function startDelivery(proposal: MiningProposal, index: number) {
   const sessionId = currentSessionId.value;
   const key = deliveryKey(proposal, index);
-  if (!sessionId || activatingKey.value || startingDelivery.value) return;
+  if (!sessionId || output.value?.admission?.kind !== "work_order" || activatingKey.value || startingDelivery.value) return;
   startingDelivery.value = key;
   actionError.value = "";
   try {
-    const request = proposalDeliveryRequest({
-      proposal,
-      index,
-      sessionId,
-      revision: output.value?.revision,
-      capturedAt: output.value?.capturedAt,
-      phase: output.value?.phase || "Unknown",
-      contextGaps: output.value?.contextGaps,
-    });
     if (pendingDelivery?.key !== key) pendingDelivery = { key, operationId: crypto.randomUUID() };
+    const item = await activateDraft(proposal.id);
+    if (item.value.admission?.kind !== "work_order") throw new Error("The activated draft is not admitted as a work order");
     const response = await $fetch<{ id?: string }>("/factory/delivery", {
       method: "POST",
-      body: { operationId: pendingDelivery.operationId, title: request.title, brief: request.body },
+      body: { operationId: pendingDelivery.operationId, draftId: item.id, title: item.value.title, brief: item.value.request },
       retry: 0,
     });
     if (!response.id) throw new Error("Durable delivery was not identified");
@@ -98,7 +102,7 @@ async function activate(proposalId?:string, key = "findings") {
  const sessionId=session.value?.sessionId||props.sessionId;if(!sessionId || activatingKey.value)return;
  activatingKey.value = key;
  actionError.value = "";
- try {const response=await $fetch<{item:{id:string;version:number;value:{title:string;request:string}}}>("/factory/cockpit/activate",{method:"POST",body:{sessionId,proposalId},retry:0});emit("draft",{id:response.item.id,version:response.item.version,title:response.item.value.title,body:response.item.value.request});}
+ try {const item=await activateDraft(proposalId);emit("draft",{id:item.id,version:item.version,title:item.value.title,body:item.value.request,admission:item.value.admission});}
  catch {actionError.value="Could not activate this proposal. Retry; no work agent was started.";}
  finally { activatingKey.value = undefined; }
 }
@@ -142,6 +146,25 @@ async function copySession(sessionId: string) {
         <p class="small muted">Proposals and reflection · {{ output.capturedAt ? new Date(output.capturedAt).toLocaleString() : 'Capture time unavailable' }}</p>
         <UAlert v-if="incomplete" color="warning" variant="soft" title="Context is incomplete" description="Review the evidence gaps before accepting these proposals." />
         <ul v-if="output.contextGaps?.length" class="context-gaps"><li v-for="gap in output.contextGaps" :key="gap">{{ gap }}</li></ul>
+        <div v-if="output.admission" class="admission-list">
+          <UCard v-if="output.admission.kind === 'work_order'" class="admission-card">
+            <template #header><div class="admission-heading"><UBadge color="success" variant="soft">Work order</UBadge><h3>Admitted for delivery</h3></div></template>
+            <p class="proposal-outcome">{{ output.admission.outcome }}</p>
+            <h4>Scope</h4><ul><li v-for="item in output.admission.scope" :key="item">{{ item }}</li></ul>
+            <h4>Evidence</h4><ul><li v-for="item in output.admission.evidence" :key="item">{{ item }}</li></ul>
+            <h4>Verification</h4><ul><li v-for="item in output.admission.verification" :key="item">{{ item }}</li></ul>
+          </UCard>
+          <UCard v-else-if="output.admission.kind === 'clarification'" class="admission-card">
+            <template #header><div class="admission-heading"><UBadge color="warning" variant="soft">Clarification</UBadge><h3>Owner decision required</h3></div></template>
+            <h4>Questions</h4><ul><li v-for="item in output.admission.questions" :key="item">{{ item }}</li></ul>
+            <h4>Blocking decision</h4><p>{{ output.admission.blockingDecision }}</p>
+          </UCard>
+          <UCard v-else-if="output.admission.kind === 'unsupported'" class="admission-card">
+            <template #header><div class="admission-heading"><UBadge color="error" variant="soft">Unsupported</UBadge><h3>Not admitted for delivery</h3></div></template>
+            <h4>Reason</h4><p>{{ output.admission.reason }}</p>
+            <h4>Evidence</h4><ul><li v-for="item in output.admission.evidence" :key="item">{{ item }}</li></ul>
+          </UCard>
+        </div>
         <div v-if="output.proposals?.length" class="proposal-list">
           <UCard v-for="(proposal, index) in output.proposals" :key="proposal.id || index" class="proposal-card">
             <template #header><div class="proposal-heading"><UBadge color="neutral" variant="soft">Proposal {{ index + 1 }}</UBadge><h3>{{ proposal.title }}</h3></div></template>
@@ -155,7 +178,7 @@ async function copySession(sessionId: string) {
             <h4>Acceptance criteria</h4><ul><li v-for="item in proposal.acceptanceCriteria" :key="item">{{ item }}</li></ul>
             <template v-if="proposal.uncertainties.length"><h4>Uncertainties</h4><ul><li v-for="item in proposal.uncertainties" :key="item">{{ item }}</li></ul></template>
             <ProposalFeedback :proposal-id="proposal.id" :proposal-title="proposal.title" />
-            <template #footer><div class="proposal-action"><UButton icon="i-lucide-file-pen-line" :loading="activatingKey === proposalKey(proposal, index)" :disabled="!!activatingKey || !!startingDelivery" :aria-label="`Edit draft: ${proposal.title}`" @click="useProposal(proposal, index)">Edit draft</UButton><UButton icon="i-lucide-workflow" variant="outline" :loading="startingDelivery === deliveryKey(proposal, index)" :disabled="!!activatingKey || !!startingDelivery" :aria-label="`Start durable delivery: ${proposal.title}`" @click="startDelivery(proposal, index)">Start durable delivery</UButton><span class="small muted">Edit first, or start the worker → review loop.</span></div></template>
+            <template #footer><div class="proposal-action"><UButton icon="i-lucide-file-pen-line" :loading="activatingKey === proposalKey(proposal, index)" :disabled="!!activatingKey || !!startingDelivery" :aria-label="`Edit draft: ${proposal.title}`" @click="useProposal(proposal, index)">Edit draft</UButton><UButton v-if="output.admission?.kind === 'work_order'" icon="i-lucide-workflow" variant="outline" :loading="startingDelivery === deliveryKey(proposal, index)" :disabled="!!activatingKey || !!startingDelivery" :aria-label="`Start durable delivery: ${proposal.title}`" @click="startDelivery(proposal, index)">Start durable delivery</UButton><span class="small muted">{{ output.admission?.kind === 'work_order' ? 'Edit first, or start the worker → review loop.' : 'Review the admission decision before editing a draft.' }}</span></div></template>
           </UCard>
         </div>
         <p v-else-if="output.proposals && output.noProposalReason" class="report">{{ output.noProposalReason }}</p>
@@ -211,6 +234,13 @@ form > p { margin-bottom:22px; }
 .evidence ul { margin-top:18px; max-height:260px; overflow:auto; }
 .evidence a { color:var(--ui-primary); text-decoration:underline; }
 .proposal-list { display:grid; gap:24px; margin-top:24px; }
+.admission-list { display:grid; gap:20px; margin-top:24px; }
+.admission-card { overflow-wrap:anywhere; }
+.admission-heading { display:flex; align-items:flex-start; gap:12px; flex-wrap:wrap; }
+.admission-heading h3 { font-size:21px; font-weight:600; }
+.admission-card h4 { font-weight:600; margin:20px 0 8px; }
+.admission-card p, .admission-card li { line-height:1.65; }
+.admission-card ul { list-style:disc; padding-left:22px; }
 .proposal-heading { display:flex; align-items:flex-start; gap:12px; flex-wrap:wrap; }
 .proposal-heading h3, .reflection-card h3 { font-size:21px; font-weight:600; }
 .proposal-card, .reflection-card { overflow-wrap:anywhere; }

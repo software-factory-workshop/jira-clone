@@ -43,9 +43,9 @@ export default defineChannel({routes:[
   const projected=await readRun(await factorySession(body.sessionId,attachSession));const result=projected.result;
   if(!projected.complete||result?.kind!=='mining'||!result.output?.report)throw new z.ZodError([{code:'custom',path:[],message:'No recorded findings are available.'}]);
   const output=result.output;let draft;
-  if(body.proposalId){const index=output.proposals?.findIndex(p=>p.id===body.proposalId)??-1;if(index<0)throw new z.ZodError([{code:'custom',path:[],message:'Proposal not found in this run.'}]);draft=proposalDraft({proposal:output.proposals![index]!,index,sessionId:body.sessionId,revision:output.revision,capturedAt:output.capturedAt,phase:output.phase,contextGaps:output.contextGaps});}
-  else draft={title:'Review task-mining proposals',body:output.report+`\n\nInvestigation: ${body.sessionId}\nSource revision: ${output.revision}\nThese are proposals for human review, not approved work.`};
+  if(body.proposalId){const index=output.proposals?.findIndex(p=>p.id===body.proposalId)??-1;if(index<0)throw new z.ZodError([{code:'custom',path:[],message:'Proposal not found in this run.'}]);draft=proposalDraft({proposal:output.proposals![index]!,index,sessionId:body.sessionId,revision:output.revision,capturedAt:output.capturedAt,phase:output.phase,contextGaps:output.contextGaps,admission:output.admission});}
+  else draft={title:'Review task-mining proposals',body:output.report+`\n\nInvestigation: ${body.sessionId}\nSource revision: ${output.revision}\nThese are proposals for human review, not approved work.`,...(output.admission ? {admission:output.admission} : {})};
   const id='proposal-'+createHash('sha256').update(body.sessionId+':'+(body.proposalId??'report')).digest('hex').slice(0,32);
-  return {item:await updateCockpit(doc=>doc.drafts[id]??changeRecord(doc,'drafts',id,{title:draft.title,request:draft.body},0))};
+  return {item:await updateCockpit(doc=>doc.drafts[id]??changeRecord(doc,'drafts',id,{title:draft.title,request:draft.body,...(draft.admission ? {admission:draft.admission} : {})},0))};
  })),
 ]});
