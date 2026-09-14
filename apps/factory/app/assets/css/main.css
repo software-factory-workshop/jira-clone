@@ -100,6 +100,17 @@ nav a span:last-child:not(:first-child) {
   gap: 12px;
   padding-top: 40px;
 }
+.sidebar-build {
+  margin: 0;
+  color: #71808a;
+  font-size: 10px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+.sidebar-build code {
+  color: #43525c;
+  font-size: 10px;
+}
 .topbar {
   height: 64px;
   background: #fff;

@@ -2,7 +2,7 @@
 import { useEveAgent, defaultMessageReducer, type EveMessageData } from "eve/vue";
 import type { MessageStreamEvent } from "eve/client";
 import { triggerRef } from "vue";
-import { dispatchedTask, parseStationToolResult, pendingStationRequests, matchesStationDelivery, advanceStationTurn, appendStationTail, boundStationProjection, readStationStream, type StationKind, type StationTurn } from "../utils/work-station";
+import { dispatchedTask, parseStationToolResult, pendingStationRequests, matchesStationDelivery, advanceStationTurn, appendStationTail, boundStationProjection, eventToolId, readStationStream, type StationKind, type StationTurn } from "../utils/work-station";
 import { authorizationLink } from "../utils/mining-output";
 import { stationFlow } from "../utils/observability-flow";
 import { copyText, shortIdentifier } from "../utils/technical-details";
@@ -21,6 +21,7 @@ const queuedForOwner = computed(() => !!props.deliveryId && !deliveryStarted.val
 const runLink = computed(() => `/work/run?${new URLSearchParams({ station: props.station, ...(props.rootAgent?{rootAgent:props.rootAgent}:{}), run: props.sessionId, ...(props.execution ? { execution: props.execution } : {}), ...(props.deliveryId ? { deliveryId: props.deliveryId } : {}), ...(props.operationId ? { operationId: props.operationId } : {}) })}`);
 const childRecorded = ref(false);
 const cancellationRequested = ref(false);
+const confirmStop = ref(false);
 const stopping = ref(false);
 const discoveredChild = ref<string>();
 const discoveryError = ref(false);
@@ -97,6 +98,7 @@ const step = computed(() => {
 const summary = computed(() => (tailData.value || data.value).messages.filter(message => message.role === "assistant").flatMap(message => message.parts.flatMap(part => part.type === "text" ? [part.text] : [])).join("\n"));
 const usageEvents = computed(() => props.deliveryId ? tailEvents.value : events.value);
 const usageLabel = computed(() => formatModelUsage(modelUsageFromEvents(usageEvents.value)));
+const tailEventRows = computed(() => tailEvents.value.map((event, index) => ({ event, index, toolId: eventToolId(event) })));
 const toolActivities = computed(() => parts.value.filter((part): part is Extract<typeof part, { type: "dynamic-tool" }> => part.type === "dynamic-tool").map((part, index) => ({ id: `tool-${index}-${part.toolName}`, toolName: part.toolName, state: part.state })));
 const visualReviewBinding = computed<VisualReviewBinding | undefined>(() => {
   const review = result.value?.station === "reviewer" ? result.value : undefined;
@@ -128,9 +130,13 @@ async function answer(requestId: string, optionId: string) {
   } catch { answering.value = undefined; actionError.value = "Could not submit the decision. Reconnect before trying again."; }
 }
 watch(pendingRequests, requests => { if (!requests.some(request => request.requestId === answering.value)) answering.value = undefined; });
+function requestStop() {
+  if (stopping.value || !canStop.value) return;
+  confirmStop.value = true;
+}
 async function stop() {
   if (stopping.value || !canStop.value) return;
-  if (!window.confirm(`Stop this ${props.station === "worker" ? "worker" : "review"} station? The run will be cancelled.`)) return;
+  confirmStop.value = false;
   stopping.value = true;
   actionError.value = "";
   try {
@@ -141,6 +147,10 @@ async function stop() {
 }
 function copyLabel(value: string) {
   return copiedEvidence.value === value ? "Copied" : "Copy";
+}
+function stringifyEventData(value: unknown) {
+  try { return JSON.stringify(value, null, 2); }
+  catch { return String(value); }
 }
 async function copyEvidence(value: string) {
   try {
@@ -168,6 +178,15 @@ async function copyEvidence(value: string) {
         :nodes="flowModel.nodes"
         :edges="flowModel.edges"
       />
+      <details v-if="tailEventRows.length" class="tail-events">
+        <summary>Recent event tail · {{ tailEventRows.length }} events</summary>
+        <ol>
+          <li v-for="row in tailEventRows" :key="`${row.event.meta?.id || row.event.meta?.at || 'event'}-${row.index}`">
+            <div class="tail-event-heading"><code>{{ row.event.type }}</code><span>tool id <code>{{ row.toolId || 'unpaired' }}</code></span><time :datetime="row.event.meta?.at">{{ row.event.meta?.at }}</time></div>
+            <pre>{{ stringifyEventData(row.event) }}</pre>
+          </li>
+        </ol>
+      </details>
         <template v-if="result">
         <p>{{ result.summary }}</p>
         <template v-if="result.station === 'worker'"><UButton :to="result.publication.url" target="_blank" rel="noopener noreferrer" icon="i-lucide-git-pull-request">Open {{ execution === 'owner' ? 'PR' : 'draft PR' }} #{{ result.publication.number }}</UButton><p class="small muted">Branch <code>{{ shortIdentifier(result.publication.branch, 24) }}</code> · head <code>{{ shortIdentifier(result.publication.headSha) }}</code> · base <code>{{ shortIdentifier(result.publication.baseSha) }}</code></p><details class="technical-evidence"><summary>Technical evidence</summary><dl><div><dt>Branch</dt><dd><code>{{ result.publication.branch }}</code><UButton size="xs" variant="ghost" @click="copyEvidence(result.publication.branch)">{{ copyLabel(result.publication.branch) }}</UButton></dd></div><div><dt>Head SHA</dt><dd><code>{{ result.publication.headSha }}</code><UButton size="xs" variant="ghost" @click="copyEvidence(result.publication.headSha)">{{ copyLabel(result.publication.headSha) }}</UButton></dd></div><div><dt>Base SHA</dt><dd><code>{{ result.publication.baseSha }}</code><UButton size="xs" variant="ghost" @click="copyEvidence(result.publication.baseSha)">{{ copyLabel(result.publication.baseSha) }}</UButton></dd></div><div v-if="result.publication.targetBranch"><dt>PR target</dt><dd><code>{{ result.publication.targetBranch }}</code><UButton size="xs" variant="ghost" @click="copyEvidence(result.publication.targetBranch)">{{ copyLabel(result.publication.targetBranch) }}</UButton></dd></div><div v-if="result.publication.parentPrNumber"><dt>Parent PR</dt><dd>#{{ result.publication.parentPrNumber }}</dd></div><div v-if="result.publication.ownerSessionId"><dt>Branch owner session</dt><dd><code>{{ result.publication.ownerSessionId }}</code><UButton size="xs" variant="ghost" @click="copyEvidence(result.publication.ownerSessionId)">{{ copyLabel(result.publication.ownerSessionId) }}</UButton></dd></div></dl></details><p class="small muted">Use the PR reviewer above for an independent review.</p></template>
@@ -180,7 +199,21 @@ async function copyEvidence(value: string) {
     </template>
     <fieldset v-for="request in pendingRequests" :key="request.requestId" class="decision"><legend>Awaiting decision</legend><p>{{ request.prompt }}</p><UButton v-for="option in request.options || []" :key="option.id" :color="option.style === 'danger' ? 'error' : 'primary'" :disabled="!!answering" @click="answer(request.requestId, option.id)">{{ option.label }}</UButton><p class="small muted">This decision applies to the existing station run. No option is selected automatically.</p></fieldset>
     <WorkRun v-if="childId" :session-id="childId" :station="station" :awaiting-decision="needsDecision" child @settled="childSettled = $event" @recorded="childRecorded = $event" />
-    <div v-if="!child" class="run-actions"><UButton v-if="childId && discoveryError && !childRecorded" variant="outline" @click="reconnect">Reconnect decisions</UButton><UButton v-if="canStop || stopping" color="neutral" variant="outline" :loading="stopping" :disabled="stopping" @click="stop">Stop {{ station === 'worker' ? 'worker' : 'review' }}</UButton><a :href="runLink" :aria-label="`Open run ${sessionId}`">Open run <code>{{ shortIdentifier(sessionId) }}</code></a></div>
+    <div v-if="!child" class="run-actions"><UButton v-if="childId && discoveryError && !childRecorded" variant="outline" @click="reconnect">Reconnect decisions</UButton><UButton v-if="canStop || stopping" color="error" variant="outline" :loading="stopping" :disabled="stopping" @click="requestStop">Stop {{ station === 'worker' ? 'worker' : 'review' }}</UButton><a :href="runLink" :aria-label="`Open run ${sessionId}`">Open run <code>{{ shortIdentifier(sessionId) }}</code></a></div>
+    <UModal
+      :open="confirmStop"
+      :title="`Stop this ${station === 'worker' ? 'worker' : 'review'} station?`"
+      description="The current run will be cancelled. Its recorded evidence and run link remain available."
+      @update:open="(value) => { confirmStop = value; }"
+    >
+      <template #body>
+        <p class="small muted">Stop the station only if you want to end this attempt. A later run can start from the saved request.</p>
+        <div class="confirm-actions">
+          <UButton color="error" :loading="stopping" :disabled="stopping" @click="stop">Stop station</UButton>
+          <UButton variant="ghost" color="neutral" :disabled="stopping" @click="confirmStop = false">Keep running</UButton>
+        </div>
+      </template>
+    </UModal>
     <p v-if="cancellationRequested && canStop" role="status">Cancellation requested. Waiting for the station to stop.</p>
     <UAlert v-if="actionError" color="warning" title="Action not completed" :description="actionError" />
   </div>
@@ -211,4 +244,12 @@ ul { padding-left:22px; list-style:disc; }
 .technical-evidence code { min-width:0; overflow-wrap:anywhere; }
 summary { cursor:pointer; }
 pre { background:var(--ui-bg-muted); padding:12px; max-height:280px; overflow:auto; }
+.tail-events { margin:24px 0; padding:14px 16px; border:1px solid var(--ui-border); border-radius:6px; background:var(--ui-bg-muted); }
+.tail-events summary { font-weight:600; }
+.tail-events ol { display:grid; gap:12px; margin:14px 0 0; padding-left:20px; }
+.tail-events li { padding-left:4px; }
+.tail-event-heading { display:flex; align-items:center; gap:8px; flex-wrap:wrap; color:var(--ui-text-muted); font-size:11px; }
+.tail-event-heading time { margin-left:auto; }
+.tail-events pre { margin:8px 0 0; max-height:180px; font-size:11px; }
+.confirm-actions { display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-top:18px; }
 </style>

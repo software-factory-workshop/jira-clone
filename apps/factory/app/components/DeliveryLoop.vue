@@ -11,18 +11,29 @@ interface Delivery {
   version: number;
   phase: string;
   cycle: number;
+  principalId?: string;
   updatedAt?: string;
   sessionId?: string;
   childSessionId?: string;
   reviewerSessionId?: string;
   failure?: { kind: string; retryable: boolean };
   failedPhase?: string;
-  publication?: { number: number; url: string; targetBranch?: string; headSha?: string; targetHeadSha?: string };
-  review?: { verdict: string; summary: string; baseSha?: string; headSha?: string; targetBranch?: string; visualReview?: VisualReviewPacket };
-  mergeDecision?: { status: string; reason: string };
+  publication?: { number: number; url: string; branch?: string; targetBranch?: string; headSha?: string; targetHeadSha?: string; ownerSessionId?: string; parentPrNumber?: number };
+  review?: {
+    verdict: string;
+    summary: string;
+    baseSha?: string;
+    headSha?: string;
+    targetBranch?: string;
+    findings?: Array<{ severity: string; path: string; line?: number; message: string; evidence: string }>;
+    limitations?: string[];
+    verification?: { prepared: boolean; repositoryChecksPassed: boolean; candidateUnchanged: boolean };
+    visualReview?: VisualReviewPacket;
+  };
+  mergeDecision?: { status: string; reason?: string };
   error?: string;
-  request?: { title?: string; brief?: string };
-  history: Array<{ phase: string; at?: string; sessionId?: string; headSha?: string }>;
+  request?: { title?: string; brief?: string; parentPrNumber?: number };
+  history: Array<{ phase: string; to?: string; at?: string; actor?: string; reason?: string; receiptId?: string; sessionId?: string; headSha?: string }>;
   usage?: { model?: string; inputTokens?: number; outputTokens?: number; usd?: number; factorySha?: string };
 }
 interface ReconciliationResult { eligible: boolean; reason: string; commitSha?: string }
@@ -45,6 +56,7 @@ const error = ref("");
 const working = ref(false);
 const stopping = ref(false);
 const revision = ref("");
+const confirmStop = ref(false);
 const reconciliation = ref<ReconciliationResult>();
 const reconciling = ref(false);
 const copiedEvidence = ref<string>();
@@ -73,6 +85,8 @@ const phaseInfo = computed(() => run.value ? describeDeliveryPhase(run.value.pha
 const phaseDetail = computed(() => run.value?.error || run.value?.mergeDecision?.reason || run.value?.review?.summary || "The durable workflow is observing the next station.");
 const updatedLabel = computed(() => formatDeliveryUpdatedAt(run.value?.updatedAt));
 const usageLabel = computed(() => formatModelUsage(run.value?.usage));
+const reviewFindings = computed(() => run.value?.review?.findings ?? []);
+const reviewLimitations = computed(() => run.value?.review?.limitations ?? []);
 const briefLength = computed(() => props.brief.trim().length);
 const briefReady = computed(() => briefLength.value >= MIN_WORK_REQUEST_LENGTH);
 const canCompose = computed(() => props.mode === "compose");
@@ -84,6 +98,36 @@ const visualReviewBinding = computed<VisualReviewBinding | undefined>(() => {
   const targetBranch = review?.targetBranch || delivery?.publication?.targetBranch;
   return baseSha && headSha && targetBranch ? { baseSha, headSha, targetBranch } : undefined;
 });
+
+function selectFlowNode(id: string) {
+  const delivery = run.value;
+  if (!delivery) return;
+  const station = id === "worker" ? "worker" : id === "review" ? "reviewer" : undefined;
+  const sessionId = station === "worker" ? delivery.childSessionId || delivery.sessionId : station === "reviewer" ? delivery.reviewerSessionId : undefined;
+  if (!station || !sessionId) return;
+  void router.push({ path: "/work/run", query: { station, run: sessionId, deliveryId: delivery.id, rootAgent: station } });
+}
+
+function historyPhase(entry: Delivery["history"][number]) {
+  return describeDeliveryPhase(entry.to || entry.phase).label;
+}
+function historyAt(value?: string) {
+  if (!value) return "Time unavailable";
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? value : date.toLocaleString();
+}
+function gateColor(value?: boolean) {
+  return value === true ? "success" : value === false ? "error" : "neutral";
+}
+function gateLabel(value?: boolean) {
+  return value === true ? "passed" : value === false ? "failed" : "not recorded";
+}
+function mergeColor(status?: string) {
+  return status === "merged" ? "success" : status === "waiting" ? "warning" : "neutral";
+}
+function findingColor(severity: string) {
+  return severity === "blocking" ? "error" : "warning";
+}
 
 async function remember(value: Delivery) {
   try {
@@ -159,9 +203,13 @@ async function resume() {
   }
 }
 
+function requestCancel() {
+  if (!run.value || working.value || stopping.value) return;
+  confirmStop.value = true;
+}
 async function cancel() {
   if (!run.value || working.value || stopping.value) return;
-  if (!window.confirm("Stop this delivery? The workflow will be cancelled.")) return;
+  confirmStop.value = false;
   stopping.value = true;
   clearTimeout(timer);
   try {
@@ -251,6 +299,7 @@ onBeforeUnmount(() => {
         :nodes="flowModel.nodes"
         :edges="flowModel.edges"
         :height="316"
+        @select="selectFlowNode"
       />
       <template #fallback><div class="flow-loading" role="status">Loading workflow map…</div></template>
     </ClientOnly>
@@ -262,20 +311,84 @@ onBeforeUnmount(() => {
     </div>
     <p v-if="run" class="delivery-id">Delivery <code>{{ shortIdentifier(run.id) }}</code> · cycle {{ run.cycle }}<template v-if="run.publication?.targetBranch"> · target {{ shortIdentifier(run.publication.targetBranch, 24) }}</template></p>
     <p v-if="run && usageLabel" class="delivery-usage">Model usage · {{ usageLabel }}</p>
-    <details v-if="run" class="technical-evidence"><summary>Technical evidence</summary><dl><div><dt>Delivery ID</dt><dd><code>{{ run.id }}</code><UButton size="xs" variant="ghost" @click="copyEvidence(run.id)">{{ copyLabel(run.id) }}</UButton></dd></div><div v-if="run.publication?.targetBranch"><dt>Target branch</dt><dd><code>{{ run.publication.targetBranch }}</code><UButton size="xs" variant="ghost" @click="copyEvidence(run.publication.targetBranch)">{{ copyLabel(run.publication.targetBranch) }}</UButton></dd></div><div><dt>Cycle</dt><dd>{{ run.cycle }}</dd></div></dl></details>
-    <p v-if="run?.mergeDecision" class="delivery-note">{{ run.mergeDecision.reason }}</p>
+    <details v-if="run" class="technical-evidence">
+      <summary>Technical evidence</summary>
+      <dl>
+        <div><dt>Delivery ID</dt><dd><code>{{ run.id }}</code><UButton size="xs" variant="ghost" @click="copyEvidence(run.id)">{{ copyLabel(run.id) }}</UButton></dd></div>
+        <div v-if="run.principalId"><dt>Principal</dt><dd><code>{{ run.principalId }}</code><UButton size="xs" variant="ghost" @click="copyEvidence(run.principalId)">{{ copyLabel(run.principalId) }}</UButton></dd></div>
+        <div v-if="run.request?.title"><dt>Request title</dt><dd>{{ run.request.title }}</dd></div>
+        <div v-if="run.request?.parentPrNumber"><dt>Parent PR</dt><dd>#{{ run.request.parentPrNumber }}</dd></div>
+        <div v-if="run.publication?.targetBranch"><dt>Target branch</dt><dd><code>{{ run.publication.targetBranch }}</code><UButton size="xs" variant="ghost" @click="copyEvidence(run.publication.targetBranch)">{{ copyLabel(run.publication.targetBranch) }}</UButton></dd></div>
+        <div v-if="run.publication?.ownerSessionId"><dt>Branch owner</dt><dd><code>{{ run.publication.ownerSessionId }}</code><UButton size="xs" variant="ghost" @click="copyEvidence(run.publication.ownerSessionId)">{{ copyLabel(run.publication.ownerSessionId) }}</UButton></dd></div>
+        <div v-if="run.publication?.branch"><dt>Published branch</dt><dd><code>{{ run.publication.branch }}</code><UButton size="xs" variant="ghost" @click="copyEvidence(run.publication.branch)">{{ copyLabel(run.publication.branch) }}</UButton></dd></div>
+        <div><dt>Cycle</dt><dd>{{ run.cycle }}</dd></div>
+        <div v-if="run.usage?.factorySha"><dt>Factory SHA</dt><dd><code>{{ run.usage.factorySha }}</code></dd></div>
+      </dl>
+    </details>
+    <div v-if="run?.mergeDecision" class="delivery-note delivery-decision"><UBadge :color="mergeColor(run.mergeDecision.status)" variant="soft">Merge decision · {{ run.mergeDecision.status }}</UBadge><span v-if="run.mergeDecision.reason">{{ run.mergeDecision.reason }}</span></div>
     <p v-if="run?.error" class="delivery-error" role="alert">{{ run.error }}</p>
     <p v-if="run?.review" class="delivery-note">{{ run.review.summary }}</p>
     <VisualReviewPanel v-if="run?.review" :packet="run.review.visualReview" :binding="visualReviewBinding" />
+
+    <section v-if="run?.review" class="review-evidence" aria-labelledby="delivery-review-heading">
+      <div class="section-heading"><h3 id="delivery-review-heading">Review evidence</h3><UBadge color="neutral" variant="soft">{{ run.review.verdict }}</UBadge></div>
+      <div v-if="run.review.verification" class="review-gates" aria-label="Review verification gates">
+        <UBadge :color="gateColor(run.review.verification.prepared)" variant="soft">Prepared · {{ gateLabel(run.review.verification.prepared) }}</UBadge>
+        <UBadge :color="gateColor(run.review.verification.repositoryChecksPassed)" variant="soft">Repository checks · {{ gateLabel(run.review.verification.repositoryChecksPassed) }}</UBadge>
+        <UBadge :color="gateColor(run.review.verification.candidateUnchanged)" variant="soft">Candidate unchanged · {{ gateLabel(run.review.verification.candidateUnchanged) }}</UBadge>
+      </div>
+      <div class="review-findings">
+        <h4>Findings</h4>
+        <UCard v-for="(finding, index) in reviewFindings" :key="`${finding.path}-${finding.line || 'file'}-${index}`" class="review-finding">
+          <UBadge :color="findingColor(finding.severity)" variant="soft">{{ finding.severity }}</UBadge>
+          <h4>{{ finding.path }}<span v-if="finding.line">:{{ finding.line }}</span></h4>
+          <p>{{ finding.message }}</p>
+          <p class="small">Evidence: {{ finding.evidence }}</p>
+        </UCard>
+        <p v-if="!reviewFindings.length" class="small muted">No findings were recorded.</p>
+      </div>
+      <div v-if="reviewLimitations.length" class="review-limitations">
+        <h4>Limitations</h4>
+        <ul><li v-for="limitation in reviewLimitations" :key="limitation">{{ limitation }}</li></ul>
+      </div>
+    </section>
+
+    <section v-if="run?.history?.length" class="phase-timeline" aria-labelledby="phase-timeline-heading">
+      <div class="section-heading"><h3 id="phase-timeline-heading">Phase timeline</h3><span class="small muted">{{ run.history.length }} transitions</span></div>
+      <ol>
+        <li v-for="(entry, index) in run.history" :key="entry.receiptId || `${entry.at || 'phase'}-${index}`">
+          <span class="timeline-dot" aria-hidden="true" />
+          <div class="timeline-entry">
+            <div class="timeline-heading"><strong>{{ historyPhase(entry) }}</strong><time v-if="entry.at" :datetime="entry.at">{{ historyAt(entry.at) }}</time></div>
+            <p v-if="entry.reason">{{ entry.reason }}</p>
+            <p class="small muted"><span v-if="entry.actor">Actor <code>{{ entry.actor }}</code></span><span v-if="entry.sessionId"> · Session <code>{{ shortIdentifier(entry.sessionId, 18) }}</code></span><span v-if="entry.receiptId"> · Receipt <code>{{ shortIdentifier(entry.receiptId, 18) }}</code></span></p>
+          </div>
+        </li>
+      </ol>
+    </section>
 
     <div class="delivery-actions">
       <UButton v-if="mode === 'compose' && !run" :disabled="!title.trim() || !briefReady || working || stopping" :loading="working" icon="i-lucide-play" @click="start">Start durable delivery</UButton>
       <UButton v-if="run?.publication" :to="run.publication.url" target="_blank" rel="noopener noreferrer" variant="outline" icon="i-lucide-git-pull-request">Open PR #{{ run.publication.number }}</UButton>
       <UButton v-if="run?.publication && reconcilable.has(run.phase)" variant="outline" :loading="reconciling" :disabled="working || reconciling" icon="i-lucide-shield-check" @click="reconcile">Check manual merge</UButton>
-      <UButton v-if="run && (run.phase === 'blocked' || (run.phase === 'human_review' && !run.publication))" variant="outline" :disabled="working" icon="i-lucide-rotate-ccw" @click="resume">Resume observation</UButton>
+      <UButton v-if="run && (run.phase === 'blocked' || (run.phase === 'human_review' && !run.publication))" color="warning" variant="outline" :disabled="working" icon="i-lucide-rotate-ccw" @click="resume">Resume observation</UButton>
       <UButton v-else-if="run" variant="outline" :loading="working" icon="i-lucide-refresh-cw" @click="refresh">Refresh status</UButton>
-      <UButton v-if="run && !stopped.has(run.phase)" variant="ghost" color="neutral" :loading="stopping" :disabled="working || stopping" @click="cancel">Stop delivery</UButton>
+      <UButton v-if="run && !stopped.has(run.phase)" variant="outline" color="error" :loading="stopping" :disabled="working || stopping" @click="requestCancel">Stop delivery</UButton>
     </div>
+    <UModal
+      :open="confirmStop"
+      title="Stop this delivery?"
+      description="The workflow will be cancelled. Its saved request and evidence remain available."
+      @update:open="(value) => { confirmStop = value; }"
+    >
+      <template #body>
+        <p class="small muted">Stopping ends the current durable attempt and cancels its active stations. You can keep the run link to inspect the recorded phases.</p>
+        <div class="confirm-actions">
+          <UButton color="error" :loading="stopping" :disabled="stopping" @click="cancel">Stop delivery</UButton>
+          <UButton variant="ghost" color="neutral" :disabled="stopping" @click="confirmStop = false">Keep running</UButton>
+        </div>
+      </template>
+    </UModal>
     <UAlert v-if="reconciliation" :color="reconciliation.eligible ? 'success' : 'warning'" variant="soft" title="Manual merge evidence" :description="reconciliation.reason" />
     <p v-if="mode === 'compose'" class="delivery-requirement" :class="{ ready: briefReady }" role="status">A durable delivery needs at least {{ MIN_WORK_REQUEST_LENGTH }} characters in the brief ({{ briefLength }}/{{ MIN_WORK_REQUEST_LENGTH }}).</p>
     <p v-if="error" class="delivery-error" role="alert">{{ error }}</p>
@@ -323,8 +436,30 @@ onBeforeUnmount(() => {
 .technical-evidence dd { display: flex; min-width: 0; align-items: center; gap: 8px; margin: 0; overflow-wrap: anywhere; }
 .technical-evidence code { overflow-wrap: anywhere; }
 .delivery-note { color: #53666e; }
+.delivery-decision { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .delivery-error { color: #a33d37; }
 .delivery-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 20px; }
+.review-evidence, .phase-timeline { margin-top: 24px; padding-top: 20px; border-top: 1px solid var(--ui-border); }
+.section-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.section-heading h3, .review-findings h4, .review-limitations h4 { margin: 0; color: var(--ui-text); font-size: 15px; font-weight: 650; }
+.review-gates { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+.review-findings { display: grid; gap: 12px; margin-top: 18px; }
+.review-findings h4, .review-limitations h4 { font-size: 13px; }
+.review-finding { display: grid; gap: 5px; }
+.review-finding h4 { margin: 4px 0 0; font-size: 13px; font-weight: 650; overflow-wrap: anywhere; }
+.review-finding p { margin: 0; line-height: 1.55; }
+.review-limitations { margin-top: 18px; }
+.review-limitations ul { margin: 10px 0 0; padding-left: 20px; list-style: disc; }
+.phase-timeline ol { display: grid; gap: 0; margin: 16px 0 0; padding: 0; list-style: none; }
+.phase-timeline li { position: relative; display: grid; grid-template-columns: 12px minmax(0, 1fr); gap: 12px; padding-bottom: 18px; }
+.phase-timeline li:not(:last-child)::before { position: absolute; top: 12px; bottom: 0; left: 5px; width: 1px; background: #cbdadc; content: ""; }
+.timeline-dot { position: relative; z-index: 1; width: 10px; height: 10px; margin-top: 3px; border: 2px solid var(--ui-primary); border-radius: 50%; background: #fff; }
+.timeline-entry { min-width: 0; }
+.timeline-heading { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+.timeline-heading strong { color: #2d545c; font-size: 12px; }
+.timeline-heading time { flex-shrink: 0; color: var(--ui-text-muted); font-size: 11px; }
+.timeline-entry p { margin: 5px 0 0; line-height: 1.5; }
+.confirm-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 18px; }
 .revision-request { display: grid; gap: 12px; max-width: 700px; margin-top: 24px; padding-top: 20px; border-top: 1px solid var(--ui-border); }
 @media (max-width: 700px) {
   .delivery-live { align-items: flex-start; flex-wrap: wrap; }

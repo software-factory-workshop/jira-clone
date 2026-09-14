@@ -1,7 +1,7 @@
 import test from "node:test";
 import { defaultMessageReducer } from "eve/client";
 import assert from "node:assert/strict";
-import { dispatchedTask, parsePullRequest, parseStationResult, pendingStationRequests, stationLinkSchema, latestStationTurn, readStationStream, workerRequest, stationLaunchError, matchesStationDelivery, parseStationToolResult, appendStationTail, advanceStationTurn, boundStationProjection, MAX_STATION_TAIL_EVENTS, MAX_STATION_PROJECTION_MESSAGES, MAX_STATION_PROJECTION_PARTS } from "../app/utils/work-station.ts";
+import { dispatchedTask, parsePullRequest, parseStationResult, pendingStationRequests, stationLinkSchema, latestStationTurn, readStationStream, workerRequest, stationLaunchError, matchesStationDelivery, parseStationToolResult, appendStationTail, advanceStationTurn, boundStationProjection, eventToolId, MAX_STATION_TAIL_EVENTS, MAX_STATION_PROJECTION_MESSAGES, MAX_STATION_PROJECTION_PARTS } from "../app/utils/work-station.ts";
 const sha = "a".repeat(40);
 test("review input only accepts PRs in the configured repository", () => {
   assert.equal(parsePullRequest("2"), 2);
@@ -77,6 +77,13 @@ test("station event tails stay bounded while turn state remains incremental", ()
   assert.equal((tail[0]?.data as { sequence: number }).sequence, 2);
   assert.equal((tail.at(-1)?.data as { sequence: number }).sequence, MAX_STATION_TAIL_EVENTS + 1);
   assert.equal(turn, "running");
+});
+
+test("station event tails correlate requests and results by Eve call ID", () => {
+  assert.equal(eventToolId({ type: "action.input.appended", data: { callId: "call_input" } }), "call_input");
+  assert.equal(eventToolId({ type: "action.result", data: { result: { callId: "call_result" } } }), "call_result");
+  assert.equal(eventToolId({ type: "actions.requested", data: { actions: [{ callId: "call_a" }, { callId: "call_b" }] } }), "call_a, call_b");
+  assert.equal(eventToolId({ type: "step.started", data: { stepIndex: 1 } }), undefined);
 });
 
 test("station projections bound messages and parts without losing active request or result", () => {
