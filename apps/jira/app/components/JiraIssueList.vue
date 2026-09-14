@@ -7,6 +7,8 @@ const props = defineProps<{
   priorities: readonly string[];
   canWrite: boolean;
   pendingKeys: readonly string[];
+  filtersActive: boolean;
+  emptyHint: string;
 }>();
 
 const emit = defineEmits<{
@@ -89,6 +91,6 @@ function updatePriority(issue: BoardIssue, value: unknown): void {
         </tr>
       </tbody>
     </table>
-    <p v-if="!props.issues.length" class="empty">No issues match your filters.</p>
+    <p v-if="!props.issues.length" class="empty">{{ props.emptyHint }}</p>
   </div>
 </template>

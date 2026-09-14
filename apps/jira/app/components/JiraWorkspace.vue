@@ -19,6 +19,13 @@ import {
   type IssueDetailResponse,
 } from "~/utils/issueDetail";
 import {
+  REST_BOARD_PAGE_SIZE,
+  REST_BOARD_START_AT,
+  boardFilteredLabel,
+  boardFilteredSummary,
+  boardStartAtForPage,
+  boardTotalPages,
+  boardVisibleRange,
   fetchBoardIssues,
   type RestPersistenceShape,
   type RestIssueWriteShape,
@@ -101,6 +108,9 @@ const issues = ref<BoardIssue[]>([]);
 const persistence = ref<RestPersistenceShape | null>(null);
 const loading = ref(true);
 const loadError = ref<string | null>(null);
+const boardPageSize = REST_BOARD_PAGE_SIZE;
+const boardStartAt = ref(REST_BOARD_START_AT);
+const boardTotal = ref(0);
 const moveError = ref<string | null>(null);
 const priorityError = ref<string | null>(null);
 const saveNotice = ref<string | null>(null);
@@ -301,6 +311,61 @@ const filtered = computed(() =>
   }),
 );
 
+/**
+ * Bounded board paging over the canonical search-lite read: one fixed
+ * `startAt`/`maxResults=50` window per page. Filters run client-side over
+ * the loaded window only, so the filtered match count is scoped to that
+ * window and never reuses the store total as the filtered result. Filter
+ * edits re-read page 1 so a stale offset cannot hide matches on later
+ * pages. The board never slices a cached full list.
+ */
+const boardPage = computed(
+  () => Math.floor(Math.max(0, boardStartAt.value) / boardPageSize) + 1,
+);
+const boardPageCount = computed(() =>
+  boardTotalPages(boardTotal.value, boardPageSize),
+);
+const boardRange = computed(() =>
+  boardVisibleRange(
+    boardStartAt.value,
+    boardPageSize,
+    boardTotal.value,
+    issues.value.length,
+  ),
+);
+const canPrevBoardPage = computed(
+  () => boardStartAt.value > REST_BOARD_START_AT,
+);
+const canNextBoardPage = computed(
+  () => boardStartAt.value + boardPageSize < boardTotal.value,
+);
+const boardPageLabel = computed(() =>
+  boardTotal.value > 0
+    ? `Page ${boardPage.value} of ${boardPageCount.value} · server window ${boardRange.value.start}-${boardRange.value.end} of ${boardTotal.value} issues`
+    : "Page 1 of 1 · no issues on this page",
+);
+const boardFilterSummary = computed(() =>
+  boardFilteredSummary(filtered.value.length, issues.value.length, boardTotal.value),
+);
+const boardFilterLabel = computed(() =>
+  boardFilteredLabel(boardFilterSummary.value),
+);
+const filtersActive = computed(
+  () =>
+    search.value.trim() !== "" ||
+    status.value !== ALL_STATUSES ||
+    assignee.value !== ALL_ASSIGNEES,
+);
+async function gotoBoardPage(page: number): Promise<void> {
+  const target = boardStartAtForPage(page, boardPageSize);
+  if (target === boardStartAt.value) {
+    await refresh(target);
+    return;
+  }
+  boardStartAt.value = target;
+  await refresh(target);
+}
+
 async function saveStatus(
   key: string,
   next: string,
@@ -337,15 +402,42 @@ async function saveDetailFieldPatch(
   return saved.issue;
 }
 
-async function refresh() {
+async function refresh(startAt: number = boardStartAt.value) {
   loading.value = true;
   loadError.value = null;
+  const clamped =
+    boardTotal.value > 0
+      ? Math.min(
+          Math.max(0, Math.floor(startAt)),
+          (boardTotalPages(boardTotal.value, boardPageSize) - 1) * boardPageSize,
+        )
+      : REST_BOARD_START_AT;
+  boardStartAt.value = clamped;
   try {
-    const data = await fetchBoardIssues((url) =>
-      $fetch<RestSearchShape>(url),
+    const data = await fetchBoardIssues(
+      (url) => $fetch<RestSearchShape>(url),
+      clamped,
+      boardPageSize,
     );
     issues.value = data.issues;
+    boardTotal.value = data.total;
     persistence.value = data.persistence ?? null;
+    // An out-of-range offset stays honest: the server answers an empty page
+    // with the intact total, so clamp back and re-read the last page once
+    // instead of rendering an empty page as the store.
+    const lastPageStart =
+      (boardTotalPages(data.total, boardPageSize) - 1) * boardPageSize;
+    if (data.issues.length === 0 && clamped > lastPageStart) {
+      boardStartAt.value = lastPageStart;
+      const reread = await fetchBoardIssues(
+        (url) => $fetch<RestSearchShape>(url),
+        lastPageStart,
+        boardPageSize,
+      );
+      issues.value = reread.issues;
+      boardTotal.value = reread.total;
+      persistence.value = reread.persistence ?? null;
+    }
   } catch (error) {
     issues.value = [];
     persistence.value = null;
@@ -357,6 +449,11 @@ async function refresh() {
     loading.value = false;
   }
 }
+
+watch([search, status, assignee], () => {
+  boardStartAt.value = REST_BOARD_START_AT;
+  void refresh(REST_BOARD_START_AT);
+});
 
 const dropColumns = computed(() => dragDropTargets(statuses));
 
@@ -534,7 +631,9 @@ async function resetBoard() {
       headers: demoHeaders(),
     });
     if (reset.persistence) persistence.value = reset.persistence;
-    await refresh();
+    boardStartAt.value = REST_BOARD_START_AT;
+    boardTotal.value = 0;
+    await refresh(REST_BOARD_START_AT);
     if (!loadError.value) {
       saveNotice.value =
         `Demo board reset to labelled fixture identities. Reset affects ${persistenceLabel.value}.`;
@@ -653,17 +752,48 @@ await Promise.all([refreshAccount(), refresh()]);
             :assignee="assignee"
             :statuses="statuses"
             :assignees="assignees"
-            :count="filtered.length"
+            :summary="`${boardFilterLabel} · ${boardPageLabel}`"
             @update:search="search = $event"
             @update:status="status = $event"
             @update:assignee="assignee = $event"
           />
+          <nav class="board-paging" aria-label="Board pages">
+            <UButton
+              icon="i-lucide-chevron-left"
+              variant="outline"
+              color="neutral"
+              size="sm"
+              :disabled="!canPrevBoardPage || loading"
+              aria-label="Previous board page"
+              @click="void gotoBoardPage(boardPage - 1)"
+            >
+              Previous
+            </UButton>
+            <span class="board-paging-label" role="status">{{ boardPageLabel }}</span>
+            <UButton
+              icon="i-lucide-chevron-right"
+              variant="outline"
+              color="neutral"
+              size="sm"
+              :disabled="!canNextBoardPage || loading"
+              aria-label="Next board page"
+              @click="void gotoBoardPage(boardPage + 1)"
+            >
+              Next
+            </UButton>
+          </nav>
           <JiraIssueList
             v-if="view === 'list'"
             :issues="filtered"
             :priorities="priorities"
             :can-write="canWrite"
             :pending-keys="pendingKeys"
+            :filters-active="filtersActive"
+            :empty-hint="
+              filtersActive
+                ? `No issues match your filters in this window (0 of ${boardFilterSummary.windowSize}; server window ${boardRange.start}-${boardRange.end} of ${boardTotal} issues).`
+                : 'No issues on this page.'
+            "
             @select="selectedKey = $event"
             @priority-change="changePriorityCard"
           />
@@ -673,6 +803,7 @@ await Promise.all([refreshAccount(), refresh()]);
             :columns="dropColumns"
             :can-write="canWrite"
             :pending-keys="pendingKeys"
+            :filters-active="filtersActive"
             @select="selectedKey = $event"
             @move="moveCard"
           />

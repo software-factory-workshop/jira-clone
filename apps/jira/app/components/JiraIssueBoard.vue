@@ -7,6 +7,7 @@ const props = defineProps<{
   columns: readonly string[];
   canWrite: boolean;
   pendingKeys: readonly string[];
+  filtersActive: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -123,7 +124,10 @@ function updateStatus(issue: BoardIssue, value: unknown): void {
         </span>
       </article>
       <p v-if="!issuesForColumn(column).length" class="empty drop-hint">
-        Drop cards here to move them to {{ column }}.
+        <span v-if="props.filtersActive"
+          >No matches in this column for the current filters in this
+          window.</span
+        ><span v-else>Drop cards here to move them to {{ column }}.</span>
       </p>
     </section>
   </div>

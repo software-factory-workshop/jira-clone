@@ -181,3 +181,156 @@ export async function fetchBoardIssues(
     persistence: data?.persistence,
   };
 }
+
+/**
+ * Bounded board paging over the canonical search-lite read.
+ *
+ * The server caps `maxResults` at 50 (`REST_MAX_MAX_RESULTS`) and reports
+ * the store `total` on every search envelope, so the board pages with fixed
+ * `startAt`/`maxResults=50` windows and never loads the full list to slice
+ * it afterwards. An out-of-range offset stays honest: the server returns an
+ * empty page with the intact total, which these helpers surface as an empty
+ * range instead of fixture fallback. Pure; never writes.
+ */
+
+/** Clamp a requested window to the server `maxResults` hard bound. */
+function boardPageSizeOrDefault(pageSize: number): number {
+  if (!Number.isInteger(pageSize) || pageSize < 1) return REST_BOARD_PAGE_SIZE;
+  return Math.min(pageSize, REST_BOARD_PAGE_SIZE);
+}
+
+/** 1-based board page for one `startAt` offset. */
+export function boardPageForStartAt(
+  startAt: number = REST_BOARD_START_AT,
+  pageSize: number = REST_BOARD_PAGE_SIZE,
+): number {
+  const size = boardPageSizeOrDefault(pageSize);
+  const offset = Number.isFinite(startAt)
+    ? Math.max(0, Math.floor(startAt))
+    : REST_BOARD_START_AT;
+  return Math.floor(offset / size) + 1;
+}
+
+/** `startAt` offset for one 1-based board page. Pages below 1 read page 1. */
+export function boardStartAtForPage(
+  page: number = 1,
+  pageSize: number = REST_BOARD_PAGE_SIZE,
+): number {
+  const size = boardPageSizeOrDefault(pageSize);
+  if (!Number.isFinite(page) || page < 1) return REST_BOARD_START_AT;
+  return (Math.floor(page) - 1) * size;
+}
+
+/** Bounded page count for one store `total`. An empty store still reads page 1. */
+export function boardTotalPages(
+  total: number = 0,
+  pageSize: number = REST_BOARD_PAGE_SIZE,
+): number {
+  const size = boardPageSizeOrDefault(pageSize);
+  if (!Number.isFinite(total) || total <= 0) return 1;
+  return Math.max(1, Math.ceil(total / size));
+}
+
+/** Whether an earlier bounded page exists for one `startAt` offset. */
+export function hasPrevBoardPage(
+  startAt: number = REST_BOARD_START_AT,
+): boolean {
+  return Number.isFinite(startAt) && Math.floor(startAt) > 0;
+}
+
+/** Whether a later bounded page exists for one window and store `total`. */
+export function hasNextBoardPage(
+  startAt: number = REST_BOARD_START_AT,
+  maxResults: number = REST_BOARD_PAGE_SIZE,
+  total: number = 0,
+): boolean {
+  if (
+    !Number.isFinite(startAt) ||
+    !Number.isFinite(maxResults) ||
+    !Number.isFinite(total)
+  ) {
+    return false;
+  }
+  return Math.floor(startAt) + Math.floor(maxResults) < total;
+}
+
+/**
+ * Clamp one `startAt` offset into the bounded window range for a store
+ * `total`: negatives read page 1, offsets past the last page re-read the
+ * last page, and an empty store reads page 1.
+ */
+export function clampBoardStartAt(
+  startAt: number = REST_BOARD_START_AT,
+  total: number = 0,
+  pageSize: number = REST_BOARD_PAGE_SIZE,
+): number {
+  const size = boardPageSizeOrDefault(pageSize);
+  const offset = Number.isFinite(startAt)
+    ? Math.max(0, Math.floor(startAt))
+    : REST_BOARD_START_AT;
+  if (!Number.isFinite(total) || total <= 0) return REST_BOARD_START_AT;
+  return Math.min(offset, (boardTotalPages(total, size) - 1) * size);
+}
+
+/** 1-based inclusive visible range for one loaded page; empty when 0/0. */
+export type BoardVisibleRange = {
+  start: number;
+  end: number;
+};
+
+/**
+ * Honest filtered count for one loaded server window.
+ *
+ * Filters run client-side over the loaded `startAt`/`maxResults` page only,
+ * so the filtered match count is scoped to that window and must never reuse
+ * the store `total` as the filtered result. Pure; never writes.
+ */
+export type BoardFilteredSummary = {
+  /** Matches inside the loaded window (`filtered.length` in the board). */
+  shown: number;
+  /** Issues on the loaded server window (`issues.length` in the board). */
+  windowSize: number;
+  /** Store total reported by the search envelope, not the filtered result. */
+  windowTotal: number;
+};
+
+export function boardFilteredSummary(
+  filteredCount: number,
+  windowSize: number,
+  windowTotal: number,
+): BoardFilteredSummary {
+  const shown = Number.isFinite(filteredCount)
+    ? Math.max(0, Math.floor(filteredCount))
+    : 0;
+  const size = Number.isFinite(windowSize)
+    ? Math.max(0, Math.floor(windowSize))
+    : 0;
+  const total = Number.isFinite(windowTotal)
+    ? Math.max(0, Math.floor(windowTotal))
+    : 0;
+  return { shown, windowSize: size, windowTotal: total };
+}
+
+/** Filter-match label scoped to the loaded window, e.g. "1 of 4 in this window". */
+export function boardFilteredLabel(summary: BoardFilteredSummary): string {
+  const noun = summary.shown === 1 ? "match" : "matches";
+  return `${summary.shown} of ${summary.windowSize} in this window (${noun})`;
+}
+
+export function boardVisibleRange(
+  startAt: number,
+  pageSize: number,
+  total: number,
+  visibleCount: number,
+): BoardVisibleRange {
+  const offset = Number.isFinite(startAt)
+    ? Math.max(0, Math.floor(startAt))
+    : REST_BOARD_START_AT;
+  const count = Number.isFinite(visibleCount)
+    ? Math.max(0, Math.floor(visibleCount))
+    : 0;
+  if (count === 0 || !Number.isFinite(total) || total <= 0 || offset >= total) {
+    return { start: 0, end: 0 };
+  }
+  return { start: offset + 1, end: offset + count };
+}

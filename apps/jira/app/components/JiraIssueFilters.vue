@@ -8,7 +8,7 @@ const props = defineProps<{
   assignee: string;
   statuses: readonly string[];
   assignees: readonly string[];
-  count: number;
+  summary: string;
 }>();
 
 const emit = defineEmits<{
@@ -54,6 +54,6 @@ function updateAssignee(value: unknown): void {
       aria-label="Filter by assignee"
       @update:model-value="updateAssignee"
     />
-    <span>{{ props.count }} issues</span>
+    <span>{{ props.summary }}</span>
   </div>
 </template>
