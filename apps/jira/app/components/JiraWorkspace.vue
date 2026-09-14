@@ -23,6 +23,7 @@ import {
   REST_BOARD_START_AT,
   boardFilteredLabel,
   boardFilteredSummary,
+  filteredIssueCountLabel,
   boardStartAtForPage,
   boardTotalPages,
   boardVisibleRange,
@@ -348,6 +349,9 @@ const boardPageLabel = computed(() =>
 );
 const boardFilterSummary = computed(() =>
   boardFilteredSummary(filtered.value.length, issues.value.length, boardTotal.value),
+);
+const filteredIssueCount = computed(() =>
+  filteredIssueCountLabel(filtered.value.length, issues.value.length),
 );
 const boardFilterLabel = computed(() =>
   boardFilteredLabel(boardFilterSummary.value),
@@ -807,6 +811,7 @@ await Promise.all([refreshAccount(), refresh()]);
             :can-write="canWrite"
             :pending-keys="pendingKeys"
             :filters-active="filtersActive"
+            :count-label="filteredIssueCount"
             :empty-hint="
               filtersActive
                 ? `No issues match your filters in this window (0 of ${boardFilterSummary.windowSize}; server window ${boardRange.start}-${boardRange.end} of ${boardTotal} issues).`
@@ -822,6 +827,7 @@ await Promise.all([refreshAccount(), refresh()]);
             :can-write="canWrite"
             :pending-keys="pendingKeys"
             :filters-active="filtersActive"
+            :count-label="filteredIssueCount"
             @select="selectedKey = $event"
             @move="moveCard"
           />

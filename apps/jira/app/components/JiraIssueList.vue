@@ -9,6 +9,7 @@ const props = defineProps<{
   pendingKeys: readonly string[];
   filtersActive: boolean;
   emptyHint: string;
+  countLabel: string;
 }>();
 
 const emit = defineEmits<{
@@ -42,6 +43,7 @@ function updatePriority(issue: BoardIssue, value: unknown): void {
 </script>
 
 <template>
+  <p class="issue-count" role="status" data-testid="issue-count">{{ props.countLabel }}</p>
   <div class="table-wrap">
     <table>
       <thead>

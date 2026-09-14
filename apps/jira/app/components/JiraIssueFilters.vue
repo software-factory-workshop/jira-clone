@@ -78,6 +78,6 @@ function updateAssignee(value: unknown): void {
     >
       Clear filters
     </UButton>
-    <span>{{ props.summary }}</span>
+    <span role="status" data-testid="filter-summary">{{ props.summary }}</span>
   </div>
 </template>
