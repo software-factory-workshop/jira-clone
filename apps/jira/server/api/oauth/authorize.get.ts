@@ -5,8 +5,10 @@ import { PASSPORT_TOKEN_HEADER } from "../../utils/passportIdentity";
 import {
   OAUTH_BOUNDARY,
   oauthBeginGrant,
+  oauthTokenClientById,
   resolveOAuthIssuer,
 } from "../../utils/jiraOAuth";
+import { prefersHtml, renderConsentPage } from "../../utils/oauthConsentPage";
 
 /**
  * Demo-only authorization entry: GET /api/oauth/authorize?... starts an
@@ -19,7 +21,8 @@ import {
  * ignored: the grant ticket binds the resolved account. Returns a JSON
  * grant ticket plus the browser consent path (the consent decision itself
  * is a JSON POST, so the browser UI path stays separate from the machine
- * token routes).
+ * token routes). A browser that prefers HTML gets the consent page
+ * instead, which performs that same POST and forwards to the client.
  */
 export default defineOAuthHandler((event) => {
   const issuer = resolveOAuthIssuer({
@@ -67,8 +70,24 @@ export default defineOAuthHandler((event) => {
       },
     });
   }
-  setHeader(event, "Content-Type", "application/json");
   setHeader(event, "Cache-Control", "no-store");
+  if (prefersHtml(getHeader(event, "accept"))) {
+    const ticket = result.ticket;
+    const client = oauthTokenClientById(ticket.client_id);
+    setHeader(event, "Content-Type", "text/html; charset=utf-8");
+    return renderConsentPage({
+      grantTicket: ticket.grant_ticket,
+      clientId: ticket.client_id,
+      clientName: client.ok ? client.client.clientName : null,
+      redirectUri: ticket.redirect_uri,
+      scopes: ticket.scope.split(" ").filter(Boolean),
+      state: ticket.state,
+      account: { label: ticket.account.label, role: ticket.account.role },
+      consentPath: ticket.consent_path,
+      expiresInSeconds: ticket.expires_in,
+    });
+  }
+  setHeader(event, "Content-Type", "application/json");
   return {
     ...result.ticket,
     demoOnly: true,
