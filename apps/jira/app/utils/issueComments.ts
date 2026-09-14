@@ -5,17 +5,7 @@ import {
   type RestCommentShape,
   type RestPersistenceShape,
 } from "./restIssues.ts";
-
-/** Prefer the server-provided demo message (Nuxt FetchError `data.message`) over the generic transport message. */
-function serverMessage(error: unknown, fallback: string): string {
-  if (error && typeof error === "object" && "data" in error) {
-    const message = (error as { data?: { message?: unknown } }).data?.message;
-    if (typeof message === "string" && message.trim() !== "") {
-      return message;
-    }
-  }
-  return error instanceof Error && error.message ? error.message : fallback;
-}
+import { serverMessage } from "./errorMessage.ts";
 
 export type DemoComment = {
   id: string;

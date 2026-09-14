@@ -1,21 +1,29 @@
 <script setup lang="ts">
-import { feedbackKeyFor,loadFeedback,type FeedbackVerdict } from "../utils/proposal-feedback";
-const props=defineProps<{proposalId?:string;proposalTitle:string}>();
-const cockpit=useCockpit();const reasonDraft=ref("");const storageProblem=ref("");const saveProblem=ref(false);const busy=ref(false);
-const feedbackId=computed(()=>feedbackKeyFor(props.proposalId));
-const saved=computed(()=>cockpit.items.value.feedback.find(r=>r.id===feedbackId.value));
-const verdict=computed(()=>saved.value?.value.verdict as FeedbackVerdict|undefined);
-const reasonChanged=computed(()=>reasonDraft.value.trim()!==(saved.value?.value.reason??""));
-async function refresh(){try{await cockpit.refresh("feedback");storageProblem.value="";}catch{storageProblem.value="unavailable";}}
-async function choose(value:FeedbackVerdict){if(!feedbackId.value||busy.value)return;busy.value=true;try{await cockpit.save("feedback",feedbackId.value,{verdict:value,reason:reasonDraft.value.trim()},saved.value?.version??0);saveProblem.value=false;storageProblem.value="";}catch{saveProblem.value=true;}finally{busy.value=false;}}
-async function saveReason(){if(verdict.value)await choose(verdict.value);}
-async function clear(){if(!saved.value||busy.value)return;busy.value=true;try{await cockpit.remove("feedback",saved.value);reasonDraft.value="";saveProblem.value=false;}catch{saveProblem.value=true;}finally{busy.value=false;}}
-onMounted(async()=>{const initialId=feedbackId.value;try{let legacy={};try{legacy=loadFeedback(localStorage).entries;}catch{}await cockpit.migrate("feedback",Object.entries(legacy).map(([id,value])=>({id,value:value as Record<string,unknown>})).map(r=>({id:r.id,value:{verdict:r.value.verdict,reason:r.value.reason}})));if(feedbackId.value===initialId&&!reasonDraft.value)reasonDraft.value=String(saved.value?.value.reason??"");storageProblem.value="";}catch{storageProblem.value="unavailable";}});
-watch(feedbackId,()=>{reasonDraft.value=String(saved.value?.value.reason??"");saveProblem.value=false;});
+import type { FeedbackVerdict } from "../utils/proposal-feedback";
+import { useProposalFeedback } from "../composables/useProposalFeedback";
+
+const props = defineProps<{
+  proposalId?: string;
+  proposalTitle: string;
+}>();
+
+const {
+  feedbackId,
+  verdict,
+  reasonDraft,
+  reasonChanged,
+  storageProblem,
+  saveProblem,
+  busy,
+  choose,
+  saveReason,
+  clear,
+  refresh,
+} = useProposalFeedback(props);
 </script>
 
 <template>
-  <section v-if="feedbackId" class="proposal-feedback" :aria-label="`Usefulness feedback for ${proposalTitle}`">
+  <section v-if="feedbackId" class="proposal-feedback" :aria-label="`Usefulness feedback for ${props.proposalTitle}`">
     <h4 class="feedback-title">Is this proposal useful?</h4>
     <p class="small muted">Saved in the shared cockpit. It does not start work or change factory policy.</p>
     <URadioGroup
@@ -27,7 +35,7 @@ watch(feedbackId,()=>{reasonDraft.value=String(saved.value?.value.reason??"");sa
       ]"
       orientation="horizontal"
       :name="`proposal-feedback-${feedbackId}`"
-      :aria-label="`Mark proposal ${proposalTitle} useful or not useful`"
+      :aria-label="`Mark proposal ${props.proposalTitle} useful or not useful`"
       @update:model-value="choose($event as FeedbackVerdict)"
     />
     <p v-if="verdict" class="small feedback-saved" role="status">
@@ -48,7 +56,7 @@ watch(feedbackId,()=>{reasonDraft.value=String(saved.value?.value.reason??"");sa
         variant="outline"
         color="neutral"
         :disabled="!verdict || !reasonChanged"
-        :aria-label="`Save reason for ${proposalTitle}`"
+        :aria-label="`Save reason for ${props.proposalTitle}`"
         @click="saveReason"
       >Save reason</UButton>
       <UButton
@@ -56,7 +64,7 @@ watch(feedbackId,()=>{reasonDraft.value=String(saved.value?.value.reason??"");sa
         size="xs"
         variant="ghost"
         color="neutral"
-        :aria-label="`Clear feedback for ${proposalTitle}`"
+        :aria-label="`Clear feedback for ${props.proposalTitle}`"
         @click="clear"
       >Clear</UButton>
     </div>
