@@ -58,7 +58,8 @@ export const PASSPORT_DEFAULT_ROLE: DemoRole = "viewer";
 export const PASSPORT_ROLE_MAPPING_LABEL =
   "Passport role mapping: explicit role claim (admin/member/viewer) wins; " +
   "otherwise groups/roles map admin-like groups to admin, member-like groups to member, " +
-  "viewer-like groups to viewer; identities without role/groups claims default to viewer (read-only). " +
+  "viewer-like groups to viewer; otherwise the deployment's JIRA_PASSPORT_ROLE_MAP (email -> role) applies; " +
+  "identities matched by none default to JIRA_PASSPORT_DEFAULT_ROLE, or viewer (read-only) when unset. " +
   "Unrecognised role/groups values fail closed with 401.";
 
 export const PASSPORT_ACCOUNT_ID_PREFIX = "passport:";
@@ -199,7 +200,56 @@ type RoleMapResult =
  * groups/roles tokens decide; empty role/groups fall back to the documented
  * viewer default. Anything present-but-unrecognised fails closed.
  */
-export function mapPassportRole(claims: PassportClaims): RoleMapResult {
+/**
+ * Deployment-side role assignment for Passport identities. Vercel Passport
+ * forwards identity claims (external_sub, email, name) but no groups or
+ * roles, so a deployment names admins/members by email and picks the
+ * default for everyone else. Read from the environment:
+ * - `JIRA_PASSPORT_ROLE_MAP`: JSON object `{ "<email>": "admin|member|viewer" }`
+ *   (or `email=role,email=role`); unrecognised roles are ignored.
+ * - `JIRA_PASSPORT_DEFAULT_ROLE`: admin|member|viewer; anything else is ignored.
+ */
+export type PassportRoleOptions = {
+  emailRoles?: Readonly<Record<string, DemoRole>>;
+  defaultRole?: DemoRole;
+};
+
+export function passportRoleOptionsFromEnv(
+  env: Record<string, string | undefined> = process.env,
+): PassportRoleOptions {
+  const emailRoles: Record<string, DemoRole> = {};
+  const raw = env["JIRA_PASSPORT_ROLE_MAP"]?.trim();
+  if (raw) {
+    let entries: Array<[string, unknown]> = [];
+    try {
+      const parsed: unknown = JSON.parse(raw);
+      if (typeof parsed === "object" && parsed !== null && !Array.isArray(parsed)) {
+        entries = Object.entries(parsed as Record<string, unknown>);
+      }
+    } catch {
+      entries = raw
+        .split(",")
+        .map((pair) => pair.split("=") as [string, string])
+        .filter((pair) => pair.length === 2);
+    }
+    for (const [email, role] of entries) {
+      const recognised = recognizedRole(role);
+      if (recognised && email.trim() !== "") {
+        emailRoles[email.trim().toLowerCase()] = recognised;
+      }
+    }
+  }
+  const defaultRole = recognizedRole(env["JIRA_PASSPORT_DEFAULT_ROLE"]?.trim()) ?? undefined;
+  return {
+    ...(Object.keys(emailRoles).length > 0 ? { emailRoles } : {}),
+    ...(defaultRole ? { defaultRole } : {}),
+  };
+}
+
+export function mapPassportRole(
+  claims: PassportClaims,
+  options: PassportRoleOptions = {},
+): RoleMapResult {
   const roleTokens = collectClaimTokens(claims, ["role"]);
   const explicitRole = roleTokens.find((token) => token !== "");
   if (explicitRole !== undefined) {
@@ -216,7 +266,9 @@ export function mapPassportRole(claims: PassportClaims): RoleMapResult {
   }
   const groupTokens = collectClaimTokens(claims, ["groups", "roles"]);
   if (groupTokens.length === 0) {
-    return { ok: true, role: PASSPORT_DEFAULT_ROLE };
+    const email = typeof claims["email"] === "string" ? claims["email"].trim().toLowerCase() : "";
+    const mapped = email ? options.emailRoles?.[email] : undefined;
+    return { ok: true, role: mapped ?? options.defaultRole ?? PASSPORT_DEFAULT_ROLE };
   }
   const lowered = groupTokens.map((token) => token.toLowerCase());
   if (lowered.some((token) => ADMIN_GROUP_TOKENS.has(token))) {
@@ -303,7 +355,7 @@ export function resolveAppActor(input: AppRequestIdentity): AppActorResolution {
         identitySource: "passport",
       };
     }
-    const mapped = mapPassportRole(passport.identity.claims);
+    const mapped = mapPassportRole(passport.identity.claims, passportRoleOptionsFromEnv());
     if (!mapped.ok) {
       return {
         ok: false,

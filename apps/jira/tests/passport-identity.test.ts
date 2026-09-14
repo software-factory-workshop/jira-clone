@@ -31,7 +31,8 @@ test("passport: header constant and deployment prerequisite are stated", () => {
   assert.equal(PASSPORT_TOKEN_HEADER, "x-vercel-oidc-passport-token");
   assert.match(PASSPORT_DEPLOYMENT_NOTE, /external prerequisite/);
   assert.match(PASSPORT_DEPLOYMENT_NOTE, /never enables Passport/);
-  assert.match(PASSPORT_ROLE_MAPPING_LABEL, /default to viewer/);
+  assert.match(PASSPORT_ROLE_MAPPING_LABEL, /JIRA_PASSPORT_ROLE_MAP/);
+  assert.match(PASSPORT_ROLE_MAPPING_LABEL, /or viewer \(read-only\) when unset/);
   assert.equal(PASSPORT_DEFAULT_ROLE, "viewer");
 });
 
