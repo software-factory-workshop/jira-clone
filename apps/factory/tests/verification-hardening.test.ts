@@ -87,6 +87,7 @@ test("browser before/after targets use the exact prepared base and reset continu
   assert.match(prepare, /reviewBrowser\.update\(\(\)=>\(\{targets:\{\},sources:\{\},observations:\{\}\}\)\)/);
   assert.match(prepare, /prepareFailure/);
   assert.match(prepare, /do not retry this tool again/);
+  assert.match(await source("agents/reviewer/agent/instructions.ts"), /do not call it again in this session/);
 });
 
 test("reviewer failure records an explicit cockpit unavailable state", async () => {
