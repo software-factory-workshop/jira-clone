@@ -28,7 +28,7 @@ export const vercelMachineCredentialExpiresAt = "2026-10-12";
 export const factoryModelIds = {
   taskMiner: "meta/muse-spark-1.3-contributor",
   worker: "meta/muse-spark-1.3-contributor",
-  reviewer: "meta/muse-spark-1.3-contributor",
+  reviewer: "google/gemini-3.8-flash",
 } as const;
 
 export const factoryPorts = {
