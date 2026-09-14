@@ -514,6 +514,50 @@ export function listComments(key: string): DemoComment[] | undefined {
   return (commentStore.get(key) ?? []).map((comment) => ({ ...comment }));
 }
 
+export type IssuesPage = {
+  total: number;
+  issues: DemoIssue[];
+};
+
+export type CommentsPage = {
+  total: number;
+  comments: DemoComment[];
+};
+
+/**
+ * Demo-only paginated issue read over the in-memory fallback. The single
+ * store read produces both the total and the bounded `startAt`/`maxResults`
+ * slice, so callers never page a separately loaded full list. Pure;
+ * never writes.
+ */
+export function getIssuesPage(startAt: number, maxResults: number): IssuesPage {
+  const all = getIssues();
+  return {
+    total: all.length,
+    issues: all.slice(startAt, startAt + maxResults),
+  };
+}
+
+/**
+ * Demo-only paginated comment list for one issue. Returns `undefined` for
+ * an unknown key without writing; otherwise the total plus the bounded
+ * slice. Pure; never writes.
+ */
+export function listCommentsPage(
+  key: string,
+  startAt: number,
+  maxResults: number,
+): CommentsPage | undefined {
+  const all = listComments(key);
+  if (!all) {
+    return undefined;
+  }
+  return {
+    total: all.length,
+    comments: all.slice(startAt, startAt + maxResults),
+  };
+}
+
 /**
  * Demo-only comment creation on the single in-memory save boundary.
  * Unknown keys return 404 before writing; blank bodies are rejected with a
