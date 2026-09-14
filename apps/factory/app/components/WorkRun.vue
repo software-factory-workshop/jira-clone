@@ -9,6 +9,7 @@ import { copyText, shortIdentifier } from "../utils/technical-details";
 import { formatModelUsage } from "../utils/model-usage.ts";
 import { modelUsageFromEvents } from "../../runtime/lib/delivery-events.ts";
 import type { VisualReviewBinding } from "../../runtime/lib/visual-review";
+import { reviewUnavailable, type ReviewUnavailable } from "../../shared/cockpit";
 const props = defineProps<{ sessionId: string; station: StationKind; child?: boolean; awaitingDecision?: boolean; execution?: "owner" | "dispatcher" | "direct"; rootAgent?: "worker" | "reviewer"; deliveryId?: string; operationId?: string }>();
 const emit = defineEmits<{ settled: [value: boolean]; recorded: [value: boolean] }>();
 const { data, events, status, error, resume, respond } = useEveAgent({ host: import.meta.client && props.rootAgent ? `${window.location.origin}/${props.rootAgent}` : undefined, initialSession: { sessionId: props.sessionId, streamIndex: 0 }, resume: true });
@@ -21,6 +22,7 @@ const queuedForOwner = computed(() => !!props.deliveryId && !deliveryStarted.val
 const runLink = computed(() => `/work/run?${new URLSearchParams({ station: props.station, ...(props.rootAgent?{rootAgent:props.rootAgent}:{}), run: props.sessionId, ...(props.execution ? { execution: props.execution } : {}), ...(props.deliveryId ? { deliveryId: props.deliveryId } : {}), ...(props.operationId ? { operationId: props.operationId } : {}) })}`);
 const childRecorded = ref(false);
 const fallbackResult = shallowRef<ReturnType<typeof parseStationResult>>();
+const unavailableResult = shallowRef<ReviewUnavailable>();
 const cancellationRequested = ref(false);
 const confirmStop = ref(false);
 const stopping = ref(false);
@@ -77,9 +79,11 @@ async function followChild() {
 }
 async function loadFallback() {
   try {
-    const record = await $fetch<{ item?: { value?: { reviewFallback?: unknown } } }>(`/factory/cockpit/records/runs/${encodeURIComponent(props.sessionId)}`, { retry: 0 });
+    const record = await $fetch<{ item?: { value?: { reviewFallback?: unknown; reviewUnavailable?: unknown } } }>(`/factory/cockpit/records/runs/${encodeURIComponent(props.sessionId)}`, { retry: 0 });
     const parsed = parseStationResult(record.item?.value?.reviewFallback);
     if (parsed?.station === props.station) fallbackResult.value = parsed;
+    const unavailable = reviewUnavailable.safeParse(record.item?.value?.reviewUnavailable);
+    if (unavailable.success && unavailable.data.station === props.station) unavailableResult.value = unavailable.data;
   } catch {
     // The Eve stream remains the primary live source; fallback evidence is best effort here.
   }
@@ -129,7 +133,7 @@ const flowModel = computed(() => stationFlow({
   child: props.child,
   tools: toolActivities.value,
 }));
-const label = computed(() => result.value ? result.value.station === "worker" ? props.execution === "owner" ? "PR revised" : "Draft PR created" : result.value.verdict === "approve" ? "Review passed" : result.value.verdict === "changes_requested" ? "Changes requested" : "Review incomplete" : queuedForOwner.value ? "Queued for branch owner" : needsDecision.value ? "Awaiting decision" : stopped.value ? "Stopped" : awaitingChild.value ? "Station dispatched" : authorizations.value.length ? "Connection needed" : active.value ? "Running" : ended.value ? "Incomplete" : "Disconnected");
+const label = computed(() => result.value ? result.value.station === "worker" ? props.execution === "owner" ? "PR revised" : "Draft PR created" : result.value.verdict === "approve" ? "Review passed" : result.value.verdict === "changes_requested" ? "Changes requested" : "Review incomplete" : unavailableResult.value ? "Review unavailable" : queuedForOwner.value ? "Queued for branch owner" : needsDecision.value ? "Awaiting decision" : stopped.value ? "Stopped" : awaitingChild.value ? "Station dispatched" : authorizations.value.length ? "Connection needed" : active.value ? "Running" : ended.value ? "Incomplete" : "Disconnected");
 watch(() => props.awaitingDecision, (waiting, previous) => {
   if (props.child && previous && !waiting && !result.value && !active.value) void reconnect();
 });
@@ -216,7 +220,12 @@ async function copyEvidence(value: string) {
         <details class="checks"><summary>Command evidence · {{ result.commands.length }} checks</summary><details v-for="(command, index) in result.commands" :key="index"><summary><code>{{ command.command }}</code> · exit {{ command.exitCode }}</summary><p v-if="command.truncated" class="small muted">Output is truncated.</p><pre>{{ command.stdout }}</pre><pre v-if="command.stderr">{{ command.stderr }}</pre></details></details>
       </template>
       <p v-else-if="!active && summary" class="summary">{{ summary }}</p>
-      <UAlert v-if="!result && !active && ended && !stopped && !awaitingChild && !needsDecision" color="warning" title="No completed result" description="The station ended without a recorded PR or review result. Inspect the run before trying again." />
+      <template v-if="unavailableResult && !result">
+        <UAlert color="warning" title="Visual review unavailable" :description="unavailableResult.summary" />
+        <p class="small muted">PR #{{ unavailableResult.prNumber }} · No visual packet or GitHub review was published for this attempt.</p>
+        <ul><li v-for="item in unavailableResult.limitations" :key="item">{{ item }}</li></ul>
+      </template>
+      <UAlert v-if="!result && !unavailableResult && !active && ended && !stopped && !awaitingChild && !needsDecision" color="warning" title="No completed result" description="The station ended without a recorded PR or review result. Inspect the run before trying again." />
       <UButton v-if="!result && (error || discoveryError || (!active && !ended && !stopped))" variant="outline" @click="reconnect">Reconnect</UButton>
     </template>
     <fieldset v-for="request in pendingRequests" :key="request.requestId" class="decision"><legend>Awaiting decision</legend><p>{{ request.prompt }}</p><UButton v-for="option in request.options || []" :key="option.id" :color="option.style === 'danger' ? 'error' : 'primary'" :disabled="!!answering" @click="answer(request.requestId, option.id)">{{ option.label }}</UButton><UTextarea v-if="request.allowFreeform || request.display === 'text'" v-model="freeformAnswers[request.requestId]" :rows="3" :maxlength="10000" aria-label="Answer the pending request" placeholder="Type an answer…" :disabled="!!answering" /><UButton v-if="request.allowFreeform || request.display === 'text'" :disabled="!freeformAnswers[request.requestId]?.trim() || !!answering" :loading="answering === request.requestId" @click="answerFreeform(request.requestId)">Send answer</UButton><p class="small muted">This decision applies to the existing station run. No option is selected automatically.</p></fieldset>

@@ -85,6 +85,20 @@ test("browser before/after targets use the exact prepared base and reset continu
   assert.doesNotMatch(browser, /review-base/);
   assert.match(prepare, /if\(prior\.prepared\)/);
   assert.match(prepare, /reviewBrowser\.update\(\(\)=>\(\{targets:\{\},sources:\{\},observations:\{\}\}\)\)/);
+  assert.match(prepare, /prepareFailure/);
+  assert.match(prepare, /do not retry this tool again/);
+});
+
+test("reviewer failure records an explicit cockpit unavailable state", async () => {
+  const hook = await source("runtime/stations/reviewer/hooks/incomplete-feedback.ts");
+  const cockpit = await source("shared/cockpit.ts");
+  const run = await source("app/components/WorkRun.vue");
+
+  assert.match(hook, /reviewUnavailable/);
+  assert.match(hook, /No visual packet or GitHub review was published/);
+  assert.match(cockpit, /export const reviewUnavailable/);
+  assert.match(run, /Visual review unavailable/);
+  assert.match(run, /unavailableResult\.limitations/);
 });
 
 test("reviewer webhook is restricted to factory-owned pull requests and review actions", async () => {

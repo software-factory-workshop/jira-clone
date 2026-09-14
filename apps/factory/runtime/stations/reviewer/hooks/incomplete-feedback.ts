@@ -9,18 +9,53 @@ import { createIncompleteReviewFeedback } from "../../../lib/review-feedback";
 import { stationOf, stationRequest } from "../../../lib/station-access";
 import { workState } from "../../../lib/work-state";
 
+function bounded(value: unknown, limit = 500) {
+  return (value instanceof Error ? value.message : String(value || "unknown reviewer failure")).replace(/[\u0000-\u001f\u007f]/g, " ").replace(/\s+/g, " ").trim().slice(0, limit);
+}
+
+async function recordUnavailable(ctx: HookContext, request: { prNumber: number }, state: ReturnType<typeof workState.get>, reason: unknown) {
+  const knownPull = state.pull?.number === request.prNumber ? state.pull : undefined;
+  await updateCockpit(doc => {
+    const previous = doc.runs[ctx.session.id];
+    return changeRecord(doc, "runs", ctx.session.id, {
+      ...(previous?.value || {}),
+      station: "reviewer",
+      rootAgent: "reviewer",
+      label: typeof previous?.value.label === "string" ? previous.value.label : `Review PR #${request.prNumber}`,
+      reviewUnavailable: {
+        station: "reviewer",
+        sessionId: ctx.session.id,
+        prNumber: request.prNumber,
+        ...(knownPull?.headSha ? { headSha: knownPull.headSha } : {}),
+        ...(knownPull?.baseSha ? { baseSha: knownPull.baseSha } : {}),
+        ...(knownPull?.targetBranch ? { targetBranch: knownPull.targetBranch } : {}),
+        summary: "The reviewer ended before it could publish trusted visual feedback to the PR.",
+        limitations: [bounded(reason), "No visual packet or GitHub review was published for this attempt. Start a fresh review after the provider recovers."].slice(0, 20),
+        capturedAt: new Date().toISOString(),
+      },
+    }, previous?.version || 0);
+  });
+}
+
 async function publishFallback(ctx: HookContext) {
   if (stationOf(ctx) !== "reviewer") return;
   const state = workState.get();
   if (state.recorded) return;
 
+  let request: { prNumber: number } | undefined;
   try {
-    const request = stationRequest(ctx);
-    if (!("prNumber" in request)) return;
-    const knownPull = state.pull?.number === request.prNumber ? state.pull : undefined;
+    const requested = stationRequest(ctx);
+    if (!("prNumber" in requested)) return;
+    request = { prNumber: requested.prNumber };
+    const prNumber = requested.prNumber;
+    const knownPull = state.pull?.number === prNumber ? state.pull : undefined;
+    if (state.prepareFailure && !knownPull) {
+      await recordUnavailable(ctx, { prNumber }, state, state.prepareFailure.message);
+      return;
+    }
     const feedback = await createIncompleteReviewFeedback({
       token: await getToken(githubConnectorName, { subject: { type: "app" } }),
-      prNumber: request.prNumber,
+      prNumber,
       reviewerSessionId: ctx.session.id,
       headSha: knownPull?.headSha,
       baseSha: knownPull?.baseSha,
@@ -34,12 +69,17 @@ async function publishFallback(ctx: HookContext) {
         ...(previous?.value || {}),
         station: "reviewer",
         rootAgent: "reviewer",
-        label: typeof previous?.value.label === "string" ? previous.value.label : `Review PR #${request.prNumber}`,
+        label: typeof previous?.value.label === "string" ? previous.value.label : `Review PR #${prNumber}`,
         reviewFallback: feedback.review,
       }, previous?.version || 0);
     });
   } catch (error) {
-    log.warn({ factory: { station: "reviewer", stage: "incomplete_feedback", outcome: "unavailable", reason: error instanceof Error ? error.message : "publication failed" } });
+    if (request) {
+      try { await recordUnavailable(ctx, request, state, error); }
+      catch (recordError) { log.warn({ factory: { station: "reviewer", stage: "incomplete_feedback", outcome: "unavailable", reason: bounded(recordError) } }); }
+    } else {
+      log.warn({ factory: { station: "reviewer", stage: "incomplete_feedback", outcome: "unavailable", reason: bounded(error) } });
+    }
   }
 }
 
