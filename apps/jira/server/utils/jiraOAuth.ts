@@ -430,6 +430,44 @@ const refreshTokens = new Map<string, RefreshToken>();
 const deactivatedAccounts = new Set<string>();
 
 /**
+ * Serializable snapshot of the whole demo OAuth store. The persistence
+ * boundary (`oauthPersistence.ts`) hydrates the in-memory maps from Neon
+ * before a request touches them and writes the changed entries back after,
+ * so registered clients and issued tokens survive cold starts and deploys.
+ * The OAuth logic itself stays synchronous and in-memory.
+ */
+export type OAuthStateSnapshot = {
+  clients: OAuthClient[];
+  grantTickets: GrantTicket[];
+  authCodes: AuthCode[];
+  accessTokens: AccessToken[];
+  refreshTokens: RefreshToken[];
+  deactivatedAccounts: string[];
+};
+
+export function exportOAuthState(): OAuthStateSnapshot {
+  return {
+    clients: [...clients.values()],
+    grantTickets: [...grantTickets.values()],
+    authCodes: [...authCodes.values()],
+    accessTokens: [...accessTokens.values()],
+    refreshTokens: [...refreshTokens.values()],
+    deactivatedAccounts: [...deactivatedAccounts],
+  };
+}
+
+/** Replace the in-memory store with a snapshot (used by hydration). */
+export function importOAuthState(snapshot: OAuthStateSnapshot): void {
+  resetOAuthState();
+  for (const c of snapshot.clients) clients.set(c.clientId, c);
+  for (const t of snapshot.grantTickets) grantTickets.set(t.ticket, t);
+  for (const c of snapshot.authCodes) authCodes.set(c.code, c);
+  for (const t of snapshot.accessTokens) accessTokens.set(t.token, t);
+  for (const t of snapshot.refreshTokens) refreshTokens.set(t.token, t);
+  for (const a of snapshot.deactivatedAccounts) deactivatedAccounts.add(a);
+}
+
+/**
  * Clear all demo OAuth state: clients, grant tickets, codes, tokens and
  * deactivations. Tests call this; routes never do.
  */

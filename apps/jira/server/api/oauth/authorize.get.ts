@@ -1,3 +1,4 @@
+import { defineOAuthHandler } from "../../utils/oauthPersistence";
 import { resolveAppActor } from "../../utils/appAccounts";
 import { DEMO_ROLE_MATRIX_LABEL } from "../../utils/demoAccounts";
 import { PASSPORT_TOKEN_HEADER } from "../../utils/passportIdentity";
@@ -20,7 +21,7 @@ import {
  * is a JSON POST, so the browser UI path stays separate from the machine
  * token routes).
  */
-export default defineEventHandler((event) => {
+export default defineOAuthHandler((event) => {
   const issuer = resolveOAuthIssuer({
     envIssuer: process.env.JIRA_OAUTH_ISSUER,
     proto: getHeader(event, "x-forwarded-proto") ?? undefined,
