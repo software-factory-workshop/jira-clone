@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { includeSource, manifestFor, verifyGatewayScope, scope } from "../runtime/lib/github.mjs";
-import { commandEvidence } from "../runtime/lib/command-evidence.ts";
+import { commandEvidence, testCountFromOutput } from "../runtime/lib/command-evidence.ts";
 import { agentBrowserVersion } from "../runtime/lib/factory-config.ts";
 test("runnable snapshot includes locked and vendored inputs but excludes calibration answers and secrets",()=>{
  for(const path of ["pnpm-lock.yaml","vendor/design-system.tgz","apps/factory/agents/task-miner/agent/agent.ts","apps/factory/agents/worker/agent/agent.ts","apps/factory/agents/reviewer/agent/agent.ts","apps/factory/runtime/lib/github.mjs","apps/factory/server/workflows/delivery.ts",`vendor/agent-browser-eve-${agentBrowserVersion}-eve.0.52.5.tgz`,"factory/CONTRACT.md"]) assert.equal(includeSource(path),true,path);
@@ -14,6 +14,12 @@ test("binary source provenance hashes exact bytes",()=>{
 test("command evidence preserves failure exit code and flags bounded output",()=>{
  const result=commandEvidence("pnpm test",{exitCode:1,stdout:"a".repeat(13000),stderr:"failed"});
  assert.equal(result.exitCode,1);assert.equal(result.truncated,true);assert.equal(result.stdout.length,12000);assert.equal(result.stderr,"failed");
+});
+
+test("test output totals sum package summaries and ignore ordinary test lines",()=>{
+ const output="✔ test output mentions tests 3 in prose\n@jira:test: ℹ tests 161\n@factory:test: ℹ tests: 210\n";
+ assert.equal(testCountFromOutput(output),371);
+ assert.equal(testCountFromOutput("no summary was emitted"),undefined);
 });
 
 test("Gateway refuses ambient API keys even with a correctly scoped OIDC token",()=>{
