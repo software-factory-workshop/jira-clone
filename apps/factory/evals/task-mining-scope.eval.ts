@@ -45,7 +45,10 @@ function isScopedFindings(value: unknown, allowedScope: RegExp): boolean {
     const evidence = property(proposal, "evidence");
     if (!Array.isArray(scope) || !scope.every(nonEmptyString)) return false;
     if (!Array.isArray(evidence) || !evidence.some(item => typeof item === "string" && /[\w.-]+(?:\/[\w.-]+)+:\d+/.test(item))) return false;
-    return scope.every(item => allowedScope.test(item));
+    // Scope items are sub-steps of one proposal; the proposal stays in scope when its title or
+    // any scope item names the requested surface (sub-steps like "add regression coverage" do not).
+    const title = property(proposal, "title");
+    return (typeof title === "string" && allowedScope.test(title)) || scope.some(item => allowedScope.test(item));
   });
 }
 
