@@ -26,7 +26,7 @@ const tool = defineTool({
   const proposals = recordProposals(input.proposals, { sessionId: ctx.session.id, revision: state.revision, capturedAt });
   const sections = proposals.map(proposal => renderProposal(proposal, proposal.rank));
   if(!sections.length) sections.push(input.noProposalReason!);
-  sections.push(`## Reflection\n\n${Object.entries(input.reflection).map(([name,values])=>`**${name}**\n${values.map(v=>`- ${v}`).join("\n")||"None recorded."}`).join("\n\n")}`);
+  sections.push(`## Reflection\n\n${Object.entries(input.reflection).map(([name,values])=>{const list=Array.isArray(values)?values:values==null?[]:[String(values)];return `**${name}**\n${list.map(v=>`- ${v}`).join("\n")||"None recorded."}`;}).join("\n\n")}`);
   if(gaps.length) sections.push(`## Context gaps\n\n${gaps.map(g=>`- ${g}`).join("\n")}`);
   miningState.update(s=>({...s,recorded:true}));
   const result={phase:gaps.length?"Incomplete":"Complete",report:sections.join("\n\n"),revision:state.revision,repository,model,team:scope.team,capturedAt,elapsedMs:Date.now()-Date.parse(state.startedAt),files:state.files,githubReads:state.githubReads.map(r=>({...r,count:r.items.length,items:undefined})),vercelReads:state.vercelReads,commands:state.commands,contextGaps:gaps,proposals,noProposalReason:input.noProposalReason,reflection:input.reflection,admission:state.admission,executionSurface:"native-eve",source:"git-revision"};
