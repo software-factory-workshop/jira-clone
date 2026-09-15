@@ -75,7 +75,7 @@ test("viewer is read-only: every write kind is denied with 403 and mutates nothi
   resetIssues();
   const beforeIssues = getIssues();
   const beforeCommentCount = (listComments("ADEO-1") ?? []).length;
-  for (const action of ["create", "update", "comment", "reset"] as const) {
+  for (const action of ["create", "create-board", "update", "comment", "reset"] as const) {
     const denied = authorizeDemoWrite("demo-viewer", action);
     assert.equal(denied.ok, false);
     assert.equal(denied.ok ? 0 : denied.statusCode, 403);
@@ -105,7 +105,7 @@ test("member can write but cannot reset", () => {
 
 test("admin can write and reset while fail paths and reset semantics hold", () => {
   resetIssues();
-  for (const action of ["create", "update", "comment", "reset"] as const) {
+  for (const action of ["create", "create-board", "update", "comment", "reset"] as const) {
     assert.equal(authorizeDemoWrite("demo-admin", action).ok, true);
   }
   const failedCreate = createIssue({ title: "Never saved" }, { fail: true });

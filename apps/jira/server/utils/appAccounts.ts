@@ -400,6 +400,7 @@ export function resolveAppActor(input: AppRequestIdentity): AppActorResolution {
 
 const ACTION_VERBS: Record<DemoWriteAction, string> = {
   create: "create issues",
+  "create-board": "create boards",
   update: "update issues",
   comment: "add comments",
   delete: "delete issues",

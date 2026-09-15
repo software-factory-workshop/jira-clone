@@ -67,10 +67,17 @@ import {
   resolveOAuthIssuer,
   validateOAuthBearer,
 } from "./jiraOAuth.ts";
+import {
+  createPersistentBoard,
+  listPersistentBoards,
+  type DemoBoard,
+  type DemoBoardType,
+} from "./boardPersistence.ts";
 
 /** Explicit boundary note attached to every adapter response. */
 export const REST_BOUNDARY =
-  "Demo-only Jira-style REST subset: reads plus the bounded writes POST /api/rest/api/3/issue, " +
+  "Demo-only Jira-style REST subset: reads plus bounded writes including board creation via " +
+  "POST /api/rest/agile/1.0/board, POST /api/rest/api/3/issue, " +
   "PUT /api/rest/api/3/issue/:key, POST /api/rest/api/3/issue/:key/comment and " +
   "POST /api/rest/api/3/issue/:key/transitions over the configured Jira demo persistence layer " +
   "(Neon Postgres when DATABASE_URL is configured, with an explicit in-memory fallback); " +
@@ -148,6 +155,23 @@ export type RestProjectStatuses = {
   issueTypes: { name: string; statuses: { name: string }[] }[];
 } & DemoEnvelope;
 
+export type RestBoard = {
+  id: string;
+  name: string;
+  type: DemoBoardType;
+  location: {
+    projectId: string;
+    projectKey: string;
+    displayName: string;
+    projectType: string;
+  };
+} & DemoEnvelope;
+
+export type RestBoardList = {
+  total: number;
+  values: RestBoard[];
+} & DemoEnvelope;
+
 export type RestIssue = {
   id: string;
   key: string;
@@ -196,6 +220,28 @@ export type RestTransitionList = {
   from: string;
   transitions: RestTransition[];
 } & DemoEnvelope;
+
+export type RestCreateBoardInput = {
+  name?: unknown;
+  type?: unknown;
+  projectKey?: unknown;
+  fail?: unknown;
+};
+
+export function toRestBoard(board: DemoBoard): RestBoard {
+  return {
+    id: board.id,
+    name: board.name,
+    type: board.type,
+    location: {
+      projectId: REST_PROJECT_ID,
+      projectKey: board.projectKey,
+      displayName: REST_PROJECT_NAME,
+      projectType: REST_PROJECT_TYPE,
+    },
+    ...demoEnvelope(),
+  };
+}
 
 /**
  * Jira-shaped demo user for GET /api/rest/api/3/myself. Passport-derived
@@ -441,6 +487,19 @@ export function restProjectStatuses(
   };
 }
 
+/** List every bounded demo board. Never writes. */
+export async function restBoards(): Promise<RestResult<RestBoardList>> {
+  const boards = (await listPersistentBoards()).map(toRestBoard);
+  return {
+    ok: true,
+    data: {
+      total: boards.length,
+      values: boards,
+      ...demoEnvelope(),
+    },
+  };
+}
+
 /**
  * Single-issue read with the Jira-like envelope. Unknown keys return a
  * labelled 404. Pure; never writes.
@@ -662,6 +721,82 @@ function readFieldsObject(fields: unknown): {
 
 function failFlag(value: unknown): boolean {
   return value === true;
+}
+
+/**
+ * Demo-only board creation for POST /api/rest/agile/1.0/board.
+ *
+ * The bounded simulator accepts a board name, a Jira board type (kanban or
+ * scrum), and the sole demo project key KAN. Unknown fields, invalid types,
+ * unknown projects and the deterministic failure path write nothing.
+ */
+export async function restCreateBoard(
+  identity: AppRequestIdentity,
+  body: RestCreateBoardInput = {},
+  options?: { bearer?: ReturnType<typeof validateOAuthBearer> | null },
+): Promise<RestWriteResult<{ board: RestBoard; actor: ReturnType<typeof appActorLabel>; identitySource: AppIdentitySource }>> {
+  const authorized = authorizeRestWrite(identity, "create-board", options?.bearer ?? null);
+  if (!authorized.ok) return authorized;
+  const account = authorized.data;
+
+  if (typeof body !== "object" || body === null || Array.isArray(body)) {
+    return {
+      ok: false,
+      statusCode: 400,
+      error: "Invalid demoOnly board request: expected an object. Nothing was written.",
+    };
+  }
+  const raw = body as Record<string, unknown>;
+  const unknown = Object.keys(raw).filter((key) => !["name", "type", "projectKey", "fail"].includes(key));
+  if (unknown.length > 0) {
+    return {
+      ok: false,
+      statusCode: 400,
+      error: `Unsupported demoOnly board field(s): ${unknown.join(", ")}. Supported fields: name, type, projectKey. Nothing was written.`,
+    };
+  }
+  if (failFlag(raw["fail"])) {
+    return {
+      ok: false,
+      statusCode: 500,
+      error: "Deterministic demo failure: nothing was written.",
+    };
+  }
+
+  const name = typeof raw["name"] === "string" ? raw["name"].trim() : "";
+  if (name.length < 1 || name.length > 100) {
+    return {
+      ok: false,
+      statusCode: 400,
+      error: "Invalid demoOnly board name: expected 1..100 non-whitespace characters. Nothing was written.",
+    };
+  }
+  const type = raw["type"];
+  if (type !== "kanban" && type !== "scrum") {
+    return {
+      ok: false,
+      statusCode: 400,
+      error: 'Invalid demoOnly board type: expected "kanban" or "scrum". Nothing was written.',
+    };
+  }
+  const projectKey = raw["projectKey"] === undefined ? REST_PROJECT_KEY : raw["projectKey"];
+  if (projectKey !== REST_PROJECT_KEY) {
+    return {
+      ok: false,
+      statusCode: 404,
+      error: `Unknown demo project: ${String(projectKey)}. This demo board subset only serves project "${REST_PROJECT_KEY}". Nothing was written.`,
+    };
+  }
+
+  const board = await createPersistentBoard({ name, type, projectKey: REST_PROJECT_KEY });
+  return {
+    ok: true,
+    data: {
+      board: toRestBoard(board),
+      actor: appActorLabel(account),
+      identitySource: account.identitySource,
+    },
+  };
 }
 
 function toStorePriorityName(value: unknown): DemoPriority | null {

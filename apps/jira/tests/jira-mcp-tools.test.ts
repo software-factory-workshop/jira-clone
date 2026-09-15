@@ -8,6 +8,8 @@ import {
   REST_MAX_MAX_RESULTS,
   mcpWriteIdentity,
   restAddComment,
+  restBoards,
+  restCreateBoard,
   restComments,
   restCreateIssue,
   restIssue,
@@ -19,6 +21,7 @@ import {
   restTransitions,
   restUpdateIssue,
 } from "../server/utils/jiraRest.ts";
+import { listPersistentBoards, resetMemoryBoards } from "../server/utils/boardPersistence.ts";
 import {
   getIssue,
   getIssues,
@@ -56,6 +59,7 @@ type CapturedTool = {
 
 const EXPECTED_FILES = [
   "add-comment.ts",
+  "create-board.ts",
   "create-issue.ts",
   "delete-issue.ts",
   "get-allowed-transitions.ts",
@@ -63,6 +67,7 @@ const EXPECTED_FILES = [
   "get-project-statuses.ts",
   "get-project.ts",
   "list-comments.ts",
+  "list-boards.ts",
   "list-issues.ts",
   "me.ts",
   "transition-issue.ts",
@@ -74,12 +79,13 @@ const READ_NAMES = [
   "getIssue",
   "getProject",
   "getProjectStatuses",
+  "listBoards",
   "listComments",
   "listIssues",
   "me",
 ];
 
-const WRITE_NAMES = ["addComment", "createIssue", "deleteIssue", "transitionIssue", "updateIssue"];
+const WRITE_NAMES = ["addComment", "createBoard", "createIssue", "deleteIssue", "transitionIssue", "updateIssue"];
 
 const EXPECTED_NAMES = [...READ_NAMES, ...WRITE_NAMES];
 
@@ -128,7 +134,7 @@ function sourceFor(name: string): string {
   return readFileSync(join(toolsDir, file!), "utf8");
 }
 
-test("mcp tool surface is the seven reads plus five bounded writes", async () => {
+test("mcp tool surface includes bounded board reads and creation", async () => {
   const files = readdirSync(toolsDir)
     .filter((file) => file.endsWith(".ts"))
     .sort();
@@ -142,7 +148,7 @@ test("mcp tool surface is the seven reads plus five bounded writes", async () =>
     assert.match(String(tool.description), /Demo-only read/i);
     const source = sourceFor(name);
     assert.match(source, /from "zod"/);
-    assert.doesNotMatch(source, /restCreateIssue|restUpdateIssue|restAddComment|restTransitionIssue|restDeleteIssue/);
+    assert.doesNotMatch(source, /restCreateBoard|restCreateIssue|restUpdateIssue|restAddComment|restTransitionIssue|restDeleteIssue/);
     assert.doesNotMatch(
       source,
       /defineMcpHandler|defineMcpResource|defineMcpPrompt/,
@@ -158,7 +164,7 @@ test("mcp tool surface is the seven reads plus five bounded writes", async () =>
     assert.match(source, /from "zod"/);
     // Write tools share the REST write helpers and the demoUser fallback;
     // they never touch the raw Passport header or claim Passport auth.
-    assert.match(source, /rest(CreateIssue|UpdateIssue|AddComment|TransitionIssue|DeleteIssue)/);
+    assert.match(source, /rest(CreateBoard|CreateIssue|UpdateIssue|AddComment|TransitionIssue|DeleteIssue)/);
     assert.match(source, /mcpWriteIdentity/);
     assert.doesNotMatch(source, /passportToken|PASSPORT_TOKEN_HEADER/);
     assert.match(source, /without Passport auth/);
@@ -172,8 +178,10 @@ test("mcp tool surface is the seven reads plus five bounded writes", async () =>
 
 test("mcp read tools map the REST contracts 1:1 and write nothing", async () => {
   resetIssues();
+  resetMemoryBoards();
   const tools = await loadTools();
   const before = getIssues();
+  const beforeBoards = await listPersistentBoards();
 
   const me = tools.get("me")!;
   assert.deepEqual(
@@ -195,6 +203,13 @@ test("mcp read tools map the REST contracts 1:1 and write nothing", async () => 
   assert.deepEqual(
     await callTool(getProjectStatuses, {}),
     (restProjectStatuses("KAN") as { ok: true; data: unknown }).data,
+  );
+
+  const listBoards = tools.get("listBoards")!;
+  const directBoards = await restBoards();
+  assert.deepEqual(
+    await callTool(listBoards, {}),
+    directBoards.ok ? directBoards.data : undefined,
   );
 
   const getIssue = tools.get("getIssue")!;
@@ -232,6 +247,7 @@ test("mcp read tools map the REST contracts 1:1 and write nothing", async () => 
 
   // Driving every read tool wrote nothing.
   assert.deepEqual(getIssues(), before);
+  assert.deepEqual(await listPersistentBoards(), beforeBoards);
   assert.match(REST_BOUNDARY, /bounded writes/);
   resetIssues();
 });
@@ -302,10 +318,26 @@ test("mcp tools fail closed on unknown keys, bad pagination and jql", async () =
 
 test("mcp write tools wrap the REST write contracts 1:1", async () => {
   resetIssues();
+  resetMemoryBoards();
   const tools = await loadTools();
   const identity = mcpWriteIdentity("demo-member");
 
   const createIssueTool = tools.get("createIssue")!;
+
+  const createBoardTool = tools.get("createBoard")!;
+  const createdBoard = (await callTool(createBoardTool, {
+    name: "Workshop delivery",
+    type: "kanban",
+  })) as { board: { id: string; name: string; type: string } };
+  assert.deepEqual(
+    { id: createdBoard.board.id, name: createdBoard.board.name, type: createdBoard.board.type },
+    { id: "2", name: "Workshop delivery", type: "kanban" },
+  );
+  resetMemoryBoards();
+  const directBoard = await restCreateBoard(identity, { name: "Parity board", type: "scrum" });
+  resetMemoryBoards();
+  const viaBoard = await callTool(createBoardTool, { name: "Parity board", type: "scrum" });
+  assert.deepEqual(viaBoard, directBoard.ok ? directBoard.data : undefined);
   const created = (await callTool(createIssueTool, {
     fields: { summary: "MCP-created follow-up", priority: "Highest" },
   })) as { issue: { key: string; fields: { summary: string } } };
@@ -366,7 +398,7 @@ test("mcp write tools wrap the REST write contracts 1:1", async () => {
 
   // Every write result reports the demoFallback identity source: MCP inputs
   // never carry the raw Passport header and never claim Passport auth.
-  for (const result of [viaTool, viaUpdate, viaComment, viaMove]) {
+  for (const result of [viaBoard, viaTool, viaUpdate, viaComment, viaMove]) {
     assert.equal(
       (result as { identitySource: unknown }).identitySource,
       "demoFallback",
@@ -381,17 +413,25 @@ test("mcp write tools wrap the REST write contracts 1:1", async () => {
 
 test("mcp write tools enforce permissions and fail closed without writing", async () => {
   resetIssues();
+  resetMemoryBoards();
   const tools = await loadTools();
   const before = getIssues();
   const beforeComments = listComments("ADEO-1");
+  const beforeBoards = await listPersistentBoards();
 
   const createIssueTool = tools.get("createIssue")!;
+  const createBoardTool = tools.get("createBoard")!;
   const updateIssueTool = tools.get("updateIssue")!;
   const addCommentTool = tools.get("addComment")!;
   const transitionTool = tools.get("transitionIssue")!;
 
   // Viewer writes are denied on every write tool before any mutation.
   for (const attempt of [
+    callTool(createBoardTool, {
+      name: "Denied board",
+      type: "kanban",
+      demoUser: "demo-viewer",
+    }),
     callTool(createIssueTool, {
       fields: { summary: "Denied" },
       demoUser: "demo-viewer",
@@ -417,6 +457,8 @@ test("mcp write tools enforce permissions and fail closed without writing", asyn
     assert.match(denied.message, /Demo-only permission denied/);
     assert.match(denied.message, /Nothing was written/);
   }
+
+  assert.deepEqual(await listPersistentBoards(), beforeBoards);
 
   // Unknown/malformed identities fail closed per tool.
   for (const demoUser of ["mallory", "", 42]) {
