@@ -89,6 +89,22 @@ function escapeHtml(value: string) {
   return value.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;");
 }
 
+/**
+ * An incomplete retry must not erase a usable packet from an earlier reviewer
+ * run for the same exact candidate/base/target binding. Only preserve a
+ * factory-shaped section with a direct public frame URL; arbitrary PR prose
+ * never counts as visual evidence.
+ */
+export function hasReviewableVisualSection(body: string, binding: VisualReviewBinding) {
+  const start = body.indexOf(VISUAL_REVIEW_START);
+  const end = body.indexOf(VISUAL_REVIEW_END, start + VISUAL_REVIEW_START.length);
+  if (start < 0 || end < 0) return false;
+  const section = body.slice(start, end + VISUAL_REVIEW_END.length);
+  return section.includes(`exact candidate <code>${escapeHtml(binding.headSha)}</code>`)
+    && section.includes(`target <code>${escapeHtml(binding.targetBranch)} @ ${escapeHtml(binding.baseSha)}</code>`)
+    && /<img\b[^>]*src="https:\/\/[^" ]+\.public\.blob\.vercel-storage\.com\/[^" ]+"/.test(section);
+}
+
 function frameMarkup(frame: VisualReviewFrame | undefined, label: string) {
   if (!frame) return "<span>Not captured</span>";
   const url = escapeHtml(frame.url);

@@ -1,6 +1,6 @@
 import { browserRequirements, type BrowserReviewApp } from "./review-browser.ts";
 import { readPull, readPullFiles, submitPullRequestReview, updatePullRequestBody, type PullRequestFile, type PullRequestReviewReceipt } from "./work-github.ts";
-import { buildVisualReviewPacket, visualReviewFeedbackMarker, withVisualReviewSection, type VisualReviewPacket } from "./visual-review.ts";
+import { buildVisualReviewPacket, hasReviewableVisualSection, visualReviewFeedbackMarker, withVisualReviewSection, type VisualReviewPacket } from "./visual-review.ts";
 
 export type ReviewVerdict = "approve" | "changes_requested" | "incomplete";
 export type ReviewFeedbackKind = "recorded" | "incomplete";
@@ -117,12 +117,15 @@ export async function publishReviewFeedback(input: {
 
   if (input.includeVisualSection) {
     try {
-      const section = withVisualReviewSection(input.currentBody, input.visualReview, {
+      const binding = {
         baseSha: input.baseSha,
         headSha: input.headSha,
         targetBranch: input.targetBranch,
-      });
-      await updatePullRequestBody(input.token, input.prNumber, input.headSha, section, input.signal);
+      };
+      if (input.kind !== "incomplete" || !hasReviewableVisualSection(input.currentBody, binding)) {
+        const section = withVisualReviewSection(input.currentBody, input.visualReview, binding);
+        await updatePullRequestBody(input.token, input.prNumber, input.headSha, section, input.signal);
+      }
       body = "published";
     } catch (error) {
       errors.push(`PR visual section publication failed: ${errorMessage(error)}`);
