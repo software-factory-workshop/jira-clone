@@ -163,6 +163,52 @@ nav button.active {
   color: #273943;
   margin: 0 0 12px;
 }
+.board-legend {
+  display: flex;
+  gap: 16px;
+  align-items: baseline;
+  margin: 0 0 14px;
+  padding: 10px 12px;
+  border: 1px solid #e0e6e9;
+  border-radius: 5px;
+  background: #f8fafb;
+  color: #425861;
+  font-size: 12px;
+  line-height: 1.45;
+}
+.board-legend h2,
+.board-legend dl,
+.board-legend dd {
+  margin: 0;
+}
+.board-legend h2,
+.board-legend dt {
+  color: #273943;
+  font-weight: 600;
+}
+.board-legend h2 {
+  flex: 0 0 auto;
+  font-size: 12px;
+}
+.board-legend dl {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 18px;
+}
+.board-legend dl > div {
+  display: flex;
+  gap: 4px;
+}
+.board-legend dt::after {
+  content: ":";
+}
+@media (max-width: 760px) {
+  .board-legend,
+  .board-legend dl {
+    align-items: stretch;
+    flex-direction: column;
+  }
+}
 .table-wrap {
   overflow: auto;
   border: 1px solid #e0e6e9;

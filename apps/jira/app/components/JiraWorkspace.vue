@@ -804,6 +804,7 @@ await Promise.all([refreshAccount(), refresh()]);
               Next
             </UButton>
           </nav>
+          <JiraBoardLegend />
           <JiraIssueList
             v-if="view === 'list'"
             :issues="filtered"
