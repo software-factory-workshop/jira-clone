@@ -15,8 +15,10 @@ const focus = ref(props.sourceWorkOrder ? `Verify whether this proposed work ord
 const actionError = ref("");
 const activatingKey = ref<string>();
 const approvalStarting = ref(false);
+const proposalStartingKey = ref<string>();
 const admissionRecorded = ref(false);
 let approvalOperationId: string | undefined;
+const proposalOperationIds = new Map<string, string>();
 const copiedSession = ref(false);
 const { data, events, status, error, session, send, cancel, resume, respond } = useEveAgent({
   initialSession: props.sessionId ? { sessionId: props.sessionId, streamIndex: 0 } : undefined,
@@ -72,6 +74,35 @@ async function activateDraft(proposalId?: string) {
   if (!sessionId) throw new Error("Investigation session is unavailable");
   const response = await $fetch<{ item: ActivatedDraft }>("/factory/cockpit/activate", { method: "POST", body: { sessionId, proposalId }, retry: 0 });
   return response.item;
+}
+
+async function startProposal(proposal: MiningProposal, index: number) {
+  const sessionId = currentSessionId.value;
+  const key = proposalKey(proposal, index);
+  if (!sessionId || proposalStartingKey.value || activatingKey.value || approvalStarting.value) return;
+  proposalStartingKey.value = key;
+  actionError.value = "";
+  try {
+    const approved = await $fetch<{ item: ActivatedDraft }>("/factory/cockpit/approve-proposal", {
+      method: "POST",
+      body: { sessionId, proposalIndex: index, ...(proposal.id ? { proposalId: proposal.id } : {}) },
+      retry: 0,
+    });
+    const operationId = proposalOperationIds.get(key) ?? crypto.randomUUID();
+    proposalOperationIds.set(key, operationId);
+    const response = await $fetch<{ id?: string }>("/factory/delivery", {
+      method: "POST",
+      body: { operationId, draftId: approved.item.id, title: approved.item.value.title, brief: approved.item.value.request },
+      retry: 0,
+    });
+    if (!response.id) throw new Error("Durable delivery was not identified");
+    proposalOperationIds.delete(key);
+    await router.replace({ path: "/work/run", query: { delivery: response.id } });
+  } catch (cause) {
+    actionError.value = cockpitActionMessage(cause, "Could not start this proposal. Its investigation is retained; retry starts the same work order without another task-mining pass.");
+  } finally {
+    proposalStartingKey.value = undefined;
+  }
 }
 
 async function approveWorkOrder() {
@@ -197,7 +228,13 @@ onMounted(() => {
             <h4>Acceptance criteria</h4><ul><li v-for="item in proposal.acceptanceCriteria" :key="item">{{ item }}</li></ul>
             <template v-if="proposal.uncertainties.length"><h4>Uncertainties</h4><ul><li v-for="item in proposal.uncertainties" :key="item">{{ item }}</li></ul></template>
             <ProposalFeedback :proposal-id="proposal.id" :proposal-title="proposal.title" />
-            <template #footer><div class="proposal-action"><UButton icon="i-lucide-file-pen-line" :loading="activatingKey === proposalKey(proposal, index)" :disabled="!!activatingKey || approvalStarting" :aria-label="`Use revised work order: ${proposal.title}`" @click="useProposal(proposal, index)">Use as revised work order</UButton><span class="small muted">Return to the work-order page with this proposal as editable text.</span></div></template>
+            <template #footer>
+              <div class="proposal-action">
+                <UButton icon="i-lucide-play" :loading="proposalStartingKey === proposalKey(proposal, index)" :disabled="!!proposalStartingKey || !!activatingKey || approvalStarting" :aria-label="`Start work order: ${proposal.title}`" @click="startProposal(proposal, index)">Start work order</UButton>
+                <UButton color="neutral" variant="outline" icon="i-lucide-file-pen-line" :loading="activatingKey === proposalKey(proposal, index)" :disabled="!!proposalStartingKey || !!activatingKey || approvalStarting" :aria-label="`Edit work order: ${proposal.title}`" @click="useProposal(proposal, index)">Edit before starting</UButton>
+                <span class="small muted">Starts delivery directly from this mined proposal. Editing it requires a new review.</span>
+              </div>
+            </template>
           </UCard>
         </div>
         <p v-else-if="output.proposals && output.noProposalReason" class="report">{{ output.noProposalReason }}</p>

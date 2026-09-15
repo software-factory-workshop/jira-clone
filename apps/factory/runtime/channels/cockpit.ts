@@ -8,7 +8,7 @@ import { factoryAuth } from '../lib/route-auth';
 import { readCockpit,updateCockpit } from '../lib/cockpit-store';
 import { collections,idSchema,changeRecord,importRecords,CockpitConflict,workOrderAdmissionSchema } from '../../shared/cockpit';
 import { readRun,readStationRun } from '../lib/cockpit-run';
-import { proposalDraft } from '../../app/utils/mining-output';
+import { proposalDeliveryRequest,proposalDraft } from '../../app/utils/mining-output';
 import { readVisualFrame } from '../lib/visual-review-store';
 const collectionSchema=z.enum(collections);
 // Shared records (drafts, feedback, run references) are versioned. Every write
@@ -29,7 +29,7 @@ export default defineChannel({routes:[
    return new Response(image.stream,{status:200,headers:{'cache-control':'private, max-age=31536000, immutable','content-type':image.mediaType,'x-content-type-options':'nosniff','etag':image.sha256}});
   }catch{return new Response('Visual frame not found',{status:404});}
  }),
- GET('/factory/cockpit',request=>authorized(request,async()=>({version:1,repository,references,stages,starterRequests,sections:['mining','work'],capabilities:{collections:'/factory/cockpit/records/:collection',import:'/factory/cockpit/import',respond:'/eve/v1/session/:id',reset:'/eve/v1/session/:id/reset',delivery:'/factory/delivery',record:'/factory/cockpit/records/:collection/:id',activate:'/factory/cockpit/activate',approve:'/factory/cockpit/approve',issueLink:'/factory/cockpit/issue-link',runResult:'/factory/cockpit/run/:id',worker:'/factory/stations/worker',reviewer:'/factory/stations/reviewer',revision:'/factory/stations/revisions',mining:'/eve/v1/session',stream:'/eve/v1/session/:id/stream',send:'/eve/v1/session/:id',cancel:'/eve/v1/session/:id/cancel'}}))),
+ GET('/factory/cockpit',request=>authorized(request,async()=>({version:1,repository,references,stages,starterRequests,sections:['mining','work'],capabilities:{collections:'/factory/cockpit/records/:collection',import:'/factory/cockpit/import',respond:'/eve/v1/session/:id',reset:'/eve/v1/session/:id/reset',delivery:'/factory/delivery',record:'/factory/cockpit/records/:collection/:id',activate:'/factory/cockpit/activate',approve:'/factory/cockpit/approve',approveProposal:'/factory/cockpit/approve-proposal',issueLink:'/factory/cockpit/issue-link',runResult:'/factory/cockpit/run/:id',worker:'/factory/stations/worker',reviewer:'/factory/stations/reviewer',revision:'/factory/stations/revisions',mining:'/eve/v1/session',stream:'/eve/v1/session/:id/stream',send:'/eve/v1/session/:id',cancel:'/eve/v1/session/:id/cancel'}}))),
  POST('/factory/cockpit/import',request=>authorized(request,async()=>{const body=z.object({collection:collectionSchema,items:z.array(z.object({id:idSchema,value:z.unknown()}).strict()).max(1000)}).strict().parse(await request.json());return {items:await updateCockpit(doc=>importRecords(doc,body.collection,body.items))};})),
  POST('/factory/cockpit/records/:collection',(request,{params})=>authorized(request,async()=>{const body=z.object({id:idSchema,value:z.unknown()}).strict().parse(await request.json());return {item:await updateCockpit(doc=>changeRecord(doc,collectionSchema.parse(params.collection),body.id,body.value,0))};})),
  GET('/factory/cockpit/records/:collection',(request,{params})=>authorized(request,async()=>{const collection=collectionSchema.parse(params.collection);return {items:Object.values((await readCockpit()).document[collection]).sort((a,b)=>b.updatedAt.localeCompare(a.updatedAt))};})),
@@ -59,6 +59,22 @@ export default defineChannel({routes:[
    if(!draft)throw new z.ZodError([{code:'custom',path:['draftId'],message:'The saved work order does not exist.'}]);
    if(draft.value.admissionSessionId===body.sessionId&&JSON.stringify(draft.value.admission)===JSON.stringify(admission.data))return draft;
    return changeRecord(doc,'drafts',body.draftId,{title:draft.value.title,request:draft.value.request,origin:'task-mining',admission:admission.data,admissionSessionId:body.sessionId},body.expectedVersion);
+  })};
+ })),
+ POST('/factory/cockpit/approve-proposal',(request,{attachSession})=>authorized(request,async()=>{
+  const body=z.object({sessionId:z.string().regex(/^wrun_[\w-]+$/),proposalIndex:z.number().int().nonnegative(),proposalId:z.string().min(1).optional()}).strict().parse(await request.json());
+  const projected=await readRun(await factorySession(body.sessionId,attachSession));const result=projected.result;
+  if(!projected.complete||result?.kind!=='mining'||!result.output?.report)throw new z.ZodError([{code:'custom',path:[],message:'No completed task-mining proposal is available.'}]);
+  const output=result.output;const proposal=output.proposals?.[body.proposalIndex];
+  if(!proposal||(body.proposalId!==undefined&&proposal.id!==body.proposalId))throw new z.ZodError([{code:'custom',path:['proposalId'],message:'This proposal is not part of that investigation.'}]);
+  const admission=workOrderAdmissionSchema.parse({kind:'work_order',outcome:proposal.outcome,scope:proposal.scope,evidence:proposal.evidence,verification:proposal.acceptanceCriteria});
+  const draft=proposalDeliveryRequest({proposal,index:body.proposalIndex,sessionId:body.sessionId,revision:output.revision,capturedAt:output.capturedAt,phase:output.phase,contextGaps:output.contextGaps,admission});
+  const id='work-order-'+createHash('sha256').update(body.sessionId+':'+(proposal.id??body.proposalIndex)+':delivery').digest('hex').slice(0,32);
+  const value={title:draft.title,request:draft.body,origin:'task-mining' as const,admission,admissionSessionId:body.sessionId};
+  return {item:await updateCockpit(doc=>{
+   const existing=doc.drafts[id];
+   if(existing){if(JSON.stringify(existing.value)===JSON.stringify(value))return existing;throw new CockpitConflict('This proposal work order changed. Reload the investigation before starting it.');}
+   return changeRecord(doc,'drafts',id,value,0);
   })};
  })),
 ]});
