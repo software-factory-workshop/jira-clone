@@ -100,16 +100,27 @@ function updateStatus(issue: BoardIssue, value: unknown): void {
         @dragstart="onDragStart($event, issue.key)"
         @dragend="onDragEnd"
       >
+        <span class="issue-key">{{ issue.key }}</span>
         <button class="issue-title" @click="selectIssue(issue.key)">
           <strong>{{ issue.title }}</strong>
         </button>
-        <span>
-          {{ issue.key }}
-          <span class="issue-type inline-flex items-center gap-1">
-            <UIcon :name="typeIcon(issue.type)" aria-hidden="true" class="type-icon" />
-            <span>{{ issue.type }}</span>
-          </span>
-        </span>
+        <dl class="issue-metadata" aria-label="Issue metadata">
+          <div class="metadata-item issue-type">
+            <dt>Type</dt>
+            <dd>
+              <UIcon :name="typeIcon(issue.type)" aria-hidden="true" class="type-icon" />
+              <span>{{ issue.type }}</span>
+            </dd>
+          </div>
+          <div class="metadata-item">
+            <dt>Priority</dt>
+            <dd>{{ issue.priority }}</dd>
+          </div>
+          <div class="metadata-item">
+            <dt>Assignee</dt>
+            <dd>{{ issue.assignee }}</dd>
+          </div>
+        </dl>
         <label class="move-row">
           <span class="move-label">
             <UIcon name="i-lucide-move" aria-hidden="true" />{{ cardMoveLabel(issue) }}

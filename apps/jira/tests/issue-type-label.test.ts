@@ -11,7 +11,7 @@ test("list rows and board cards show issue type text beside a decorative icon", 
     const source = await readFile(new URL(component, root), "utf8");
     assert.match(
       source,
-      /<span class="issue-type[^"]*">[\s\S]*?<UIcon[\s\S]*?aria-hidden="true"[\s\S]*?<span>\{\{ issue\.type \}\}<\/span>/,
+      /<(?:span|div) class="[^"]*issue-type[^"]*">[\s\S]*?<UIcon[\s\S]*?aria-hidden="true"[\s\S]*?<span>\{\{ issue\.type \}\}<\/span>/,
       `${component} renders a visible type label and hides its redundant icon from assistive technology`,
     );
   }
