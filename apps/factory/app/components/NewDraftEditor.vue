@@ -6,12 +6,13 @@ import {
 } from "@jira-clone/context";
 import { MIN_WORK_REQUEST_LENGTH } from "../utils/work-station";
 import { applySaveReceipt, cleanSnapshot, destinationLabel, isDraftDirty, type DraftDestination, type ProposalPayload } from "../utils/draft-guard";
-import { cockpitActionMessage, cockpitFailureKind, cockpitFailureMessage, type CockpitFailureKind } from "../utils/cockpit-errors";
+import { cockpitFailureKind, cockpitFailureMessage, type CockpitFailureKind } from "../utils/cockpit-errors";
 import { type CockpitRecord, type DraftOrigin, type WorkOrderAdmission } from "../../shared/cockpit";
 import { miningAdmissionSchema } from "../utils/mining-output";
 
 // Draft editor implementation; route pages compose this focused surface.
 const { consume } = useWorkRequest();
+const route = useRoute();
 const router = useRouter();
 const editor = ref<HTMLElement | null>(null);
 type EditorDraft = Draft & { origin?: DraftOrigin; admission?: WorkOrderAdmission; version: number };
@@ -39,8 +40,7 @@ const cockpit = useCockpit();
 const draftVersions = ref<Record<string, number>>({});
 const unsaved = computed(() => isDraftDirty({ title: title.value, request: request.value }, savedSnapshot.value));
 const navigationApproved = ref(false);
-const deliveryStarting = ref(false);
-let deliveryOperationId: string | undefined;
+const reviewStarting = ref(false);
 const requestLength = computed(() => request.value.trim().length);
 const currentAdmission = computed(() => {
   const text = admissionText.value;
@@ -48,8 +48,11 @@ const currentAdmission = computed(() => {
   return value && text && text.title === title.value.trim() && text.request === request.value.trim() ? value : undefined;
 });
 const titleReady = computed(() => title.value.trim().length > 0 && title.value.trim().length <= 160);
-const operatorIdea = computed(() => origin.value === "operator" && !admission.value);
-const deliveryReady = computed(() => titleReady.value && requestLength.value >= MIN_WORK_REQUEST_LENGTH && (operatorIdea.value || currentAdmission.value?.kind === "work_order"));
+const reviewReady = computed(() => titleReady.value && requestLength.value >= MIN_WORK_REQUEST_LENGTH);
+
+function queryValue(value: unknown): string | undefined {
+  return Array.isArray(value) ? value[0] : typeof value === "string" ? value : undefined;
+}
 
 function applyDraftRows(rows: CockpitRecord[]) {
   drafts.value = rows.map(row => {
@@ -134,7 +137,10 @@ onMounted(async () => {
   }
   await refreshDrafts();
   const proposal = consume();
+  const linkedDraft = drafts.value.find(draft => draft.id === queryValue(route.query.draft));
   if (proposal) await applyDestination({ kind: "proposal", value: proposal });
+  else if (linkedDraft) await applyDestination({ kind: "draft", draft: linkedDraft });
+  else if (queryValue(route.query.draft)) notice.value = "That saved work order could not be loaded. Your other drafts were not changed.";
   savedSnapshot.value = cleanSnapshot(activeId.value, activeVersion.value, editorText());
 });
 
@@ -306,53 +312,25 @@ async function save(): Promise<boolean> {
   } finally { saving.value = false; }
 }
 
-async function rememberDelivery(id: string) {
-  try {
-    const row = cockpit.items.value.runs.find(item => item.id === id);
-    await cockpit.save("runs", id, { label: title.value.trim() || "Delivery loop", station: "loop" }, row?.version ?? 0);
-  } catch {
-    // Keep the authoritative delivery URL even if its history index is unavailable.
-  }
-}
-
 async function go() {
-  if (saving.value || deliveryStarting.value || confirmSaving.value || !title.value.trim() || !request.value.trim()) return;
-  if (!operatorIdea.value && currentAdmission.value?.kind !== "work_order") {
-    notice.value = "This mined draft is not admitted for delivery. Start a new idea or activate a task-mining work order.";
-    return;
-  }
+  if (saving.value || reviewStarting.value || confirmSaving.value || !title.value.trim() || !request.value.trim()) return;
   if (!titleReady.value) {
-    notice.value = "The title needs to be between 1 and 160 characters before delivery can start.";
+    notice.value = "The title needs to be between 1 and 160 characters before task mining can review it.";
     return;
   }
   if (requestLength.value < MIN_WORK_REQUEST_LENGTH) {
-    notice.value = `The request needs at least ${MIN_WORK_REQUEST_LENGTH} characters before delivery can start.`;
+    notice.value = `The request needs at least ${MIN_WORK_REQUEST_LENGTH} characters before task mining can review it.`;
     return;
   }
-  if (!await save()) return;
-
-  deliveryStarting.value = true;
-  notice.value = "Starting durable delivery…";
-  deliveryOperationId ??= crypto.randomUUID();
+  reviewStarting.value = true;
+  notice.value = "Saving the work order before task mining…";
   try {
-    const delivery = await $fetch<{ id: string }>("/factory/delivery", {
-      method: "POST",
-      body: {
-        operationId: deliveryOperationId,
-        draftId: activeId.value,
-        title: title.value.trim(),
-        brief: request.value.trim(),
-      },
-      retry: 0,
-    });
-    await rememberDelivery(delivery.id);
-    navigationApproved.value = true;
-    await router.replace({ path: "/work/run", query: { delivery: delivery.id } });
-    deliveryOperationId = undefined;
-  } catch (cause) {
-    notice.value = cockpitActionMessage(cause, "Could not confirm the loop start. Retry uses the same operation ID.");
+    if (await save() && activeId.value) {
+      navigationApproved.value = true;
+      await router.replace({ path: "/task-mining", query: { draft: activeId.value } });
+    }
   } finally {
-    deliveryStarting.value = false;
+    reviewStarting.value = false;
   }
 }
 
@@ -372,9 +350,9 @@ watch([title, request], async () => {
 
 <template>
   <AdeoPageHeader
-    eyebrow="WORKSPACE · NEW DRAFT"
-    title="Start with an idea"
-    description="Have a clear idea? Write it here and Go! will save the request and start the durable delivery. Task mining is available when you need more context first."
+    eyebrow="WORKSPACE · WORK ORDER"
+    title="Create a work order"
+    description="Describe the outcome you want. Your request is saved first, then task mining checks that it is sound before you decide whether to start the work."
   >
     <template #actions>
       <UButton icon="i-lucide-plus" @click="compose()">New draft</UButton>
@@ -384,8 +362,8 @@ watch([title, request], async () => {
   <div class="work-grid">
     <section ref="editor" class="editor panel">
       <div class="panel-heading">
-        <h2>{{ activeId ? "Review your request" : "A new request" }}</h2>
-        <UBadge :color="unsaved ? 'warning' : 'secondary'" variant="soft">{{ unsaved ? "Unsaved changes" : "Draft" }}</UBadge>
+        <h2>{{ activeId ? "Review your work order" : "A new work order" }}</h2>
+        <UBadge :color="unsaved ? 'warning' : 'secondary'" variant="soft">{{ unsaved ? "Unsaved changes" : "Work order draft" }}</UBadge>
       </div>
       <UAlert v-if="draftsError" color="warning" variant="soft" title="Shared drafts are unavailable" :description="draftsError">
         <template #actions>
@@ -405,7 +383,7 @@ watch([title, request], async () => {
         <UTextarea v-model="request" :rows="9" autoresize class="full-width" placeholder="I want to…" />
       </UFormField>
       <div class="editor-actions">
-        <UButton :disabled="saving || deliveryStarting || !title.trim() || !request.trim() || !deliveryReady" :loading="saving || deliveryStarting" icon="i-lucide-play" @click="go">Go!</UButton>
+        <UButton :disabled="saving || reviewStarting || !title.trim() || !request.trim() || !reviewReady" :loading="saving || reviewStarting" icon="i-lucide-search-check" @click="go">Review with task mining</UButton>
         <UButton
           :disabled="!title.trim() || !request.trim() || !issueUrl"
           :to="issueUrl"
@@ -416,12 +394,7 @@ watch([title, request], async () => {
         >Create issue in GitHub</UButton>
       </div>
       <p v-if="notice" role="status" class="save-notice">{{ notice }}</p>
-      <p v-if="operatorIdea" class="small muted" role="status">Operator idea · task mining is optional. Go! saves this brief and starts durable delivery when it reaches {{ MIN_WORK_REQUEST_LENGTH }} characters ({{ requestLength }}/{{ MIN_WORK_REQUEST_LENGTH }}).</p>
-      <p v-else-if="currentAdmission?.kind === 'work_order'" class="small muted" role="status">This draft is admitted as a work order. Go! saves it and starts durable delivery when the request reaches {{ MIN_WORK_REQUEST_LENGTH }} characters ({{ requestLength }}/{{ MIN_WORK_REQUEST_LENGTH }}).</p>
-      <p v-else-if="admission && !currentAdmission" class="small muted" role="status">The request changed after admission. Return to task mining and activate the current work order again before delivery.</p>
-      <p v-else-if="admission?.kind === 'clarification'" class="small muted" role="status">This task needs an owner clarification before delivery can start.</p>
-      <p v-else-if="admission?.kind === 'unsupported'" class="small muted" role="status">This task was not admitted for delivery.</p>
-      <p v-else class="small muted" role="status">Go! starts from an operator idea or a task-mining draft admitted as a work order. The request needs at least {{ MIN_WORK_REQUEST_LENGTH }} characters ({{ requestLength }}/{{ MIN_WORK_REQUEST_LENGTH }}).</p>
+      <p class="small muted" role="status">Task mining reviews this exact saved request. No worker starts until you approve the investigation ({{ requestLength }}/{{ MIN_WORK_REQUEST_LENGTH }} minimum characters).</p>
       <section v-if="draftConflict" class="draft-conflict" role="alert">
         <div>
           <strong>Shared draft changed elsewhere</strong>
@@ -453,12 +426,12 @@ watch([title, request], async () => {
           </div>
         </template>
       </UModal>
-      <p class="small muted">Create issue in GitHub opens a prefilled issue for you to review and submit. Go! saves the draft and starts durable delivery.</p>
+      <p class="small muted">Create issue in GitHub opens a prefilled issue for you to review and submit. Task mining never starts delivery by itself.</p>
       <div class="stage-note">
         <UIcon name="i-lucide-compass" />
         <div>
-          <strong>Choose how much discovery you need</strong>
-          <p>Go! is the direct path for a clear idea. If you need evidence before deciding, <NuxtLink to="/" class="inline-link">task mining</NuxtLink> reads the goal, code and current GitHub work without starting a worker.</p>
+          <strong>Review before execution</strong>
+          <p>Task mining reads the request, code and current GitHub work. You can approve the result to start a work order, or reject it and return here with the original text intact.</p>
         </div>
       </div>
     </section>

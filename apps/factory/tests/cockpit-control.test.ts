@@ -16,12 +16,13 @@ test('draft admission is a strict three-way host decision and survives shared st
  assert.throws(()=>workOrderAdmissionSchema.parse({kind:'work_order',outcome:'x',scope:['x'],evidence:['x'],verification:['x'],extra:'no'}));
  assert.throws(()=>workOrderAdmissionSchema.parse({kind:'work_order',outcome:'x',scope:[],evidence:['x'],verification:['x']}));
 });
-test('delivery entry points distinguish explicit ideas from admitted task-mining work',()=>{
- assert.equal(deliveryEntryPoint({...draft,origin:'operator'}),'operator');
- assert.equal(deliveryEntryPoint({...draft,origin:'task-mining',admission:admissions[0]}),'task-mining');
+test('delivery entry points require admitted task-mining work',()=>{
+ assert.equal(deliveryEntryPoint({...draft,origin:'operator'}),undefined);
+ assert.equal(deliveryEntryPoint({...draft,origin:'task-mining',admission:admissions[0],admissionSessionId:'wrun_admitted'}),'task-mining');
  assert.equal(deliveryEntryPoint({...draft,origin:'task-mining'}),undefined);
  assert.equal(deliveryEntryPoint({...draft,origin:'operator',admission:admissions[1]}),undefined);
- assert.equal(deliveryEntryPoint({...draft,origin:'operator',admission:admissions[0]}),'task-mining');
+ assert.equal(deliveryEntryPoint({...draft,origin:'operator',admission:admissions[0]}),undefined);
+ assert.equal(deliveryEntryPoint({...draft,origin:'operator',admission:admissions[0],admissionSessionId:'wrun_admitted'}),undefined);
 });
 test('stale writers cannot replace another user edit',()=>{
  const doc=emptyDocument();changeRecord(doc,'drafts','one',draft,0);

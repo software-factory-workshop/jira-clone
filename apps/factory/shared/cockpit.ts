@@ -11,22 +11,22 @@ export const workOrderAdmissionSchema = z.discriminatedUnion('kind', [
 export type WorkOrderAdmission = z.infer<typeof workOrderAdmissionSchema>;
 export const draftOriginSchema = z.enum(['operator', 'task-mining']);
 export type DraftOrigin = z.infer<typeof draftOriginSchema>;
-export const draftInput = z.object({ title: z.string().trim().min(1).max(200), request: z.string().trim().min(1).max(40000), origin: draftOriginSchema.optional(), admission: workOrderAdmissionSchema.optional() }).strict();
+export const draftInput = z.object({ title: z.string().trim().min(1).max(200), request: z.string().trim().min(1).max(40000), origin: draftOriginSchema.optional(), admission: workOrderAdmissionSchema.optional(), admissionSessionId: idSchema.optional() }).strict();
 
-// Delivery may start from either an evidence-backed task-mining work order or
-// an explicit operator idea. An unmarked draft is never treated as executable,
-// which keeps legacy and malformed records from silently bypassing admission.
-export function deliveryEntryPoint(value: Record<string, unknown>): 'task-mining' | 'operator' | undefined {
+// Delivery starts only after task mining records a positive admission and the
+// operator explicitly approves that investigation. An unmarked draft is never
+// executable, so neither the UI nor a direct API caller can bypass review.
+export function deliveryEntryPoint(value: Record<string, unknown>): 'task-mining' | undefined {
  const admission = workOrderAdmissionSchema.safeParse(value.admission);
- if (admission.success && admission.data.kind === 'work_order') return 'task-mining';
- if (value.origin === 'operator' && value.admission === undefined) return 'operator';
+ const sessionId=idSchema.safeParse(value.admissionSessionId);
+ if (value.origin === 'task-mining' && admission.success && admission.data.kind === 'work_order' && sessionId.success && sessionId.data.startsWith('wrun_')) return 'task-mining';
  return undefined;
 }
 export const feedbackInput = z.object({ verdict: z.enum(['useful','not-useful']), reason: z.string().max(500) }).strict();
 const reviewFallback = z.object({ station:z.literal('reviewer'), sessionId:z.string().min(1).max(240), prNumber:z.number().int().positive(), url:z.string().url(), baseSha:z.string().regex(/^[a-f0-9]{40}$/), headSha:z.string().regex(/^[a-f0-9]{40}$/), targetBranch:z.string().min(1).max(240), verdict:z.literal('incomplete'), summary:z.string().min(1).max(3000), findings:z.array(z.object({severity:z.enum(['blocking','nonblocking']),path:z.string(),message:z.string(),evidence:z.string()})).max(15), limitations:z.array(z.string()).max(20), visualReview:visualReviewPacketSchema, commands:z.array(z.unknown()).max(100), browserEvidence:z.object({complete:z.literal(false),observations:z.array(z.unknown()).max(4)}), capturedAt:z.string().min(1).max(100) }).strict();
 export const reviewUnavailable = z.object({ station:z.literal('reviewer'), sessionId:z.string().min(1).max(240), prNumber:z.number().int().positive(), headSha:z.string().regex(/^[a-f0-9]{40}$/).optional(), baseSha:z.string().regex(/^[a-f0-9]{40}$/).optional(), targetBranch:z.string().min(1).max(240).optional(), summary:z.string().min(1).max(3000), limitations:z.array(z.string()).min(1).max(20), capturedAt:z.string().min(1).max(100) }).strict();
 export type ReviewUnavailable = z.infer<typeof reviewUnavailable>;
-export const runInput = z.object({ label: z.string().max(200), station: z.enum(['mining','worker','reviewer','loop']), operationId: z.string().max(240).optional(), execution: z.enum(['owner','dispatcher','direct']).optional(), rootAgent:z.enum(['task-miner','worker','reviewer']).optional(), deliveryId: z.string().optional(), reviewFallback: reviewFallback.optional(), reviewUnavailable: reviewUnavailable.optional() }).strict();
+export const runInput = z.object({ label: z.string().max(200), station: z.enum(['mining','worker','reviewer','loop']), draftId: idSchema.optional(), operationId: z.string().max(240).optional(), execution: z.enum(['owner','dispatcher','direct']).optional(), rootAgent:z.enum(['task-miner','worker','reviewer']).optional(), deliveryId: z.string().optional(), reviewFallback: reviewFallback.optional(), reviewUnavailable: reviewUnavailable.optional() }).strict();
 export const recordSchema = z.object({ id: idSchema, version: z.number().int().positive(), updatedAt: z.string(), createdAt: z.string(), value: z.record(z.string(), z.unknown()) });
 export type CockpitRecord = z.infer<typeof recordSchema>;
 export const collections = ['drafts','feedback','runs'] as const;

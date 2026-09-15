@@ -6,20 +6,22 @@ import { cockpitActionMessage } from "../utils/cockpit-errors";
 import { copyText, shortIdentifier } from "../utils/technical-details";
 import { factoryRepository, vercelTeamName } from "../../runtime/lib/factory-config.ts";
 import type { WorkOrderAdmission } from "../../shared/cockpit";
-const props = defineProps<{ sessionId?: string }>();
+type SourceWorkOrder = { id: string; version: number; title: string; request: string };
+const props = defineProps<{ sessionId?: string; sourceWorkOrder?: SourceWorkOrder }>();
 const emit = defineEmits<{ session: [id: string, label: string]; draft: [value: { title: string; body: string;id?:string;version?:number;admission?:WorkOrderAdmission }]; new: [] }>();
 const route = useRoute();
 const router = useRouter();
-const focus = ref("");
+const focus = ref(props.sourceWorkOrder ? `Verify whether this proposed work order is sound and safe to admit. Preserve its requested outcome and constraints.\n\nTitle: ${props.sourceWorkOrder.title}\n\nRequest:\n${props.sourceWorkOrder.request}` : "");
 const actionError = ref("");
 const activatingKey = ref<string>();
-const startingDelivery = ref<string>();
-let pendingDelivery: { key: string; operationId: string } | undefined;
+const approvalStarting = ref(false);
+const admissionRecorded = ref(false);
+let approvalOperationId: string | undefined;
 const copiedSession = ref(false);
 const { data, events, status, error, session, send, cancel, resume, respond } = useEveAgent({
   initialSession: props.sessionId ? { sessionId: props.sessionId, streamIndex: 0 } : undefined,
   resume: !!props.sessionId,
-  onSessionChange(value) { if (value) emit("session", value.sessionId, focus.value.trim() || "Find the next useful task"); },
+  onSessionChange(value) { if (value) emit("session", value.sessionId, props.sourceWorkOrder?.title || "Work-order investigation"); },
 });
 const authorizations = computed(() => data.value.messages.flatMap(message => message.parts).filter(part => part.type === "authorization"));
 const awaitingAuthorization = computed(() => !cancelled.value && !turnEnded.value && authorizations.value.some(part => part.state === "required"));
@@ -59,9 +61,6 @@ async function reconnect() { try { await resume(); actionError.value = ""; } cat
 function proposalKey(proposal: MiningProposal, index: number) {
   return `proposal-${proposal.id || index}`;
 }
-function deliveryKey(proposal: MiningProposal, index: number) {
-  return `delivery-${proposalKey(proposal, index)}`;
-}
 async function useProposal(proposal: MiningProposal, index: number) {
   await activate(proposal.id, proposalKey(proposal, index));
 }
@@ -75,29 +74,40 @@ async function activateDraft(proposalId?: string) {
   return response.item;
 }
 
-async function startDelivery(proposal: MiningProposal, index: number) {
-  const sessionId = currentSessionId.value;
-  const key = deliveryKey(proposal, index);
-  if (!sessionId || output.value?.admission?.kind !== "work_order" || activatingKey.value || startingDelivery.value) return;
-  startingDelivery.value = key;
+async function approveWorkOrder() {
+  const source = props.sourceWorkOrder;
+  const admission = output.value?.admission;
+  if (!source || admission?.kind !== "work_order" || approvalStarting.value || activatingKey.value) return;
+  approvalStarting.value = true;
   actionError.value = "";
   try {
-    if (pendingDelivery?.key !== key) pendingDelivery = { key, operationId: crypto.randomUUID() };
-    const item = await activateDraft(proposal.id);
-    if (item.value.admission?.kind !== "work_order") throw new Error("The activated draft is not admitted as a work order");
+    if (!admissionRecorded.value) {
+      await $fetch("/factory/cockpit/approve", {
+        method: "POST",
+        body: { sessionId: currentSessionId.value, draftId: source.id, expectedVersion: source.version },
+        retry: 0,
+      });
+      admissionRecorded.value = true;
+    }
+    approvalOperationId ??= crypto.randomUUID();
     const response = await $fetch<{ id?: string }>("/factory/delivery", {
       method: "POST",
-      body: { operationId: pendingDelivery.operationId, draftId: item.id, title: item.value.title, brief: item.value.request },
+      body: { operationId: approvalOperationId, draftId: source.id, title: source.title, brief: source.request },
       retry: 0,
     });
     if (!response.id) throw new Error("Durable delivery was not identified");
     await router.replace({ path: "/work/run", query: { delivery: response.id } });
-    pendingDelivery = undefined;
+    approvalOperationId = undefined;
   } catch (cause) {
-    actionError.value = cockpitActionMessage(cause, "Could not start the durable delivery. Retry; the same request will be reused.");
+    actionError.value = cockpitActionMessage(cause, "Could not approve and start this work order. The saved request is retained; retry uses the same operation ID.");
   } finally {
-    startingDelivery.value = undefined;
+    approvalStarting.value = false;
   }
+}
+
+async function rejectInvestigation() {
+  if (!props.sourceWorkOrder) return;
+  await router.replace({ path: "/", query: { draft: props.sourceWorkOrder.id } });
 }
 async function activate(proposalId?:string, key = "findings") {
  const sessionId=session.value?.sessionId||props.sessionId;if(!sessionId || activatingKey.value)return;
@@ -117,6 +127,9 @@ async function copySession(sessionId: string) {
     actionError.value = "Could not copy the session ID. Expand the link text and select it instead.";
   }
 }
+onMounted(() => {
+  if (props.sourceWorkOrder && !props.sessionId) void start();
+});
 </script>
 
 <template>
@@ -166,6 +179,11 @@ async function copySession(sessionId: string) {
             <h4>Evidence</h4><ul><li v-for="item in output.admission.evidence" :key="item">{{ item }}</li></ul>
           </UCard>
         </div>
+        <div v-if="output.admission && sourceWorkOrder" class="decision-actions">
+          <UButton v-if="output.admission.kind === 'work_order'" icon="i-lucide-play" :loading="approvalStarting" :disabled="approvalStarting || !!activatingKey" @click="approveWorkOrder">Approve and start work order</UButton>
+          <UButton color="neutral" variant="outline" icon="i-lucide-pencil-line" :disabled="approvalStarting" @click="rejectInvestigation">Reject and edit request</UButton>
+          <span class="small muted">Only approval starts the worker → review loop.</span>
+        </div>
         <div v-if="output.proposals?.length" class="proposal-list">
           <UCard v-for="(proposal, index) in output.proposals" :key="proposal.id || index" class="proposal-card">
             <template #header><div class="proposal-heading"><UBadge color="neutral" variant="soft">Proposal {{ index + 1 }}</UBadge><h3>{{ proposal.title }}</h3></div></template>
@@ -179,7 +197,7 @@ async function copySession(sessionId: string) {
             <h4>Acceptance criteria</h4><ul><li v-for="item in proposal.acceptanceCriteria" :key="item">{{ item }}</li></ul>
             <template v-if="proposal.uncertainties.length"><h4>Uncertainties</h4><ul><li v-for="item in proposal.uncertainties" :key="item">{{ item }}</li></ul></template>
             <ProposalFeedback :proposal-id="proposal.id" :proposal-title="proposal.title" />
-            <template #footer><div class="proposal-action"><UButton icon="i-lucide-file-pen-line" :loading="activatingKey === proposalKey(proposal, index)" :disabled="!!activatingKey || !!startingDelivery" :aria-label="`Edit draft: ${proposal.title}`" @click="useProposal(proposal, index)">Edit draft</UButton><UButton v-if="output.admission?.kind === 'work_order'" icon="i-lucide-workflow" variant="outline" :loading="startingDelivery === deliveryKey(proposal, index)" :disabled="!!activatingKey || !!startingDelivery" :aria-label="`Start durable delivery: ${proposal.title}`" @click="startDelivery(proposal, index)">Start durable delivery</UButton><span class="small muted">{{ output.admission?.kind === 'work_order' ? 'Edit first, or start the worker → review loop.' : 'Review the admission decision before editing a draft.' }}</span></div></template>
+            <template #footer><div class="proposal-action"><UButton icon="i-lucide-file-pen-line" :loading="activatingKey === proposalKey(proposal, index)" :disabled="!!activatingKey || approvalStarting" :aria-label="`Use revised work order: ${proposal.title}`" @click="useProposal(proposal, index)">Use as revised work order</UButton><span class="small muted">Return to the work-order page with this proposal as editable text.</span></div></template>
           </UCard>
         </div>
         <p v-else-if="output.proposals && output.noProposalReason" class="report">{{ output.noProposalReason }}</p>
@@ -188,7 +206,7 @@ async function copySession(sessionId: string) {
           <template #header><h3>Reflection</h3></template>
           <section v-for="section in reflectionSections" :key="section.title"><h4>{{ section.title }}</h4><ul v-if="section.values.length"><li v-for="item in section.values" :key="item">{{ item }}</li></ul><p v-else class="muted">None recorded.</p></section>
         </UCard>
-        <div class="mining-actions"><UButton v-if="!output.proposals?.length && !output.noProposalReason" icon="i-lucide-file-pen-line" :loading="activatingKey === 'findings'" :disabled="!!activatingKey" @click="draft">Use findings in a draft</UButton><UButton variant="outline" color="neutral" @click="emit('new')">New investigation</UButton></div>
+        <div class="mining-actions"><UButton v-if="!output.proposals?.length && !output.noProposalReason" icon="i-lucide-file-pen-line" :loading="activatingKey === 'findings'" :disabled="!!activatingKey" @click="draft">Use findings in a work order</UButton><UButton variant="outline" color="neutral" @click="emit('new')">Create another work order</UButton></div>
         <details class="evidence"><summary>Source evidence · {{ output.files?.length ?? 0 }} files</summary>
           <p v-if="output.revision"><a :href="`https://github.com/${factoryRepository}/tree/${output.revision}`" target="_blank" rel="noopener noreferrer">Revision {{ output.revision?.slice(0, 12) }}</a></p>
           <p v-for="(read, index) in output.githubReads" :key="index">{{ read.resource }}: {{ read.count ?? 'Unknown number of' }} items · {{ read.complete ? 'complete inventory' : 'incomplete' }} · {{ read.capturedAt }}</p>
@@ -204,22 +222,20 @@ async function copySession(sessionId: string) {
       <p v-else-if="cancelled" class="report">Investigation stopped before findings were ready.</p>
       <p v-else-if="disconnected" class="report">The live connection ended before a final result arrived. The investigation may still be running. Reconnect to check its state.</p>
       <p v-else-if="!busy && summary" class="report">{{ summary }}</p>
-      <div class="mining-actions"><UButton v-if="busy || awaitingAuthorization" variant="outline" color="neutral" @click="stop">Stop investigation</UButton><UButton v-if="actionError" variant="outline" @click="reconnect">Reconnect</UButton><UButton v-if="!busy && !awaitingAuthorization && !output?.report && status !== 'resuming'" @click="emit('new')">New investigation</UButton></div>
+      <div class="mining-actions"><UButton v-if="busy || awaitingAuthorization" variant="outline" color="neutral" @click="stop">Stop investigation</UButton><UButton v-if="actionError" variant="outline" @click="reconnect">Reconnect</UButton><UButton v-if="!busy && !awaitingAuthorization && !output?.report && status !== 'resuming'" @click="emit('new')">Return to work order</UButton></div>
       <fieldset v-for="request in pendingRequests" :key="request.requestId"><legend>{{ request.prompt }}</legend><UButton v-for="option in request.options || []" :key="option.id" :disabled="status === 'resuming'" @click="respond([{ requestId: request.requestId, optionId: option.id }])">{{ option.label }}</UButton></fieldset>
-      <p class="small muted session-id"><a :href="`?investigation=${currentSessionId}`" :aria-label="`Open investigation session ${currentSessionId}`">Open session <code>{{ shortIdentifier(currentSessionId) }}</code></a></p>
+      <p class="small muted session-id"><NuxtLink :to="{ path: '/task-mining', query: { investigation: currentSessionId, ...(sourceWorkOrder ? { draft: sourceWorkOrder.id } : {}) } }" :aria-label="`Open investigation session ${currentSessionId}`">Open session <code>{{ shortIdentifier(currentSessionId) }}</code></NuxtLink></p>
       <details class="session-details"><summary>Session identity</summary><p><code>{{ currentSessionId }}</code><UButton size="xs" variant="ghost" @click="copySession(currentSessionId)">{{ copiedSession ? "Copied" : "Copy" }}</UButton></p></details>
     </div>
     <UAlert v-if="terminalFailure" color="error" variant="soft" title="Investigation incomplete" :description="output?.error || 'The run ended without recorded findings. No work agent was started.'">
       <template #actions>
-        <UButton size="xs" variant="outline" @click="emit('new')">Start new investigation</UButton>
-        <UButton size="xs" color="neutral" variant="ghost" to="/work/new">Use New draft</UButton>
+        <UButton size="xs" variant="outline" @click="emit('new')">Return to work order</UButton>
       </template>
     </UAlert>
     <UAlert v-else-if="(error || disconnected) && !output?.report" color="warning" variant="soft" :title="disconnected ? 'Investigation connection interrupted' : 'Investigation needs to reconnect'" :description="disconnected ? 'The saved session may still be running. Reconnect to recover it. You can also start a new investigation or use New draft; no work agent has started.' : 'Reconnect to restore this session. The investigation and any findings remain separate from delivery.'">
       <template #actions>
         <UButton size="xs" variant="outline" @click="reconnect">Reconnect</UButton>
-        <UButton size="xs" color="neutral" variant="ghost" @click="emit('new')">Start new investigation</UButton>
-        <UButton size="xs" color="neutral" variant="ghost" to="/work/new">Use New draft</UButton>
+        <UButton size="xs" color="neutral" variant="ghost" @click="emit('new')">Return to work order</UButton>
       </template>
     </UAlert>
     <UAlert v-if="actionError" color="warning" variant="soft" title="Action not completed" :description="actionError" />
@@ -253,6 +269,7 @@ form > p { margin-bottom:22px; }
 .admission-card h4 { font-weight:600; margin:20px 0 8px; }
 .admission-card p, .admission-card li { line-height:1.65; }
 .admission-card ul { list-style:disc; padding-left:22px; }
+.decision-actions { display:flex; gap:14px; align-items:center; flex-wrap:wrap; margin:24px 0; padding:20px; border:1px solid var(--ui-border); border-radius:8px; background:var(--ui-bg-muted); }
 .proposal-heading { display:flex; align-items:flex-start; gap:12px; flex-wrap:wrap; }
 .proposal-heading h3, .reflection-card h3 { font-size:21px; font-weight:600; }
 .proposal-card, .reflection-card { overflow-wrap:anywhere; }
