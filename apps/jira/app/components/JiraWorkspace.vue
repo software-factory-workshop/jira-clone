@@ -1,5 +1,6 @@
 <!-- JiraWorkspace owns the Jira demo surface; app.vue composes it. -->
 <script setup lang="ts">
+import { computed, onMounted, ref, shallowRef, watch } from "vue";
 import {
   clearCommentDraftAfterSave,
   fetchIssueComments,
@@ -63,6 +64,11 @@ import {
   type DetailFieldDraft,
 } from "~/utils/issueFields";
 import { serverMessage } from "~/utils/errorMessage";
+import {
+  availableBoardId,
+  boardTypeLabel,
+  jiraBoardsFromResponse,
+} from "~/utils/jiraBoards";
 import type { CreateIssueDraft } from "~/components/JiraCreateIssueModal.vue";
 
 const config = useRuntimeConfig();
@@ -85,6 +91,37 @@ const {
   demoHeaders,
 } = useDemoAccount();
 const view = ref<"list" | "board">("list");
+const SELECTED_BOARD_STORAGE_KEY = "adeo-jira-board";
+const requestedBoardId = shallowRef("");
+const {
+  data: boardResponse,
+  status: boardRequestStatus,
+  error: boardRequestError,
+  refresh: refreshBoards,
+} = await useFetch<unknown>("/api/rest/agile/1.0/board", {
+  key: "jira-demo-boards",
+});
+const boards = computed(() => jiraBoardsFromResponse(boardResponse.value));
+const selectedBoardId = computed({
+  get: () => availableBoardId(boards.value, requestedBoardId.value),
+  set: (next: string) => {
+    requestedBoardId.value = availableBoardId(boards.value, next);
+  },
+});
+const selectedBoard = computed(
+  () => boards.value.find((board) => board.id === selectedBoardId.value) ?? null,
+);
+const boardLoading = computed(() => boardRequestStatus.value === "pending");
+const boardLoadError = computed(() =>
+  boardRequestError.value
+    ? serverMessage(boardRequestError.value, "Could not load Jira boards.")
+    : null,
+);
+const boardContext = computed(() =>
+  selectedBoard.value
+    ? `${selectedBoard.value.name} · ${boardTypeLabel(selectedBoard.value.type)} board`
+    : "No board available",
+);
 const search = ref("");
 const status = ref(ALL_STATUSES);
 const assignee = ref(ALL_ASSIGNEES);
@@ -653,7 +690,7 @@ async function resetBoard() {
     if (reset.persistence) persistence.value = reset.persistence;
     boardStartAt.value = REST_BOARD_START_AT;
     boardTotal.value = 0;
-    await refresh(REST_BOARD_START_AT);
+    await Promise.all([refresh(REST_BOARD_START_AT), refreshBoards()]);
     if (!loadError.value) {
       saveNotice.value =
         `Demo board reset to labelled fixture identities. Reset affects ${persistenceLabel.value}.`;
@@ -662,6 +699,24 @@ async function resetBoard() {
     moveError.value = serverMessage(error, "Demo reset failed.");
   }
 }
+
+onMounted(() => {
+  try {
+    const stored = sessionStorage.getItem(SELECTED_BOARD_STORAGE_KEY) ?? "";
+    requestedBoardId.value = availableBoardId(boards.value, stored);
+  } catch {
+    requestedBoardId.value = availableBoardId(boards.value, "");
+  }
+});
+
+watch(selectedBoardId, (next) => {
+  if (next === "") return;
+  try {
+    sessionStorage.setItem(SELECTED_BOARD_STORAGE_KEY, next);
+  } catch {
+    // Board selection remains available for this page when storage is unavailable.
+  }
+});
 
 await Promise.all([refreshAccount(), refresh()]);
 </script>
@@ -679,12 +734,18 @@ await Promise.all([refreshAccount(), refresh()]);
         @update:model-value="selectDemoAccount"
       />
       <div class="jira-body">
-        <JiraProjectSidebar v-model:view="view" />
+        <JiraProjectSidebar
+          v-model:view="view"
+          v-model:board-id="selectedBoardId"
+          :boards="boards"
+          :boards-loading="boardLoading"
+          :boards-error="boardLoadError"
+        />
         <main class="jira-main">
-          <div class="breadcrumb">Projects / ADEO demo</div>
+          <div class="breadcrumb">Projects / KAN / {{ selectedBoard?.name ?? "No board" }}</div>
           <AdeoPageHeader
             :title="view === 'list' ? 'Issue list' : 'Kanban board'"
-            description="A recognizable starting point, ready to shape together."
+            :description="`${boardContext}. All demo boards share the bounded KAN issue set.`"
           />
           <div class="fixture-notice">
             <UIcon name="i-lucide-info" />
