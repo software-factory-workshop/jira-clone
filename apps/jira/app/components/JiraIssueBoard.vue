@@ -35,6 +35,12 @@ function cardMoveLabel(issue: BoardIssue): string {
   return `Move ${issue.key} to another column`;
 }
 
+function typeIcon(type: string): string {
+  if (type === "Bug") return "i-lucide-bug";
+  if (type === "Story") return "i-lucide-bookmark";
+  return "i-lucide-square-check";
+}
+
 function onDragStart(event: DragEvent, key: string): void {
   if (!props.canWrite) return;
   draggedKey.value = key;
@@ -99,10 +105,10 @@ function updateStatus(issue: BoardIssue, value: unknown): void {
         </button>
         <span>
           {{ issue.key }}
-          <UIcon
-            :name="issue.type === 'Bug' ? 'i-lucide-bug' : 'i-lucide-square-check'"
-            :aria-label="issue.type"
-          />
+          <span class="issue-type inline-flex items-center gap-1">
+            <UIcon :name="typeIcon(issue.type)" aria-hidden="true" class="type-icon" />
+            <span>{{ issue.type }}</span>
+          </span>
         </span>
         <label class="move-row">
           <span class="move-label">

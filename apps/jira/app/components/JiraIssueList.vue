@@ -59,11 +59,14 @@ function updatePriority(issue: BoardIssue, value: unknown): void {
       <tbody>
         <tr v-for="issue in props.issues" :key="issue.key">
           <td>
-            <UIcon
-              :name="typeIcon(issue.type)"
-              :aria-label="issue.type"
-              class="type-icon"
-            />
+            <span class="issue-type inline-flex items-center gap-1">
+              <UIcon
+                :name="typeIcon(issue.type)"
+                aria-hidden="true"
+                class="type-icon"
+              />
+              <span>{{ issue.type }}</span>
+            </span>
           </td>
           <td class="issue-key">{{ issue.key }}</td>
           <td>
