@@ -441,7 +441,7 @@ test("rest writes keep admin/member semantics and denials change nothing", async
   const beforeIssues = getIssues();
   const beforeComments = listComments("ADEO-1");
   // The shared gate agrees with the native demo authority per action.
-  for (const action of ["create", "update", "comment"] as const) {
+  for (const action of ["create", "create-board", "update", "comment"] as const) {
     assert.equal(
       authorizeRestWrite(viewerFallback(), action).ok,
       false,

@@ -37,6 +37,7 @@ import {
   type IssuePatch,
   type UpdateResult,
 } from "./issues.ts";
+import { resetPersistentBoards } from "./boardPersistence.ts";
 
 export type PersistenceMode = "neon" | "memory";
 
@@ -587,5 +588,9 @@ export async function addPersistentComment(
 }
 
 export async function resetPersistentIssues(): Promise<DemoIssue[]> {
-  return getIssuePersistence().resetIssues();
+  const [issues] = await Promise.all([
+    getIssuePersistence().resetIssues(),
+    resetPersistentBoards(),
+  ]);
+  return issues;
 }
