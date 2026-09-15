@@ -23,11 +23,22 @@ test("home composes a work order and task mining is a separate route", async () 
 });
 
 test("only the approval action starts delivery and rejection restores the saved request", async () => {
-  const miningRun = await source("app/components/MiningRun.vue");
+  const [miningRun, cockpit] = await Promise.all([
+    source("app/components/MiningRun.vue"),
+    source("runtime/channels/cockpit.ts"),
+  ]);
 
   assert.match(miningRun, /async function approveWorkOrder/);
   assert.match(miningRun, /admission\?\.kind !== "work_order"/);
   assert.match(miningRun, /"\/factory\/cockpit\/approve"/);
   assert.match(miningRun, /"\/factory\/delivery"/);
   assert.match(miningRun, /path: "\/", query: \{ draft: props\.sourceWorkOrder\.id \}/);
+  assert.match(miningRun, /async function startProposal/);
+  assert.match(miningRun, /"\/factory\/cockpit\/approve-proposal"/);
+  assert.match(miningRun, />Start work order</);
+  assert.match(miningRun, />Edit before starting</);
+  assert.match(miningRun, /without another task-mining pass/);
+  assert.match(cockpit, /proposalDeliveryRequest/);
+  assert.match(cockpit, /admissionSessionId:body\.sessionId/);
+  assert.match(cockpit, /verification:proposal\.acceptanceCriteria/);
 });
