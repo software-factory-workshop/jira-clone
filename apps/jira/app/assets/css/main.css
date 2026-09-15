@@ -163,6 +163,26 @@ nav button.active {
   color: #273943;
   margin: 0 0 12px;
 }
+.board-selector {
+  display: grid;
+  gap: 6px;
+  margin: 18px 0 8px;
+  color: #425861;
+  font-size: 12px;
+  font-weight: 600;
+}
+.board-selector-status,
+.board-selector-error {
+  margin: 0 0 12px;
+  font-size: 11px;
+  line-height: 1.4;
+}
+.board-selector-status {
+  color: #72848e;
+}
+.board-selector-error {
+  color: #b42318;
+}
 .board-legend {
   display: flex;
   gap: 16px;
