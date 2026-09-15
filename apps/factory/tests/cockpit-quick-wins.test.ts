@@ -53,9 +53,9 @@ test("cockpit quick wins keep delivery evidence and operator actions visible", a
   assert.match(history, /refreshes automatically/);
   assert.match(history, /\/factory\/delivery\/\$\{encodeURIComponent\(run\.id\)\}\/reconcile/);
 
-  assert.match(newDraft, /title="Start with an idea"/);
+  assert.match(newDraft, /title="Create a work order"/);
   assert.match(newDraft, /origin: origin\.value/);
-  assert.match(newDraft, /task mining is optional/);
+  assert.match(newDraft, /No worker starts until you approve the investigation/);
   assert.match(newDraft, /Retry shared drafts/);
 
   assert.match(run, /eventToolId/);

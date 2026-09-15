@@ -15,7 +15,7 @@ delete query.section;
 delete query.investigation;
 
 await navigateTo({
-  path: hasSelectedRun ? "/work/run" : "/work/new",
+  path: hasSelectedRun ? "/work/run" : "/",
   query,
 }, { replace: true });
 </script>

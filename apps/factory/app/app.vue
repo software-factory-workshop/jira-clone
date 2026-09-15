@@ -5,12 +5,12 @@ const { data: manifest } = useFetch<{ repository: typeof initialRepository }>("/
 const repository = computed(() => manifest.value?.repository ?? initialRepository);
 const config = useRuntimeConfig();
 const route = useRoute();
-const isWork = computed(() => route.path.startsWith("/work"));
 const sectionLabel = computed(() => {
+  if (route.path === "/") return "Work order";
+  if (route.path === "/task-mining") return "Task mining";
   if (route.path === "/work/run") return "Current run";
   if (route.path === "/work/recent") return "Recent work";
-  if (route.path === "/work/new") return "New draft";
-  return isWork.value ? "Work" : "Task mining";
+  return "Work";
 });
 </script>
 
@@ -30,14 +30,14 @@ const sectionLabel = computed(() => {
             :class="{ active: route.path === '/' }"
             :aria-current="route.path === '/' ? 'page' : undefined"
           >
-            <UIcon name="i-lucide-search" aria-hidden="true" />Task mining
+            <UIcon name="i-lucide-clipboard-pen-line" aria-hidden="true" />Work order
           </NuxtLink>
           <NuxtLink
-            to="/work/new"
-            :class="{ active: route.path === '/work/new' }"
-            :aria-current="route.path === '/work/new' ? 'page' : undefined"
+            to="/task-mining"
+            :class="{ active: route.path === '/task-mining' }"
+            :aria-current="route.path === '/task-mining' ? 'page' : undefined"
           >
-            <UIcon name="i-lucide-file-pen-line" aria-hidden="true" />New draft
+            <UIcon name="i-lucide-search" aria-hidden="true" />Task mining
           </NuxtLink>
           <NuxtLink
             to="/work/run"

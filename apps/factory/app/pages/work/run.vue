@@ -34,7 +34,7 @@ onMounted(() => {
     :description="hasSelectedRun ? 'This page is reserved for the selected delivery or station run. Its composer lives on New draft.' : 'Select a run from Recent work to follow its live handoffs and decisions.'"
   >
     <template #actions>
-      <UButton to="/work/new" icon="i-lucide-file-pen-line">New draft</UButton>
+      <UButton to="/" icon="i-lucide-clipboard-pen-line">New work order</UButton>
       <UButton to="/work/recent" color="neutral" variant="outline" icon="i-lucide-history">Recent work</UButton>
     </template>
   </AdeoPageHeader>
@@ -46,7 +46,7 @@ onMounted(() => {
       <p class="muted">Open a delivery or station run from Recent work. Start a new one from New draft.</p>
       <div class="empty-run-actions">
         <UButton to="/work/recent" icon="i-lucide-history">Open recent work</UButton>
-        <UButton to="/work/new" color="neutral" variant="outline">Create a draft</UButton>
+        <UButton to="/" color="neutral" variant="outline">Create a work order</UButton>
       </div>
     </div>
   </section>
