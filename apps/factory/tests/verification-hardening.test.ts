@@ -75,3 +75,56 @@ test("base preparation records its locked setup in the existing command evidence
   assert.match(result.commands[1]!.command, /cd \/workspace\/base; node --version; pnpm --version; pnpm install --frozen-lockfile/);
   assert.ok(commands.some(command => command.includes("cd /workspace/base")));
 });
+
+test("browser before/after targets use the exact prepared base and reset continuation state", async () => {
+  const browser = await source("runtime/stations/reviewer/tools/prepare_browser.ts");
+  const prepare = await source("runtime/stations/reviewer/tools/prepare_review.ts");
+
+  assert.match(browser, /test -d \/workspace\/base; test -f \/workspace\/base\/pnpm-workspace\.yaml/);
+  assert.match(browser, /source==='base'\?'\/workspace\/base':'\/workspace\/repo'/);
+  assert.doesNotMatch(browser, /review-base/);
+  assert.match(prepare, /if\(prior\.prepared\)/);
+  assert.match(prepare, /reviewBrowser\.update\(\(\)=>\(\{targets:\{\},sources:\{\},observations:\{\}\}\)\)/);
+  assert.match(prepare, /prepareFailure/);
+  assert.match(prepare, /do not retry this tool again/);
+  assert.match(await source("agents/reviewer/agent/instructions.ts"), /do not call it again in this session/);
+});
+
+test("reviewer failure records an explicit cockpit unavailable state", async () => {
+  const hook = await source("runtime/stations/reviewer/hooks/incomplete-feedback.ts");
+  const cockpit = await source("shared/cockpit.ts");
+  const run = await source("app/components/WorkRun.vue");
+
+  assert.match(hook, /reviewUnavailable/);
+  assert.match(hook, /No visual packet or GitHub review was published/);
+  assert.match(hook, /"turn\.completed"/);
+  assert.match(cockpit, /export const reviewUnavailable/);
+  assert.match(run, /Visual review unavailable/);
+  assert.match(run, /unavailableResult\.limitations/);
+});
+
+test("reviewer webhook is restricted to factory-owned pull requests and review actions", async () => {
+  const channel = await source("agents/reviewer/agent/channels/github.ts");
+
+  assert.match(channel, /githubChannel/);
+  assert.match(channel, /connectGitHubCredentials\(githubConnectorName\)/);
+  assert.match(channel, /\["opened", "reopened", "ready_for_review", "synchronize"\]/);
+  assert.match(channel, /Factory-Owner:/);
+  assert.match(channel, /factory\/work-/);
+});
+
+test("PR frame links use a separate public Blob store without weakening Cockpit protection", async () => {
+  const store = await source("runtime/lib/visual-review-store.ts");
+  const config = await source("runtime/lib/factory-config.ts");
+
+  assert.match(config, /visualReviewPublicBlobTokenEnv/);
+  assert.match(store, /visualReviewPublicBlobTokenEnv/);
+  assert.match(store, /if \(!publicToken\) throw new Error/);
+  assert.match(store, /access: "public"/);
+  assert.doesNotMatch(store, /access: publicToken \? "public" : "private"/);
+  assert.match(store, /hostname\.endsWith\("\.public\.blob\.vercel-storage\.com"\)/);
+  assert.match(config, /BLOB_READ_WRITE_TOKEN/);
+  const feedback = await source("runtime/lib/review-feedback.ts");
+  assert.match(feedback, /hasReviewableVisualSection/);
+  assert.match(feedback, /input\.kind !== "incomplete"/);
+});

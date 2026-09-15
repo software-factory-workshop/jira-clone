@@ -35,6 +35,11 @@ test("station projections retain the host-owned visual packet", () => {
   assert.equal(result.visualReview?.status, "complete");
   assert.equal(result.visualReview?.artifacts[0]?.after?.url, "https://factory.example/frame?phase=after");
 });
+test("review projections retain the GitHub feedback receipt", () => {
+  const result = parseStationResult({ station: "reviewer", sessionId: "wrun_reviewer", prNumber: 2, url: pullUrl(2), baseSha: sha, headSha: sha, targetBranch: "main", verdict: "changes_requested", summary: "Published feedback", findings: [], limitations: [], commands: [], publication: { body: "published", githubReview: "published", review: { id: 7, url: "https://github.com/software-factory-workshop/jira-clone/pull/2#review-7", deduplicated: false }, errors: [] }, capturedAt: "2026-09-15T00:00:00Z" });
+  assert.equal(result?.station, "reviewer");
+  assert.equal(result?.publication?.review?.id, 7);
+});
 test("run links retain station identity across reload", () => {
   assert.deepEqual(stationLinkSchema.parse({ station: "reviewer", run: "wrun_test" }), { station: "reviewer", run: "wrun_test" });
   assert(!stationLinkSchema.safeParse({ station: "worker", run: "../elsewhere" }).success);

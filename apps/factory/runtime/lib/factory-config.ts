@@ -63,4 +63,9 @@ export const factoryBlobPaths = {
   reviewArtifactsPrefix: "factory/review-artifacts/",
 } as const;
 
+// Review frames are the only factory objects intended for unauthenticated
+// GitHub Markdown. Keep Cockpit and delivery records on BLOB_READ_WRITE_TOKEN;
+// the separate public store is limited to opaque image objects.
+export const visualReviewPublicBlobTokenEnv = "VISUAL_REVIEW_READ_WRITE_TOKEN";
+
 export const requiredCheckName = "check";

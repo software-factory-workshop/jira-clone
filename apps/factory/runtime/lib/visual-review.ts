@@ -77,8 +77,32 @@ export function buildVisualReviewPacket(input: Omit<VisualReviewPacket, "status"
 export const VISUAL_REVIEW_START = "<!-- factory:visual-review:start -->";
 export const VISUAL_REVIEW_END = "<!-- factory:visual-review:end -->";
 
+// GitHub review objects cannot be edited after they are submitted. Bind the
+// marker to the complete review input so a candidate can be reviewed again
+// after its target branch advances without the old review hiding the new
+// base/head relationship.
+export function visualReviewFeedbackMarker(headSha: string, kind: "recorded" | "incomplete", baseSha?: string, targetBranch?: string) {
+  return `<!-- factory:visual-review:${kind}:${headSha}:${baseSha || "unknown"}:${targetBranch || "unknown"} -->`;
+}
+
 function escapeHtml(value: string) {
   return value.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;");
+}
+
+/**
+ * An incomplete retry must not erase a usable packet from an earlier reviewer
+ * run for the same exact candidate/base/target binding. Only preserve a
+ * factory-shaped section with a direct public frame URL; arbitrary PR prose
+ * never counts as visual evidence.
+ */
+export function hasReviewableVisualSection(body: string, binding: VisualReviewBinding) {
+  const start = body.indexOf(VISUAL_REVIEW_START);
+  const end = body.indexOf(VISUAL_REVIEW_END, start + VISUAL_REVIEW_START.length);
+  if (start < 0 || end < 0) return false;
+  const section = body.slice(start, end + VISUAL_REVIEW_END.length);
+  return section.includes(`exact candidate <code>${escapeHtml(binding.headSha)}</code>`)
+    && section.includes(`target <code>${escapeHtml(binding.targetBranch)} @ ${escapeHtml(binding.baseSha)}</code>`)
+    && /<img\b[^>]*src="https:\/\/[^" ]+\.public\.blob\.vercel-storage\.com\/[^" ]+"/.test(section);
 }
 
 function frameMarkup(frame: VisualReviewFrame | undefined, label: string) {

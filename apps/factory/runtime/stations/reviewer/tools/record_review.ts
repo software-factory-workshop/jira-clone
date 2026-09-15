@@ -6,15 +6,16 @@ import { getToken } from "@vercel/connect";
 import { requireStation } from "../../../lib/station-access";
 import { workState } from "../../../lib/work-state";
 import { collectChanges } from "../../../lib/work-changes";
-import { readPull,updatePullRequestBody,verifyPullRequestHead } from "../../../lib/work-github";
+import { readPull,verifyPullRequestHead } from "../../../lib/work-github";
 import { approvalBlockers, hostReviewLimitations } from "../../../lib/review-policy";
-import { buildVisualReviewPacket,withVisualReviewSection,type VisualReviewApp } from '../../../lib/visual-review';
+import { buildVisualReviewPacket,type VisualReviewApp } from '../../../lib/visual-review';
 import { storeBrowserComparison } from '../../../lib/visual-review-store';
+import { publishReviewFeedback } from '../../../lib/review-feedback';
 import { changeResource } from "../../../lib/cedar/model.ts";
 import { factoryPrincipalFromStation, runGuardedFactoryOperation } from "../../../lib/cedar/guard.ts";
 import { githubConnectorName } from "../../../lib/factory-config.ts";
 export const reviewSchema=z.object({verdict:z.enum(["approve","changes_requested","incomplete"]),summary:z.string().min(10).max(3000),findings:z.array(z.object({severity:z.enum(["blocking","nonblocking"]),path:z.string(),line:z.number().int().positive().optional(),message:z.string(),evidence:z.string()})).max(15),limitations:z.array(z.string()).max(10)}).strict();
-export default defineTool({description:"Record an independent structured review of the exact fetched PR head. Rechecks remote head before recording; does not submit a GitHub review or merge.",inputSchema:reviewSchema,
+export default defineTool({description:"Record an independent structured review of the exact fetched PR head. Rechecks remote head before recording; publishes a non-approval GitHub COMMENT review and never merges.",inputSchema:reviewSchema,
  async execute(input,ctx){
   requireStation(ctx,"reviewer");const log=useLogger(ctx);const state=workState.get();if(state.recorded)throw new Error("This exact-head review is already recorded.");if(!state.pull)throw new Error("Prepare the exact PR first.");const targetBranch=state.pull.targetBranch||'main';
   const browser=reviewBrowser.get();const browserEvidenceComplete=browserRequirements(state.pull.files).every(app=>browserComplete(browser.observations[browserOrigin(app,'head')],state.pull!.headSha,ctx.session.id));
@@ -49,16 +50,17 @@ export default defineTool({description:"Record an independent structured review 
      try{const artifact=await storeBrowserComparison({app,beforeObservation,afterObservation,baseSha:state.pull!.baseSha,headSha:state.pull!.headSha,targetBranch});if(artifact)artifacts.push(artifact);else visualLimitations.push(`The ${app} visual comparison did not include a reviewable route.`);}catch(error){visualLimitations.push(`The ${app} visual comparison could not be stored: ${error instanceof Error?error.message:'storage failed'}.`);}
     }
     let visualReview=buildVisualReviewPacket({version:1,requiredApps,baseSha:state.pull!.baseSha,headSha:state.pull!.headSha,targetBranch,reviewerSessionId:ctx.session.id,capturedAt:new Date().toISOString(),artifacts,limitations:visualLimitations});
-    if(requiredApps.length){
-     try{const currentPull=await readPull(token,state.pull!.number,ctx.abortSignal);if(currentPull.head.sha!==state.pull!.headSha||currentPull.state!=='open')throw new Error('Pull request changed before its visual review section could be published.');await updatePullRequestBody(token,state.pull!.number,state.pull!.headSha,withVisualReviewSection(currentPull.body||'',visualReview,{baseSha:state.pull!.baseSha,headSha:state.pull!.headSha,targetBranch}),ctx.abortSignal);}
-     catch(error){visualReview={...visualReview,limitations:[...visualReview.limitations,`The visual packet was stored but its PR section could not be updated: ${error instanceof Error?error.message:'GitHub update failed'}.`]};}
-    }
+    const reviewLimitations=[...state.contextGaps,...hostLimitations,...input.limitations,...visualLimitations];
+    const currentPull=requiredApps.length?await readPull(token,state.pull!.number,ctx.abortSignal):undefined;
+    if(currentPull && (currentPull.head.sha!==state.pull!.headSha || currentPull.state!=='open'))throw new Error('Pull request changed before its visual review feedback could be published.');
+    const publication=await publishReviewFeedback({token,prNumber:state.pull!.number,currentBody:currentPull?.body||state.pull!.body||'',headSha:state.pull!.headSha,baseSha:state.pull!.baseSha,targetBranch,verdict:input.verdict,summary:input.summary,findings,limitations:reviewLimitations,visualReview,includeVisualSection:requiredApps.length>0,kind:'recorded',signal:ctx.abortSignal});
+    if(publication.errors.length)throw new Error(`Review feedback publication was incomplete: ${publication.errors.join(' ')}`);
     workState.update(s=>({...s,recorded:true}));
-    return {visualReview,observations:Object.values(browser.observations).map(({frames,...observation})=>observation),recorded:true};
+    return {visualReview,observations:Object.values(browser.observations).map(({frames,...observation})=>observation),publication,recorded:true};
    },
    isSuccess:result=>result.recorded,
   });
-  const {visualReview,observations}=authorized.output;
-  log.set({factory:{station:"reviewer",stage:"record_review",outcome:"recorded",verdict:input.verdict,prNumber:state.pull.number,headSha:state.pull.headSha,blockingFindingCount:findings.filter(f=>f.severity==="blocking").length,limitationCount:input.limitations.length,browserEvidenceComplete,visualStatus:visualReview.status,visualArtifactCount:visualReview.artifacts.length}});
-  return{station:"reviewer" as const,sessionId:ctx.session.id,prNumber:state.pull.number,url:state.pull.url,baseSha:state.pull.baseSha,targetBranch,headSha:state.pull.headSha,...input,findings,limitations:[...state.contextGaps,...hostLimitations,...input.limitations],browserEvidence:{complete:browserEvidenceComplete,observations},visualReview,verification:{prepared:state.prepared,repositoryChecksPassed:state.reviewVerified,candidateUnchanged},commands:state.commands,authorization:authorized.audit,capturedAt:new Date().toISOString()};
+  const {visualReview,observations,publication}=authorized.output;
+  log.set({factory:{station:"reviewer",stage:"record_review",outcome:"recorded",verdict:input.verdict,prNumber:state.pull.number,headSha:state.pull.headSha,blockingFindingCount:findings.filter(f=>f.severity==="blocking").length,limitationCount:input.limitations.length,browserEvidenceComplete,visualStatus:visualReview.status,visualArtifactCount:visualReview.artifacts.length,githubReview:publication.githubReview,prBody:publication.body}});
+  return{station:"reviewer" as const,sessionId:ctx.session.id,prNumber:state.pull.number,url:state.pull.url,baseSha:state.pull.baseSha,targetBranch,headSha:state.pull.headSha,...input,findings,limitations:[...state.contextGaps,...hostLimitations,...input.limitations,...visualReview.limitations],browserEvidence:{complete:browserEvidenceComplete,observations},visualReview,publication,verification:{prepared:state.prepared,repositoryChecksPassed:state.reviewVerified,candidateUnchanged},commands:state.commands,authorization:authorized.audit,capturedAt:new Date().toISOString()};
  }});

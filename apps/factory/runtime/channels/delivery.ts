@@ -18,6 +18,7 @@ import { inspectMergeCandidate, markPullRequestReady, readGithubPullSnapshot, re
 import type { MergeDecision, MergeReview } from '../lib/merge-policy';
 import { mergeReviewed } from '../lib/merge-reviewed';
 import { visualReviewPacketSchema } from '../lib/visual-review';
+import { createIncompleteReviewFeedback } from '../lib/review-feedback';
 const publication=z.object({number:z.number().int().positive(),url:z.string().url(),headSha:z.string().regex(/^[a-f0-9]{40}$/),targetHeadSha:z.string().regex(/^[a-f0-9]{40}$/),targetBranch:z.string(),ownerSessionId:z.string(),branch:z.string()});
 const review=z.object({verdict:z.enum(['approve','changes_requested','incomplete']),summary:z.string(),headSha:z.string(),baseSha:z.string(),targetBranch:z.string(),findings:z.array(z.object({severity:z.string(),path:z.string(),message:z.string(),evidence:z.string()})),limitations:z.array(z.string()),visualReview:visualReviewPacketSchema.optional(),verification:z.object({prepared:z.boolean(),repositoryChecksPassed:z.boolean(),candidateUnchanged:z.boolean()}).optional()});
 function admissionFailureResponse(state: Delivery){return Response.json({deliveryId:state.id,phase:state.phase,state:state.state,error:state.error||'Outer workflow admission failed.',recovery:admissionRecoveryAction(state.id,state.request)},{status:503});}
@@ -172,7 +173,17 @@ async function advance(request:Request,ctx:RouteHandlerArgs){
     const p=publication.parse(result.publication);if(result.revisionProtocol!==1||p.branch!==workBranch(owner)||p.ownerSessionId!==owner)throw new Error('Publication owner does not match the executing worker');
     state.publication=p;state.changeId??=state.id;await checkCurrent(p);state.operationId=operationFor(state.id,'review',state.cycle);transition(state,'review_starting',{reason:'The worker publication is recorded; independent verification is next.'});
    }else if(state.childSessionId&&stoppedWithoutResult(events)){
-    state.failedPhase=state.phase;state.error='Agent stopped without a trusted result. Inspect its run; source and ownership are preserved.';transition(state,'human_review',{reason:'The owner session stopped without a trusted host result.'});
+    const stoppedPhase=state.phase;
+    state.failedPhase=stoppedPhase;state.error='Agent stopped without a trusted result. Inspect its run; source and ownership are preserved.';
+    if(stoppedPhase==='reviewing'&&state.publication){
+     try{
+      const fallback=await createIncompleteReviewFeedback({token:await getToken(githubConnectorName,{subject:{type:'app'}}),prNumber:state.publication.number,reviewerSessionId:owner,headSha:state.publication.headSha,baseSha:state.publication.targetHeadSha,targetBranch:state.publication.targetBranch,reason:'Reviewer session stopped before a trusted record_review result was observed.',signal:request.signal});
+      state.reviewerSessionId=owner;applyReview(state,fallback.review);state.mergeReview=fallback.review;
+      state.error=`Reviewer stopped without a trusted result. An incomplete visual review was recorded for the exact candidate; inspect its limitations before deciding.${fallback.publication.errors.length?` PR publication limitations: ${fallback.publication.errors.join(' ')}`:''}`;
+     }catch(error){state.error=`Reviewer stopped without a trusted result. The incomplete PR feedback fallback could not run: ${error instanceof Error?error.message:'publication failed'}. Inspect its run; source and ownership are preserved.`;transition(state,'human_review',{reason:'The owner session stopped without a trusted host result and fallback publication failed.'});}
+    }else{
+     transition(state,'human_review',{reason:'The owner session stopped without a trusted host result.'});
+    }
    }
   }
  }catch(error){

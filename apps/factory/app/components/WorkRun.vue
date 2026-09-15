@@ -9,6 +9,7 @@ import { copyText, shortIdentifier } from "../utils/technical-details";
 import { formatModelUsage } from "../utils/model-usage.ts";
 import { modelUsageFromEvents } from "../../runtime/lib/delivery-events.ts";
 import type { VisualReviewBinding } from "../../runtime/lib/visual-review";
+import { reviewUnavailable, type ReviewUnavailable } from "../../shared/cockpit";
 const props = defineProps<{ sessionId: string; station: StationKind; child?: boolean; awaitingDecision?: boolean; execution?: "owner" | "dispatcher" | "direct"; rootAgent?: "worker" | "reviewer"; deliveryId?: string; operationId?: string }>();
 const emit = defineEmits<{ settled: [value: boolean]; recorded: [value: boolean] }>();
 const { data, events, status, error, resume, respond } = useEveAgent({ host: import.meta.client && props.rootAgent ? `${window.location.origin}/${props.rootAgent}` : undefined, initialSession: { sessionId: props.sessionId, streamIndex: 0 }, resume: true });
@@ -20,6 +21,8 @@ const deliveryStarted = ref(false);
 const queuedForOwner = computed(() => !!props.deliveryId && !deliveryStarted.value);
 const runLink = computed(() => `/work/run?${new URLSearchParams({ station: props.station, ...(props.rootAgent?{rootAgent:props.rootAgent}:{}), run: props.sessionId, ...(props.execution ? { execution: props.execution } : {}), ...(props.deliveryId ? { deliveryId: props.deliveryId } : {}), ...(props.operationId ? { operationId: props.operationId } : {}) })}`);
 const childRecorded = ref(false);
+const fallbackResult = shallowRef<ReturnType<typeof parseStationResult>>();
+const unavailableResult = shallowRef<ReviewUnavailable>();
 const cancellationRequested = ref(false);
 const confirmStop = ref(false);
 const stopping = ref(false);
@@ -74,7 +77,18 @@ async function followChild() {
   } catch { if (!controller.signal.aborted && !result.value && !stopped.value) discoveryError.value = true; }
   finally { controller.abort(); discovery = undefined; }
 }
-onMounted(() => { if (props.execution !== "direct" || props.child) void followChild(); });
+async function loadFallback() {
+  try {
+    const record = await $fetch<{ item?: { value?: { reviewFallback?: unknown; reviewUnavailable?: unknown } } }>(`/factory/cockpit/records/runs/${encodeURIComponent(props.sessionId)}`, { retry: 0 });
+    const parsed = parseStationResult(record.item?.value?.reviewFallback);
+    if (parsed?.station === props.station) fallbackResult.value = parsed;
+    const unavailable = reviewUnavailable.safeParse(record.item?.value?.reviewUnavailable);
+    if (unavailable.success && unavailable.data.station === props.station) unavailableResult.value = unavailable.data;
+  } catch {
+    // The Eve stream remains the primary live source; fallback evidence is best effort here.
+  }
+}
+onMounted(() => { void loadFallback(); if (props.execution !== "direct" || props.child) void followChild(); });
 onBeforeUnmount(() => { discovery?.abort(); clearTimeout(copyTimer); });
 const result = computed(() => {
   for (const part of [...parts.value].reverse()) {
@@ -82,12 +96,13 @@ const result = computed(() => {
     const parsed = parseStationToolResult(part.toolName, part.output, props.operationId);
     if (parsed && parsed.station === props.station) return parsed;
   }
-  return undefined;
+  return fallbackResult.value?.station === props.station ? fallbackResult.value : undefined;
 });
 const turn = computed(() => tailData.value ? tailTurn.value : events.value.reduce(advanceStationTurn, "unknown"));
 const active = computed(() => turn.value === "running" || (!tailData.value && ["submitted", "streaming", "resuming"].includes(status.value)));
 const stopped = computed(() => turn.value === "cancelled");
 const ended = computed(() => ["completed", "failed"].includes(turn.value));
+watch(ended, value => { if (value) void loadFallback(); });
 watch(() => !!result.value, value => emit("recorded", value), { immediate: true });
 watch(() => !!result.value || (!needsDecision.value && (stopped.value || (ended.value && !active.value))), value => emit("settled", value), { immediate: true });
 const canStop = computed(() => !props.child && !stopping.value && !queuedForOwner.value && !result.value && !childRecorded.value && (needsDecision.value || (childId.value ? !childSettled.value : !stopped.value && (!!taskId.value || (active.value && !ended.value)))));
@@ -118,7 +133,7 @@ const flowModel = computed(() => stationFlow({
   child: props.child,
   tools: toolActivities.value,
 }));
-const label = computed(() => result.value ? result.value.station === "worker" ? props.execution === "owner" ? "PR revised" : "Draft PR created" : result.value.verdict === "approve" ? "Review passed" : result.value.verdict === "changes_requested" ? "Changes requested" : "Review incomplete" : queuedForOwner.value ? "Queued for branch owner" : needsDecision.value ? "Awaiting decision" : stopped.value ? "Stopped" : awaitingChild.value ? "Station dispatched" : authorizations.value.length ? "Connection needed" : active.value ? "Running" : ended.value ? "Incomplete" : "Disconnected");
+const label = computed(() => result.value ? result.value.station === "worker" ? props.execution === "owner" ? "PR revised" : "Draft PR created" : result.value.verdict === "approve" ? "Review passed" : result.value.verdict === "changes_requested" ? "Changes requested" : "Review incomplete" : unavailableResult.value ? "Review unavailable" : queuedForOwner.value ? "Queued for branch owner" : needsDecision.value ? "Awaiting decision" : stopped.value ? "Stopped" : awaitingChild.value ? "Station dispatched" : authorizations.value.length ? "Connection needed" : active.value ? "Running" : ended.value ? "Incomplete" : "Disconnected");
 watch(() => props.awaitingDecision, (waiting, previous) => {
   if (props.child && previous && !waiting && !result.value && !active.value) void reconnect();
 });
@@ -201,11 +216,16 @@ async function copyEvidence(value: string) {
         <template v-if="result">
         <p>{{ result.summary }}</p>
         <template v-if="result.station === 'worker'"><UButton :to="result.publication.url" target="_blank" rel="noopener noreferrer" icon="i-lucide-git-pull-request">Open {{ execution === 'owner' ? 'PR' : 'draft PR' }} #{{ result.publication.number }}</UButton><p class="small muted">Branch <code>{{ shortIdentifier(result.publication.branch, 24) }}</code> · head <code>{{ shortIdentifier(result.publication.headSha) }}</code> · base <code>{{ shortIdentifier(result.publication.baseSha) }}</code></p><details class="technical-evidence"><summary>Technical evidence</summary><dl><div><dt>Branch</dt><dd><code>{{ result.publication.branch }}</code><UButton size="xs" variant="ghost" @click="copyEvidence(result.publication.branch)">{{ copyLabel(result.publication.branch) }}</UButton></dd></div><div><dt>Head SHA</dt><dd><code>{{ result.publication.headSha }}</code><UButton size="xs" variant="ghost" @click="copyEvidence(result.publication.headSha)">{{ copyLabel(result.publication.headSha) }}</UButton></dd></div><div><dt>Base SHA</dt><dd><code>{{ result.publication.baseSha }}</code><UButton size="xs" variant="ghost" @click="copyEvidence(result.publication.baseSha)">{{ copyLabel(result.publication.baseSha) }}</UButton></dd></div><div v-if="result.publication.targetBranch"><dt>PR target</dt><dd><code>{{ result.publication.targetBranch }}</code><UButton size="xs" variant="ghost" @click="copyEvidence(result.publication.targetBranch)">{{ copyLabel(result.publication.targetBranch) }}</UButton></dd></div><div v-if="result.publication.parentPrNumber"><dt>Parent PR</dt><dd>#{{ result.publication.parentPrNumber }}</dd></div><div v-if="result.publication.ownerSessionId"><dt>Branch owner session</dt><dd><code>{{ result.publication.ownerSessionId }}</code><UButton size="xs" variant="ghost" @click="copyEvidence(result.publication.ownerSessionId)">{{ copyLabel(result.publication.ownerSessionId) }}</UButton></dd></div></dl></details><p class="small muted">Use the PR reviewer above for an independent review.</p></template>
-        <template v-else><p><a class="review-pr-link" :href="result.url" target="_blank" rel="noopener noreferrer">PR #{{ result.prNumber }}</a> · Reviewed head <code>{{ shortIdentifier(result.headSha) }}</code></p><p class="small muted">{{ result.capturedAt }} · This verdict applies to that exact head. No merge was performed.</p><details class="technical-evidence"><summary>Technical evidence</summary><dl><div><dt>Reviewed head SHA</dt><dd><code>{{ result.headSha }}</code><UButton size="xs" variant="ghost" @click="copyEvidence(result.headSha)">{{ copyLabel(result.headSha) }}</UButton></dd></div><div><dt>Base SHA</dt><dd><code>{{ result.baseSha }}</code><UButton size="xs" variant="ghost" @click="copyEvidence(result.baseSha)">{{ copyLabel(result.baseSha) }}</UButton></dd></div><div v-if="result.targetBranch"><dt>PR target</dt><dd><code>{{ result.targetBranch }}</code><UButton size="xs" variant="ghost" @click="copyEvidence(result.targetBranch)">{{ copyLabel(result.targetBranch) }}</UButton></dd></div></dl></details><VisualReviewPanel :packet="result.visualReview" :binding="visualReviewBinding" /><UCard v-for="(finding, index) in result.findings" :key="index" class="review-finding"><UBadge :color="finding.severity === 'blocking' ? 'error' : 'neutral'" variant="soft">{{ finding.severity }}</UBadge><h3>{{ finding.path }}<span v-if="finding.line">:{{ finding.line }}</span></h3><p>{{ finding.message }}</p><p class="small">Evidence: {{ finding.evidence }}</p></UCard><p v-if="!result.findings.length">No findings were recorded.</p><ul v-if="result.limitations.length"><li v-for="item in result.limitations" :key="item">{{ item }}</li></ul></template>
+        <template v-else><p><a class="review-pr-link" :href="result.url" target="_blank" rel="noopener noreferrer">PR #{{ result.prNumber }}</a> · Reviewed head <code>{{ shortIdentifier(result.headSha) }}</code></p><p class="small muted">{{ result.capturedAt }} · This verdict applies to that exact head. No merge was performed.</p><p v-if="result.publication?.review?.url" class="small"><a :href="result.publication.review.url" target="_blank" rel="noopener noreferrer">Open the GitHub review</a> · {{ result.publication.githubReview === 'already_published' ? 'existing exact-head review' : 'new COMMENT review' }}</p><details class="technical-evidence"><summary>Technical evidence</summary><dl><div><dt>Reviewed head SHA</dt><dd><code>{{ result.headSha }}</code><UButton size="xs" variant="ghost" @click="copyEvidence(result.headSha)">{{ copyLabel(result.headSha) }}</UButton></dd></div><div><dt>Base SHA</dt><dd><code>{{ result.baseSha }}</code><UButton size="xs" variant="ghost" @click="copyEvidence(result.baseSha)">{{ copyLabel(result.baseSha) }}</UButton></dd></div><div v-if="result.targetBranch"><dt>PR target</dt><dd><code>{{ result.targetBranch }}</code><UButton size="xs" variant="ghost" @click="copyEvidence(result.targetBranch)">{{ copyLabel(result.targetBranch) }}</UButton></dd></div></dl></details><VisualReviewPanel :packet="result.visualReview" :binding="visualReviewBinding" /><UCard v-for="(finding, index) in result.findings" :key="index" class="review-finding"><UBadge :color="finding.severity === 'blocking' ? 'error' : 'neutral'" variant="soft">{{ finding.severity }}</UBadge><h3>{{ finding.path }}<span v-if="finding.line">:{{ finding.line }}</span></h3><p>{{ finding.message }}</p><p class="small">Evidence: {{ finding.evidence }}</p></UCard><p v-if="!result.findings.length">No findings were recorded.</p><ul v-if="result.limitations.length"><li v-for="item in result.limitations" :key="item">{{ item }}</li></ul></template>
         <details class="checks"><summary>Command evidence · {{ result.commands.length }} checks</summary><details v-for="(command, index) in result.commands" :key="index"><summary><code>{{ command.command }}</code> · exit {{ command.exitCode }}</summary><p v-if="command.truncated" class="small muted">Output is truncated.</p><pre>{{ command.stdout }}</pre><pre v-if="command.stderr">{{ command.stderr }}</pre></details></details>
       </template>
       <p v-else-if="!active && summary" class="summary">{{ summary }}</p>
-      <UAlert v-if="!result && !active && ended && !stopped && !awaitingChild && !needsDecision" color="warning" title="No completed result" description="The station ended without a recorded PR or review result. Inspect the run before trying again." />
+      <template v-if="unavailableResult && !result">
+        <UAlert color="warning" title="Visual review unavailable" :description="unavailableResult.summary" />
+        <p class="small muted">PR #{{ unavailableResult.prNumber }} · No visual packet or GitHub review was published for this attempt.</p>
+        <ul><li v-for="item in unavailableResult.limitations" :key="item">{{ item }}</li></ul>
+      </template>
+      <UAlert v-if="!result && !unavailableResult && !active && ended && !stopped && !awaitingChild && !needsDecision" color="warning" title="No completed result" description="The station ended without a recorded PR or review result. Inspect the run before trying again." />
       <UButton v-if="!result && (error || discoveryError || (!active && !ended && !stopped))" variant="outline" @click="reconnect">Reconnect</UButton>
     </template>
     <fieldset v-for="request in pendingRequests" :key="request.requestId" class="decision"><legend>Awaiting decision</legend><p>{{ request.prompt }}</p><UButton v-for="option in request.options || []" :key="option.id" :color="option.style === 'danger' ? 'error' : 'primary'" :disabled="!!answering" @click="answer(request.requestId, option.id)">{{ option.label }}</UButton><UTextarea v-if="request.allowFreeform || request.display === 'text'" v-model="freeformAnswers[request.requestId]" :rows="3" :maxlength="10000" aria-label="Answer the pending request" placeholder="Type an answer…" :disabled="!!answering" /><UButton v-if="request.allowFreeform || request.display === 'text'" :disabled="!freeformAnswers[request.requestId]?.trim() || !!answering" :loading="answering === request.requestId" @click="answerFreeform(request.requestId)">Send answer</UButton><p class="small muted">This decision applies to the existing station run. No option is selected automatically.</p></fieldset>
