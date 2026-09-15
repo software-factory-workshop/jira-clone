@@ -66,8 +66,9 @@ export default defineEval({
     t.calledTool("prepare_context", { count: 1 });
     t.calledTool("github_read", { count: count => count >= 2 });
     t.calledTool("vercel_read", { count: count => count >= 2 });
-    // Fast models split the bounded contract read into a few short bash calls; the bound stays small.
-    t.calledTool("bash", { count: count => count >= 1 && count <= 4 });
+    // The instructions ask for the contract read, a fresh version check and reproduction commands;
+    // fast models split those into several short bash calls. Bounded, not two.
+    t.calledTool("bash", { count: count => count >= 1 && count <= 8 });
     t.calledTool("record_work_order", { count: 1 });
     t.calledTool("record_findings", { count: 1 });
     t.toolOrder(["prepare_context", "record_work_order", "record_findings"]);
