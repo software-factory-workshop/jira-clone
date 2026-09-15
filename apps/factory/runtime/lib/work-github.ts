@@ -194,7 +194,7 @@ export async function readPullRequestReviews(token: string, number: number, sign
 }
 
 /**
- * Publish a non-approval GitHub review tied to one exact candidate head.
+ * Publish a non-approval GitHub review tied to one exact candidate/base/target binding.
  * GitHub review objects are immutable, so the marker makes retries harmless
  * and lets an incomplete fallback coexist with a later recorded verdict.
  */
@@ -212,7 +212,7 @@ export async function submitPullRequestReview(
   sha.parse(headSha);
   z.string().max(50000).parse(body);
   await verifyPullRequestHead(token, number, headSha, signal, baseSha, targetBranch);
-  const idempotencyMarker = marker || `<!-- factory:visual-review:recorded:${headSha} -->`;
+  const idempotencyMarker = marker || `<!-- factory:visual-review:recorded:${headSha}:${baseSha || "unknown"}:${targetBranch || "unknown"} -->`;
   const prior = (await readPullRequestReviews(token, number, signal)).find(review => review.body?.includes(idempotencyMarker) && review.commit_id === headSha);
   if (prior) return { id: prior.id, ...(prior.html_url ? { url: prior.html_url } : {}), deduplicated: true };
   const created = pullRequestReviewSchema.parse((await request(token, `pulls/${number}/reviews`, signal, {

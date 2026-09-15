@@ -77,7 +77,7 @@ test("review comment body keeps exact binding and lists missing evidence", () =>
     headSha: head,
     targetBranch: "main",
   });
-  assert.match(body, /visual-review:incomplete/);
+  assert.match(body, new RegExp(`visual-review:incomplete:${head}:${base}:main`));
   assert.match(body, new RegExp(head));
   assert.match(body, /Browser evidence was not captured/);
 });

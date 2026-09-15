@@ -71,7 +71,7 @@ export function reviewFeedbackCommentBody(input: {
     ? input.limitations.map(limitation => `- ${bounded(limitation, 500)}`).join("\n")
     : "- None recorded.";
   return [
-    visualReviewFeedbackMarker(input.headSha, input.kind),
+    visualReviewFeedbackMarker(input.headSha, input.kind, input.baseSha, input.targetBranch),
     "## Factory visual review",
     "",
     `**Verdict:** ${verdictLabel(input.verdict)} · **Visual packet:** ${input.visualReview.status}`,
@@ -138,7 +138,7 @@ export async function publishReviewFeedback(input: {
       input.signal,
       input.baseSha,
       input.targetBranch,
-      visualReviewFeedbackMarker(input.headSha, input.kind),
+      visualReviewFeedbackMarker(input.headSha, input.kind, input.baseSha, input.targetBranch),
     );
     githubReview = review.deduplicated ? "already_published" : "published";
   } catch (error) {
