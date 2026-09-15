@@ -54,6 +54,14 @@ the exact candidate head. If a reviewer session stops before `record_review`,
 the host writes an incomplete packet and non-approval review so the PR and
 Cockpit still show why approval is unavailable.
 
+Visual frame publication requires two storage bindings in every deployed
+environment: `BLOB_READ_WRITE_TOKEN` for private Cockpit and delivery records,
+and `VISUAL_REVIEW_READ_WRITE_TOKEN` for a dedicated public Vercel Blob store.
+The second store must remain separate from Cockpit and must return
+`*.public.blob.vercel-storage.com` URLs; without it, new frame publication
+fails closed instead of emitting a GitHub image URL that Deployment Protection
+will hide.
+
 The worker probe defaults to the `worker` station and requires the operation
 UUID from the original owner session.
 
