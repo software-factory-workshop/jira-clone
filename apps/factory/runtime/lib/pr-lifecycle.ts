@@ -22,6 +22,8 @@ export const githubPullSnapshotSchema = z.object({
   mergeableState: z.string().max(120).optional(),
   mergeCommitSha: sha.optional(),
   changedFiles: z.number().int().nonnegative().optional(),
+  /** When the host last read this from GitHub; lets reconcile reuse a fresh observation. */
+  observedAt: z.string().datetime().optional(),
   checkedAt: z.string().datetime(),
   checks: z.object({
     status: z.enum(["passed", "pending", "failed"]),
